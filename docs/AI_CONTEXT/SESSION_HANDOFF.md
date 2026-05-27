@@ -108,7 +108,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-_(updated by the Phase 7 commit — see `git log -1` on `main` for the exact hash)_
+e746712 — *Add project team management and roles*
 
 ## Current Working State
 
