@@ -3,8 +3,14 @@
 Living list of trade-offs and partial implementations in the current MVP. Update on every feature pass.
 
 ## Persistence
-- JSON file store at `backend/src/db/data.json`. Single-process, last-write-wins, no concurrent-write safety. Acceptable for the demo; not for multi-tenant production.
-- Re-seeding (`npm run seed`) while the backend is running overwrites disk but the in-memory cache stays stale. Restart the backend after seeding.
+- PostgreSQL via Prisma. Schema in `backend/prisma/schema.prisma`. Connection string in
+  `backend/.env` (`DATABASE_URL`). Each controller / engine talks to Prisma directly —
+  there is no caching layer.
+- The previous JSON file persistence (`backend/src/db/data.json`, `json-db.ts`) is gone.
+- Re-seeding wipes every table in dependency-safe order then re-creates the demo dataset.
+  Safe to run while the backend is up — there is no stale in-memory cache to invalidate.
+- Migrations live under `backend/prisma/migrations/`. Apply with
+  `npx prisma migrate deploy`; iterate during dev with `npx prisma migrate dev`.
 
 ## Auth
 - Single-tenant. Project access is gated by `ownerId === userId`. No member/role tables, no organization scoping.
@@ -53,6 +59,20 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - No avatar upload. The "Upload photo" button on Settings is wired to nothing.
 - No notifications backend. The Notifications tab on Settings is disabled stubs.
 - No API tokens module yet. The API tokens tab is a "coming next" placeholder.
+
+## Phase 6 migration caveats (live verification skipped)
+- The Phase 6 commit was authored without a live Postgres connection on the dev
+  machine (port mismatch: the installed instance was on :5433, the brief assumed
+  :5432; password reset required elevated rights that weren't available). Verification
+  was limited to `prisma format`, `prisma validate`, `prisma generate`, and
+  `tsc --noEmit` on both backend and frontend — all clean.
+- First run on a real database should: ensure Postgres is reachable on the URL in
+  `backend/.env`, `npx prisma migrate deploy`, `npm run seed`, `npm run dev`.
+- The seed assumes an empty database; if you run it twice it cleans every table
+  first via a single `$transaction` of `deleteMany`s.
+- Cascade behavior matches the JSON era: deleting an Artifact cascades to its
+  relations, API specs, DB models and diagrams via the schema's `onDelete: Cascade`
+  / `SetNull` directives.
 
 ## Versioning / History (Phase 5 — shipped)
 - Implemented in `backend/src/modules/versions/`. Every CUD action on artifacts,

@@ -1,43 +1,29 @@
 import type { Response } from "express";
 import { z } from "zod";
-import {
-  db,
-  persist,
-  type ArtifactRow,
-  type ArtifactStatus,
-  type ArtifactType,
-} from "../../db/json-db.js";
-import { newId } from "../../utils/ids.js";
+import { ArtifactStatus, ArtifactType, type Artifact, type User } from "@prisma/client";
+import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { toPublicUser } from "../auth/auth.controller.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 
-const ARTIFACT_TYPES: ArtifactType[] = [
-  "DOCUMENTATION",
-  "API_SPEC",
-  "API_ENDPOINT",
-  "SERVICE",
-  "DATABASE_MODEL",
-  "DATABASE_ENTITY",
-  "DIAGRAM",
-  "REQUIREMENT",
-  "SECURITY_POLICY",
-  "ENVIRONMENT",
-  "EXTERNAL_SYSTEM",
-];
+const ARTIFACT_TYPES = Object.values(ArtifactType) as [ArtifactType, ...ArtifactType[]];
+const ARTIFACT_STATUSES = Object.values(ArtifactStatus) as [ArtifactStatus, ...ArtifactStatus[]];
 
-const ARTIFACT_STATUSES: ArtifactStatus[] = ["DRAFT", "ACTIVE", "DEPRECATED"];
-
-export function serializeArtifact(a: ArtifactRow) {
-  const state = db();
-  const author = state.users.find((u) => u.id === a.createdBy);
-  const relationCount = state.relations.filter(
-    (r) => r.sourceArtifactId === a.id || r.targetArtifactId === a.id,
-  ).length;
-  const validationIssueCount = state.validationIssues.filter(
-    (v) => v.artifactId === a.id && v.status === "OPEN",
-  ).length;
+async function serializeArtifact(a: Artifact, authorOverride?: User | null) {
+  const [author, relationCount, validationIssueCount] = await Promise.all([
+    authorOverride
+      ? Promise.resolve(authorOverride)
+      : prisma.user.findUnique({ where: { id: a.createdById } }),
+    prisma.artifactRelation.count({
+      where: {
+        OR: [{ sourceArtifactId: a.id }, { targetArtifactId: a.id }],
+      },
+    }),
+    prisma.validationIssue.count({
+      where: { artifactId: a.id, status: "OPEN" },
+    }),
+  ]);
   return {
     id: a.id,
     projectId: a.projectId,
@@ -53,7 +39,7 @@ export function serializeArtifact(a: ArtifactRow) {
     author: author
       ? toPublicUser(author)
       : {
-          id: a.createdBy,
+          id: a.createdById,
           email: "unknown@unknown",
           firstName: "Unknown",
           lastName: "User",
@@ -68,11 +54,8 @@ export function serializeArtifact(a: ArtifactRow) {
 
 const createSchema = z.object({
   title: z.string().min(1),
-  type: z.enum(ARTIFACT_TYPES as [ArtifactType, ...ArtifactType[]]),
-  status: z
-    .enum(ARTIFACT_STATUSES as [ArtifactStatus, ...ArtifactStatus[]])
-    .optional()
-    .default("DRAFT"),
+  type: z.enum(ARTIFACT_TYPES),
+  status: z.enum(ARTIFACT_STATUSES).optional().default("DRAFT"),
   description: z.string().optional().default(""),
   tags: z.array(z.string()).optional().default([]),
   gx: z.number().optional(),
@@ -82,8 +65,8 @@ const createSchema = z.object({
 
 const patchSchema = z.object({
   title: z.string().min(1).optional(),
-  type: z.enum(ARTIFACT_TYPES as [ArtifactType, ...ArtifactType[]]).optional(),
-  status: z.enum(ARTIFACT_STATUSES as [ArtifactStatus, ...ArtifactStatus[]]).optional(),
+  type: z.enum(ARTIFACT_TYPES).optional(),
+  status: z.enum(ARTIFACT_STATUSES).optional(),
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
   gx: z.number().optional(),
@@ -91,63 +74,69 @@ const patchSchema = z.object({
   documentationContent: z.string().optional(),
 });
 
-function ensureProjectAccess(
+async function ensureProjectAccess(
   projectId: string,
   userId: string,
-): "ok" | "not_found" | "forbidden" {
-  const project = db().projects.find((p) => p.id === projectId);
+): Promise<"ok" | "not_found" | "forbidden"> {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return "not_found";
   if (project.ownerId !== userId) return "forbidden";
   return "ok";
 }
 
-export function listArtifacts(req: AuthedRequest, res: Response) {
+export async function listArtifacts(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = ensureProjectAccess(projectId, req.user!.userId);
+  const access = await ensureProjectAccess(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const { type, status, search, q } = req.query as Record<string, string | undefined>;
-  let items = db().artifacts.filter((a) => a.projectId === projectId);
-  if (type) items = items.filter((a) => a.type === type);
-  if (status) items = items.filter((a) => a.status === status);
+  const items = await prisma.artifact.findMany({
+    where: {
+      projectId,
+      ...(type ? { type: type as ArtifactType } : {}),
+      ...(status ? { status: status as ArtifactStatus } : {}),
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
   const term = (search || q || "").toLowerCase().trim();
-  if (term) {
-    items = items.filter(
-      (a) =>
-        a.title.toLowerCase().includes(term) ||
-        a.description.toLowerCase().includes(term),
-    );
-  }
-  return ok(res, items.map(serializeArtifact), "OK");
+  const filtered = term
+    ? items.filter(
+        (a) =>
+          a.title.toLowerCase().includes(term) ||
+          a.description.toLowerCase().includes(term),
+      )
+    : items;
+
+  const serialized = await Promise.all(filtered.map((a) => serializeArtifact(a)));
+  return ok(res, serialized, "OK");
 }
 
-export function createArtifact(req: AuthedRequest, res: Response) {
+export async function createArtifact(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = ensureProjectAccess(projectId, req.user!.userId);
+  const access = await ensureProjectAccess(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
-  const now = new Date().toISOString();
-  const artifact: ArtifactRow = {
-    id: newId(),
-    projectId,
-    title: parsed.data.title,
-    type: parsed.data.type,
-    status: parsed.data.status,
-    description: parsed.data.description,
-    tags: parsed.data.tags,
-    gx: parsed.data.gx ?? Math.floor(Math.random() * 600) + 50,
-    gy: parsed.data.gy ?? Math.floor(Math.random() * 400) + 50,
-    createdBy: req.user!.userId,
-    createdAt: now,
-    updatedAt: now,
-    documentationContent: parsed.data.documentationContent,
-  };
-  db().artifacts.push(artifact);
-  recordVersionEvent({
+
+  const artifact = await prisma.artifact.create({
+    data: {
+      projectId,
+      title: parsed.data.title,
+      type: parsed.data.type,
+      status: parsed.data.status,
+      description: parsed.data.description,
+      tags: parsed.data.tags,
+      gx: parsed.data.gx ?? Math.floor(Math.random() * 600) + 50,
+      gy: parsed.data.gy ?? Math.floor(Math.random() * 400) + 50,
+      createdById: req.user!.userId,
+      documentationContent: parsed.data.documentationContent,
+    },
+  });
+  await recordVersionEvent({
     projectId,
     entityType: "ARTIFACT",
     entityId: artifact.id,
@@ -157,91 +146,86 @@ export function createArtifact(req: AuthedRequest, res: Response) {
     triggeredBy: req.user!.userId,
     metadata: { type: artifact.type, status: artifact.status },
   });
-  touchProject(projectId);
-  persist();
-  return created(res, serializeArtifact(artifact), "Artifact created");
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { updatedAt: new Date() },
+  });
+  return created(res, await serializeArtifact(artifact), "Artifact created");
 }
 
-function findArtifactForUser(
-  artifactId: string,
-  userId: string,
-): { row: ArtifactRow } | { error: "not_found" | "forbidden" } {
-  const row = db().artifacts.find((a) => a.id === artifactId);
-  if (!row) return { error: "not_found" };
-  const project = db().projects.find((p) => p.id === row.projectId);
-  if (!project || project.ownerId !== userId) return { error: "forbidden" };
-  return { row };
-}
-
-export function getArtifact(req: AuthedRequest, res: Response) {
-  const result = findArtifactForUser(req.params.artifactId, req.user!.userId);
-  if ("error" in result) {
-    return result.error === "not_found"
+export async function getArtifact(req: AuthedRequest, res: Response) {
+  const artifact = await prisma.artifact.findUnique({ where: { id: req.params.artifactId } });
+  if (!artifact) return fail(res, 404, "NOT_FOUND", "Artifact not found");
+  const access = await ensureProjectAccess(artifact.projectId, req.user!.userId);
+  if (access !== "ok")
+    return access === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Artifact not found")
       : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
-  return ok(res, serializeArtifact(result.row), "OK");
+  return ok(res, await serializeArtifact(artifact), "OK");
 }
 
-export function updateArtifact(req: AuthedRequest, res: Response) {
+export async function updateArtifact(req: AuthedRequest, res: Response) {
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
-  const result = findArtifactForUser(req.params.artifactId, req.user!.userId);
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Artifact not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
-  const row = result.row;
-  for (const [k, v] of Object.entries(parsed.data)) {
-    if (v === undefined) continue;
-    (row as unknown as Record<string, unknown>)[k] = v;
-  }
-  row.updatedAt = new Date().toISOString();
-  recordVersionEvent({
-    projectId: row.projectId,
+
+  const existing = await prisma.artifact.findUnique({ where: { id: req.params.artifactId } });
+  if (!existing) return fail(res, 404, "NOT_FOUND", "Artifact not found");
+  const access = await ensureProjectAccess(existing.projectId, req.user!.userId);
+  if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
+
+  const updated = await prisma.artifact.update({
+    where: { id: existing.id },
+    data: {
+      ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+      ...(parsed.data.type !== undefined ? { type: parsed.data.type } : {}),
+      ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+      ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+      ...(parsed.data.tags !== undefined ? { tags: parsed.data.tags } : {}),
+      ...(parsed.data.gx !== undefined ? { gx: parsed.data.gx } : {}),
+      ...(parsed.data.gy !== undefined ? { gy: parsed.data.gy } : {}),
+      ...(parsed.data.documentationContent !== undefined
+        ? { documentationContent: parsed.data.documentationContent }
+        : {}),
+    },
+  });
+  await recordVersionEvent({
+    projectId: updated.projectId,
     entityType: "ARTIFACT",
-    entityId: row.id,
+    entityId: updated.id,
     action: "UPDATED",
-    title: row.title,
+    title: updated.title,
     description: Object.keys(parsed.data).join(", "),
     triggeredBy: req.user!.userId,
     metadata: { changed: Object.keys(parsed.data) },
   });
-  touchProject(row.projectId);
-  persist();
-  return ok(res, serializeArtifact(row), "Artifact updated");
+  await prisma.project.update({
+    where: { id: updated.projectId },
+    data: { updatedAt: new Date() },
+  });
+  return ok(res, await serializeArtifact(updated), "Artifact updated");
 }
 
-export function deleteArtifact(req: AuthedRequest, res: Response) {
-  const state = db();
-  const idx = state.artifacts.findIndex((a) => a.id === req.params.artifactId);
-  if (idx === -1) return fail(res, 404, "NOT_FOUND", "Artifact not found");
-  const row = state.artifacts[idx];
-  const project = state.projects.find((p) => p.id === row.projectId);
-  if (!project || project.ownerId !== req.user!.userId) {
-    return fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
-  state.artifacts.splice(idx, 1);
-  state.relations = state.relations.filter(
-    (r) => r.sourceArtifactId !== row.id && r.targetArtifactId !== row.id,
-  );
-  state.validationIssues = state.validationIssues.filter((v) => v.artifactId !== row.id);
-  recordVersionEvent({
-    projectId: row.projectId,
+export async function deleteArtifact(req: AuthedRequest, res: Response) {
+  const existing = await prisma.artifact.findUnique({ where: { id: req.params.artifactId } });
+  if (!existing) return fail(res, 404, "NOT_FOUND", "Artifact not found");
+  const access = await ensureProjectAccess(existing.projectId, req.user!.userId);
+  if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
+
+  await prisma.artifact.delete({ where: { id: existing.id } });
+  await recordVersionEvent({
+    projectId: existing.projectId,
     entityType: "ARTIFACT",
-    entityId: row.id,
+    entityId: existing.id,
     action: "DELETED",
-    title: row.title,
-    description: `${row.type} removed`,
+    title: existing.title,
+    description: `${existing.type} removed`,
     triggeredBy: req.user!.userId,
   });
-  touchProject(row.projectId);
-  persist();
+  await prisma.project.update({
+    where: { id: existing.projectId },
+    data: { updatedAt: new Date() },
+  });
   return ok(res, null, "Artifact deleted");
 }
 
-function touchProject(projectId: string) {
-  const project = db().projects.find((p) => p.id === projectId);
-  if (project) project.updatedAt = new Date().toISOString();
-}
+export { serializeArtifact };

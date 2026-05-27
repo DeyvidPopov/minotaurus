@@ -1,16 +1,27 @@
 # Next Steps
 
-Phase 5 (Version History + Impact Analysis) is shipped. Every CUD path on
-artifacts, relations, docs, API specs, DB models, diagrams, exports and validation
-runs records a `VersionEvent`. Per-artifact impact analysis is available at
-`/projects/<id>/impact/<artifactId>` and as part of SSOT export.
+Phase 6 (PostgreSQL migration) is shipped. All controllers and engines run on
+Prisma/Postgres; the JSON file is gone. The frontend is unchanged.
+
+## To bring a fresh checkout online
+```
+cd backend
+npm install
+# create the database (one-time):
+psql -U postgres -c "CREATE DATABASE minotaurus;"
+# apply the initial migration:
+npx prisma migrate deploy
+# seed the demo project:
+npm run seed
+# start:
+npm run dev
+```
 
 ## Recommended next phase
 
 **AI architecture analysis** is the natural follow-up:
-- The platform now has all the inputs an LLM needs to reason about a system:
-  artifacts, relations, documentation, API specs, DB models, diagrams, and
-  full change history with impact summaries.
+- The platform now has all the inputs an LLM needs to reason about a system,
+  and a real query-able relational store to feed them in.
 - One backend endpoint (`POST /api/projects/:id/ai/analyze`) wrapping a model
   call would unlock:
   - "Summarize the architecture of this project"
@@ -19,12 +30,11 @@ runs records a `VersionEvent`. Per-artifact impact analysis is available at
 - Add a Settings tab "Anthropic API key" so the feature stays opt-in.
 
 ## After AI analysis
-1. PostgreSQL migration (data model is stable; version history makes diffs auditable)
-2. WebSocket live updates (re-render the timeline / dashboard counters on event)
-3. Project members + RBAC
+1. WebSocket live updates (re-render the timeline / dashboard counters on event)
+2. Project members + RBAC (Prisma schema can be extended cleanly)
+3. PDF / ZIP export rendering on the server
 
 ## Constraints (unchanged)
-- Do not rebuild backend
 - Do not redesign UI shell
-- Keep JSON persistence for now
+- Keep the API envelope contract identical
 - Do not break graph contract

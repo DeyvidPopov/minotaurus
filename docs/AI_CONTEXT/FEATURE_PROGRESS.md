@@ -69,7 +69,28 @@
 - Seed: 26 backdated version events spanning 12 days so the timeline is populated
   out of the box; seeded exports include VERSION_HISTORY and IMPACT_ANALYSIS
 
+## PHASE 6 (current pass) — PostgreSQL migration
+- New `backend/prisma/schema.prisma` with 14 models matching the previous JSON shape one-to-one
+  (User, Project, Artifact, ArtifactRelation, ApiSpec, ApiEndpoint, DatabaseModel, DatabaseEntity,
+  DatabaseField, Diagram, ValidationIssue, ExportPackage, VersionEvent + enums for every union
+  that was previously a string literal type).
+- `src/lib/prisma.ts` exposes a singleton `PrismaClient`.
+- `backend/src/db/json-db.ts` and `data.json` deleted. Every controller, engine, middleware and
+  the seed now imports `prisma` directly. Reads use `prisma.<model>.findMany / findUnique`;
+  writes use `create / update / delete / createMany / $transaction` where appropriate.
+- `recordVersionEvent()` is now async (returns the created row) — every CUD path awaits it.
+- `runValidationForProject()` and `buildExportContent()` are async; they orchestrate
+  parallel `Promise.all` fetches across all related tables, compute the same payloads as
+  before, and write back via `prisma.validationIssue.createMany` (for validation).
+- `npm run seed` wipes every table in dependency-safe order, then re-inserts the demo project,
+  10 artifacts, 10 relations, 1 API spec + 3 endpoints, 1 DB model + 3 entities + 10 fields,
+  1 diagram, 26 backdated version events, runs validation, and creates two seeded exports.
+- Initial SQL migration generated via `prisma migrate diff` and stored at
+  `backend/prisma/migrations/20260527120000_init/migration.sql` so a fresh deploy can run
+  `prisma migrate deploy` instead of needing dev shadow DB.
+- New scripts: `prisma:generate`, `prisma:migrate`, `prisma:reset`, `prisma:studio`.
+
 ## TODO (next phases)
 - AI architecture analysis (uses version history + impact + relations as feature inputs)
-- PostgreSQL migration (data model is stable enough now)
 - WebSocket live updates
+- Project members + RBAC (Prisma schema now in place to extend cleanly)

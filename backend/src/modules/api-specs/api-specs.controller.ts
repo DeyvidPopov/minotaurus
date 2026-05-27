@@ -1,24 +1,15 @@
 import type { Response } from "express";
 import { z } from "zod";
-import {
-  db,
-  persist,
-  type ApiEndpointRow,
-  type ApiSpecRow,
-  type HttpMethod,
-} from "../../db/json-db.js";
-import { newId } from "../../utils/ids.js";
+import { HttpMethod, type ApiEndpoint, type ApiSpec } from "@prisma/client";
+import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 
-const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+const METHODS = Object.values(HttpMethod) as [HttpMethod, ...HttpMethod[]];
 
-// ───────────────────── serializers ─────────────────────
-
-export function serializeSpec(spec: ApiSpecRow) {
-  const state = db();
-  const endpointCount = state.apiEndpoints.filter((e) => e.apiSpecId === spec.id).length;
+async function serializeSpec(spec: ApiSpec) {
+  const endpointCount = await prisma.apiEndpoint.count({ where: { apiSpecId: spec.id } });
   return {
     id: spec.id,
     projectId: spec.projectId,
@@ -27,14 +18,14 @@ export function serializeSpec(spec: ApiSpecRow) {
     version: spec.version,
     baseUrl: spec.baseUrl,
     description: spec.description,
-    createdBy: spec.createdBy,
+    createdBy: spec.createdById,
     createdAt: spec.createdAt,
     updatedAt: spec.updatedAt,
     endpointCount,
   };
 }
 
-export function serializeEndpoint(ep: ApiEndpointRow) {
+function serializeEndpoint(ep: ApiEndpoint) {
   return {
     id: ep.id,
     apiSpecId: ep.apiSpecId,
@@ -49,39 +40,29 @@ export function serializeEndpoint(ep: ApiEndpointRow) {
   };
 }
 
-// ───────────────────── access ─────────────────────
-
-function projectAccess(projectId: string, userId: string): "ok" | "not_found" | "forbidden" {
-  const project = db().projects.find((p) => p.id === projectId);
+async function projectAccess(projectId: string, userId: string): Promise<"ok" | "not_found" | "forbidden"> {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return "not_found";
   return project.ownerId === userId ? "ok" : "forbidden";
 }
 
-function findSpecForUser(
-  apiSpecId: string,
-  userId: string,
-): { row: ApiSpecRow } | { error: "not_found" | "forbidden" } {
-  const row = db().apiSpecs.find((s) => s.id === apiSpecId);
-  if (!row) return { error: "not_found" };
-  const project = db().projects.find((p) => p.id === row.projectId);
-  if (!project || project.ownerId !== userId) return { error: "forbidden" };
+async function findSpecForUser(apiSpecId: string, userId: string) {
+  const row = await prisma.apiSpec.findUnique({ where: { id: apiSpecId } });
+  if (!row) return { error: "not_found" as const };
+  const project = await prisma.project.findUnique({ where: { id: row.projectId } });
+  if (!project || project.ownerId !== userId) return { error: "forbidden" as const };
   return { row };
 }
 
-function findEndpointForUser(
-  endpointId: string,
-  userId: string,
-): { row: ApiEndpointRow; spec: ApiSpecRow } | { error: "not_found" | "forbidden" } {
-  const row = db().apiEndpoints.find((e) => e.id === endpointId);
-  if (!row) return { error: "not_found" };
-  const spec = db().apiSpecs.find((s) => s.id === row.apiSpecId);
-  if (!spec) return { error: "not_found" };
-  const project = db().projects.find((p) => p.id === spec.projectId);
-  if (!project || project.ownerId !== userId) return { error: "forbidden" };
+async function findEndpointForUser(endpointId: string, userId: string) {
+  const row = await prisma.apiEndpoint.findUnique({ where: { id: endpointId } });
+  if (!row) return { error: "not_found" as const };
+  const spec = await prisma.apiSpec.findUnique({ where: { id: row.apiSpecId } });
+  if (!spec) return { error: "not_found" as const };
+  const project = await prisma.project.findUnique({ where: { id: spec.projectId } });
+  if (!project || project.ownerId !== userId) return { error: "forbidden" as const };
   return { row, spec };
 }
-
-// ───────────────────── schemas ─────────────────────
 
 const createSpecSchema = z.object({
   title: z.string().min(1),
@@ -117,32 +98,36 @@ const patchEndpointSchema = z.object({
   requiresAuth: z.boolean().optional(),
 });
 
-// ───────────────────── spec handlers ─────────────────────
-
-export function listSpecs(req: AuthedRequest, res: Response) {
+export async function listSpecs(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = projectAccess(projectId, req.user!.userId);
+  const access = await projectAccess(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const { search, q, artifactId } = req.query as Record<string, string | undefined>;
-  let items = db().apiSpecs.filter((s) => s.projectId === projectId);
-  if (artifactId) items = items.filter((s) => s.artifactId === artifactId);
+  const specs = await prisma.apiSpec.findMany({
+    where: {
+      projectId,
+      ...(artifactId ? { artifactId } : {}),
+    },
+    orderBy: { createdAt: "asc" },
+  });
   const term = (search || q || "").toLowerCase().trim();
-  if (term) {
-    items = items.filter(
-      (s) =>
-        s.title.toLowerCase().includes(term) ||
-        s.description.toLowerCase().includes(term) ||
-        s.baseUrl.toLowerCase().includes(term),
-    );
-  }
-  return ok(res, items.map(serializeSpec), "OK");
+  const filtered = term
+    ? specs.filter(
+        (s) =>
+          s.title.toLowerCase().includes(term) ||
+          s.description.toLowerCase().includes(term) ||
+          s.baseUrl.toLowerCase().includes(term),
+      )
+    : specs;
+  const serialized = await Promise.all(filtered.map((s) => serializeSpec(s)));
+  return ok(res, serialized, "OK");
 }
 
-export function createSpec(req: AuthedRequest, res: Response) {
+export async function createSpec(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = projectAccess(projectId, req.user!.userId);
+  const access = await projectAccess(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -150,27 +135,26 @@ export function createSpec(req: AuthedRequest, res: Response) {
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
   if (parsed.data.artifactId) {
-    const artifact = db().artifacts.find((a) => a.id === parsed.data.artifactId);
+    const artifact = await prisma.artifact.findUnique({
+      where: { id: parsed.data.artifactId },
+    });
     if (!artifact || artifact.projectId !== projectId) {
       return fail(res, 400, "INVALID_ARTIFACT", "Linked artifact must belong to the same project");
     }
   }
 
-  const now = new Date().toISOString();
-  const spec: ApiSpecRow = {
-    id: newId(),
-    projectId,
-    artifactId: parsed.data.artifactId ?? null,
-    title: parsed.data.title,
-    version: parsed.data.version,
-    baseUrl: parsed.data.baseUrl,
-    description: parsed.data.description,
-    createdBy: req.user!.userId,
-    createdAt: now,
-    updatedAt: now,
-  };
-  db().apiSpecs.push(spec);
-  recordVersionEvent({
+  const spec = await prisma.apiSpec.create({
+    data: {
+      projectId,
+      artifactId: parsed.data.artifactId ?? null,
+      title: parsed.data.title,
+      version: parsed.data.version,
+      baseUrl: parsed.data.baseUrl,
+      description: parsed.data.description,
+      createdById: req.user!.userId,
+    },
+  });
+  await recordVersionEvent({
     projectId,
     entityType: "API_SPEC",
     entityId: spec.id,
@@ -180,25 +164,24 @@ export function createSpec(req: AuthedRequest, res: Response) {
     triggeredBy: req.user!.userId,
     metadata: { version: spec.version, baseUrl: spec.baseUrl },
   });
-  persist();
-  return created(res, serializeSpec(spec), "API spec created");
+  return created(res, await serializeSpec(spec), "API spec created");
 }
 
-export function getSpec(req: AuthedRequest, res: Response) {
-  const result = findSpecForUser(req.params.apiSpecId, req.user!.userId);
+export async function getSpec(req: AuthedRequest, res: Response) {
+  const result = await findSpecForUser(req.params.apiSpecId, req.user!.userId);
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "API spec not found")
       : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
-  return ok(res, serializeSpec(result.row), "OK");
+  return ok(res, await serializeSpec(result.row), "OK");
 }
 
-export function patchSpec(req: AuthedRequest, res: Response) {
+export async function patchSpec(req: AuthedRequest, res: Response) {
   const parsed = patchSpecSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const result = findSpecForUser(req.params.apiSpecId, req.user!.userId);
+  const result = await findSpecForUser(req.params.apiSpecId, req.user!.userId);
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "API spec not found")
@@ -207,44 +190,47 @@ export function patchSpec(req: AuthedRequest, res: Response) {
   const row = result.row;
 
   if (parsed.data.artifactId !== undefined && parsed.data.artifactId !== null) {
-    const artifact = db().artifacts.find((a) => a.id === parsed.data.artifactId);
+    const artifact = await prisma.artifact.findUnique({
+      where: { id: parsed.data.artifactId },
+    });
     if (!artifact || artifact.projectId !== row.projectId) {
       return fail(res, 400, "INVALID_ARTIFACT", "Linked artifact must belong to the same project");
     }
   }
 
-  if (parsed.data.title !== undefined) row.title = parsed.data.title;
-  if (parsed.data.version !== undefined) row.version = parsed.data.version;
-  if (parsed.data.baseUrl !== undefined) row.baseUrl = parsed.data.baseUrl;
-  if (parsed.data.description !== undefined) row.description = parsed.data.description;
-  if (parsed.data.artifactId !== undefined) row.artifactId = parsed.data.artifactId;
-  row.updatedAt = new Date().toISOString();
-  recordVersionEvent({
+  const updated = await prisma.apiSpec.update({
+    where: { id: row.id },
+    data: {
+      ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+      ...(parsed.data.version !== undefined ? { version: parsed.data.version } : {}),
+      ...(parsed.data.baseUrl !== undefined ? { baseUrl: parsed.data.baseUrl } : {}),
+      ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+      ...(parsed.data.artifactId !== undefined ? { artifactId: parsed.data.artifactId } : {}),
+    },
+  });
+  await recordVersionEvent({
     projectId: row.projectId,
     entityType: "API_SPEC",
     entityId: row.id,
     action: "UPDATED",
-    title: row.title,
+    title: updated.title,
     description: Object.keys(parsed.data).join(", "),
     triggeredBy: req.user!.userId,
     metadata: { changed: Object.keys(parsed.data) },
   });
-  persist();
-  return ok(res, serializeSpec(row), "API spec updated");
+  return ok(res, await serializeSpec(updated), "API spec updated");
 }
 
-export function deleteSpec(req: AuthedRequest, res: Response) {
-  const state = db();
-  const idx = state.apiSpecs.findIndex((s) => s.id === req.params.apiSpecId);
-  if (idx === -1) return fail(res, 404, "NOT_FOUND", "API spec not found");
-  const row = state.apiSpecs[idx];
-  const project = state.projects.find((p) => p.id === row.projectId);
-  if (!project || project.ownerId !== req.user!.userId) {
-    return fail(res, 403, "FORBIDDEN", "Forbidden");
+export async function deleteSpec(req: AuthedRequest, res: Response) {
+  const result = await findSpecForUser(req.params.apiSpecId, req.user!.userId);
+  if ("error" in result) {
+    return result.error === "not_found"
+      ? fail(res, 404, "NOT_FOUND", "API spec not found")
+      : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
-  state.apiSpecs.splice(idx, 1);
-  state.apiEndpoints = state.apiEndpoints.filter((e) => e.apiSpecId !== row.id);
-  recordVersionEvent({
+  const row = result.row;
+  await prisma.apiSpec.delete({ where: { id: row.id } });
+  await recordVersionEvent({
     projectId: row.projectId,
     entityType: "API_SPEC",
     entityId: row.id,
@@ -253,25 +239,25 @@ export function deleteSpec(req: AuthedRequest, res: Response) {
     description: "API spec removed",
     triggeredBy: req.user!.userId,
   });
-  persist();
   return ok(res, null, "API spec deleted");
 }
 
-// ───────────────────── endpoint handlers ─────────────────────
-
-export function listEndpoints(req: AuthedRequest, res: Response) {
-  const specResult = findSpecForUser(req.params.apiSpecId, req.user!.userId);
+export async function listEndpoints(req: AuthedRequest, res: Response) {
+  const specResult = await findSpecForUser(req.params.apiSpecId, req.user!.userId);
   if ("error" in specResult) {
     return specResult.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "API spec not found")
       : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
-  const items = db().apiEndpoints.filter((e) => e.apiSpecId === specResult.row.id);
+  const items = await prisma.apiEndpoint.findMany({
+    where: { apiSpecId: specResult.row.id },
+    orderBy: { createdAt: "asc" },
+  });
   return ok(res, items.map(serializeEndpoint), "OK");
 }
 
-export function createEndpoint(req: AuthedRequest, res: Response) {
-  const specResult = findSpecForUser(req.params.apiSpecId, req.user!.userId);
+export async function createEndpoint(req: AuthedRequest, res: Response) {
+  const specResult = await findSpecForUser(req.params.apiSpecId, req.user!.userId);
   if ("error" in specResult) {
     return specResult.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "API spec not found")
@@ -281,22 +267,22 @@ export function createEndpoint(req: AuthedRequest, res: Response) {
   const parsed = createEndpointSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const now = new Date().toISOString();
-  const ep: ApiEndpointRow = {
-    id: newId(),
-    apiSpecId: specResult.row.id,
-    path: parsed.data.path,
-    method: parsed.data.method as HttpMethod,
-    summary: parsed.data.summary,
-    requestSchema: parsed.data.requestSchema,
-    responseSchema: parsed.data.responseSchema,
-    requiresAuth: parsed.data.requiresAuth,
-    createdAt: now,
-    updatedAt: now,
-  };
-  db().apiEndpoints.push(ep);
-  specResult.row.updatedAt = now;
-  recordVersionEvent({
+  const ep = await prisma.apiEndpoint.create({
+    data: {
+      apiSpecId: specResult.row.id,
+      path: parsed.data.path,
+      method: parsed.data.method,
+      summary: parsed.data.summary,
+      requestSchema: parsed.data.requestSchema,
+      responseSchema: parsed.data.responseSchema,
+      requiresAuth: parsed.data.requiresAuth,
+    },
+  });
+  await prisma.apiSpec.update({
+    where: { id: specResult.row.id },
+    data: { updatedAt: new Date() },
+  });
+  await recordVersionEvent({
     projectId: specResult.row.projectId,
     entityType: "API_ENDPOINT",
     entityId: ep.id,
@@ -306,67 +292,74 @@ export function createEndpoint(req: AuthedRequest, res: Response) {
     triggeredBy: req.user!.userId,
     metadata: { specId: specResult.row.id, method: ep.method, path: ep.path },
   });
-  persist();
   return created(res, serializeEndpoint(ep), "Endpoint created");
 }
 
-export function patchEndpoint(req: AuthedRequest, res: Response) {
+export async function patchEndpoint(req: AuthedRequest, res: Response) {
   const parsed = patchEndpointSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const result = findEndpointForUser(req.params.endpointId, req.user!.userId);
+  const result = await findEndpointForUser(req.params.endpointId, req.user!.userId);
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Endpoint not found")
       : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
-  const row = result.row;
-
-  if (parsed.data.path !== undefined) row.path = parsed.data.path;
-  if (parsed.data.method !== undefined) row.method = parsed.data.method as HttpMethod;
-  if (parsed.data.summary !== undefined) row.summary = parsed.data.summary;
-  if (parsed.data.requestSchema !== undefined) row.requestSchema = parsed.data.requestSchema;
-  if (parsed.data.responseSchema !== undefined) row.responseSchema = parsed.data.responseSchema;
-  if (parsed.data.requiresAuth !== undefined) row.requiresAuth = parsed.data.requiresAuth;
-  row.updatedAt = new Date().toISOString();
-  result.spec.updatedAt = row.updatedAt;
-  recordVersionEvent({
+  const updated = await prisma.apiEndpoint.update({
+    where: { id: result.row.id },
+    data: {
+      ...(parsed.data.path !== undefined ? { path: parsed.data.path } : {}),
+      ...(parsed.data.method !== undefined ? { method: parsed.data.method } : {}),
+      ...(parsed.data.summary !== undefined ? { summary: parsed.data.summary } : {}),
+      ...(parsed.data.requestSchema !== undefined
+        ? { requestSchema: parsed.data.requestSchema }
+        : {}),
+      ...(parsed.data.responseSchema !== undefined
+        ? { responseSchema: parsed.data.responseSchema }
+        : {}),
+      ...(parsed.data.requiresAuth !== undefined
+        ? { requiresAuth: parsed.data.requiresAuth }
+        : {}),
+    },
+  });
+  await prisma.apiSpec.update({
+    where: { id: result.spec.id },
+    data: { updatedAt: new Date() },
+  });
+  await recordVersionEvent({
     projectId: result.spec.projectId,
     entityType: "API_ENDPOINT",
-    entityId: row.id,
+    entityId: updated.id,
     action: "UPDATED",
-    title: `${row.method} ${row.path}`,
+    title: `${updated.method} ${updated.path}`,
     description: Object.keys(parsed.data).join(", "),
     triggeredBy: req.user!.userId,
     metadata: { specId: result.spec.id, changed: Object.keys(parsed.data) },
   });
-  persist();
-  return ok(res, serializeEndpoint(row), "Endpoint updated");
+  return ok(res, serializeEndpoint(updated), "Endpoint updated");
 }
 
-export function deleteEndpoint(req: AuthedRequest, res: Response) {
-  const state = db();
-  const idx = state.apiEndpoints.findIndex((e) => e.id === req.params.endpointId);
-  if (idx === -1) return fail(res, 404, "NOT_FOUND", "Endpoint not found");
-  const row = state.apiEndpoints[idx];
-  const spec = state.apiSpecs.find((s) => s.id === row.apiSpecId);
-  if (!spec) return fail(res, 404, "NOT_FOUND", "Endpoint not found");
-  const project = state.projects.find((p) => p.id === spec.projectId);
-  if (!project || project.ownerId !== req.user!.userId) {
-    return fail(res, 403, "FORBIDDEN", "Forbidden");
+export async function deleteEndpoint(req: AuthedRequest, res: Response) {
+  const result = await findEndpointForUser(req.params.endpointId, req.user!.userId);
+  if ("error" in result) {
+    return result.error === "not_found"
+      ? fail(res, 404, "NOT_FOUND", "Endpoint not found")
+      : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
-  state.apiEndpoints.splice(idx, 1);
-  spec.updatedAt = new Date().toISOString();
-  recordVersionEvent({
-    projectId: spec.projectId,
-    entityType: "API_ENDPOINT",
-    entityId: row.id,
-    action: "DELETED",
-    title: `${row.method} ${row.path}`,
-    description: `Removed from "${spec.title}"`,
-    triggeredBy: req.user!.userId,
-    metadata: { specId: spec.id, method: row.method, path: row.path },
+  await prisma.apiEndpoint.delete({ where: { id: result.row.id } });
+  await prisma.apiSpec.update({
+    where: { id: result.spec.id },
+    data: { updatedAt: new Date() },
   });
-  persist();
+  await recordVersionEvent({
+    projectId: result.spec.projectId,
+    entityType: "API_ENDPOINT",
+    entityId: result.row.id,
+    action: "DELETED",
+    title: `${result.row.method} ${result.row.path}`,
+    description: `Removed from "${result.spec.title}"`,
+    triggeredBy: req.user!.userId,
+    metadata: { specId: result.spec.id, method: result.row.method, path: result.row.path },
+  });
   return ok(res, null, "Endpoint deleted");
 }

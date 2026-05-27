@@ -10,7 +10,7 @@ Frontend:
 Backend:
 - Express
 - TypeScript
-- JSON persistence
+- Prisma + PostgreSQL (Phase 6)
 
 ## Working Features
 - Auth
@@ -29,10 +29,19 @@ Backend:
 - Settings
 
 ## Current Persistence
-JSON-based persistence using:
-backend/src/db/data.json
+PostgreSQL (Prisma ORM). Schema in `backend/prisma/schema.prisma`.
+Connection via `DATABASE_URL` in `backend/.env`.
+Initial migration in `backend/prisma/migrations/20260527120000_init/migration.sql`.
 
-NOT PostgreSQL.
+To bootstrap a fresh local environment:
+```
+cd backend
+npm install
+createdb minotaurus       # (or `CREATE DATABASE minotaurus` via psql)
+npx prisma migrate deploy
+npm run seed
+npm run dev
+```
 
 ## Graph Source of Truth
 ArtifactRelation
@@ -53,12 +62,12 @@ validation.engine.ts
 - versions (version history + impact analysis)
 
 ## Current Commit
-254b85b
+e896ca3
 
 ## Current Goal
-Phase 5 shipped: Version History + Impact Analysis. The platform now records every CUD
-action as a VersionEvent and exposes a per-artifact blast-radius view. Recommended next
-phase: AI architecture analysis (NEXT_STEPS.md).
+Phase 6 shipped: PostgreSQL migration. Every controller and engine now reads/writes
+through Prisma; the JSON file persistence is gone. API surface and frontend
+contracts are unchanged. Recommended next phase: AI architecture analysis.
 
 ## Important Constraints
 - Do not migrate PostgreSQL yet

@@ -1,10 +1,10 @@
 import type { Response } from "express";
-import { db } from "../../db/json-db.js";
+import { prisma } from "../../lib/prisma.js";
 import { fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 
-function projectAccess(projectId: string, userId: string): "ok" | "not_found" | "forbidden" {
-  const project = db().projects.find((p) => p.id === projectId);
+async function projectAccess(projectId: string, userId: string): Promise<"ok" | "not_found" | "forbidden"> {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return "not_found";
   return project.ownerId === userId ? "ok" : "forbidden";
 }
@@ -16,94 +16,87 @@ interface SummarizedArtifact {
   status: string;
 }
 
-interface RelationLink {
-  relationId: string;
-  artifact: SummarizedArtifact;
-  relationType: string;
-  description: string;
-}
-
 function summarizeArtifact(
   a: { id: string; title: string; type: string; status: string },
 ): SummarizedArtifact {
   return { id: a.id, title: a.title, type: a.type, status: a.status };
 }
 
-export function analyzeImpact(req: AuthedRequest, res: Response) {
+export async function analyzeImpact(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const artifactId = req.params.artifactId;
 
-  const access = projectAccess(projectId, req.user!.userId);
+  const access = await projectAccess(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
-  const state = db();
-  const artifact = state.artifacts.find((a) => a.id === artifactId);
+  const artifact = await prisma.artifact.findUnique({ where: { id: artifactId } });
   if (!artifact || artifact.projectId !== projectId) {
     return fail(res, 404, "NOT_FOUND", "Artifact not found in this project");
   }
 
-  const artifactsById = new Map(state.artifacts.map((a) => [a.id, a]));
+  const [outgoingRels, incomingRels, apiSpecs, databaseModels, diagrams, documenterRels, recentEvents] =
+    await Promise.all([
+      prisma.artifactRelation.findMany({
+        where: { sourceArtifactId: artifact.id },
+        include: { targetArtifact: true },
+      }),
+      prisma.artifactRelation.findMany({
+        where: { targetArtifactId: artifact.id },
+        include: { sourceArtifact: true },
+      }),
+      prisma.apiSpec.findMany({ where: { projectId, artifactId: artifact.id } }),
+      prisma.databaseModel.findMany({ where: { projectId, artifactId: artifact.id } }),
+      prisma.diagram.findMany({ where: { projectId, artifactId: artifact.id } }),
+      prisma.artifactRelation.findMany({
+        where: { targetArtifactId: artifact.id, relationType: "DOCUMENTS" },
+        include: { sourceArtifact: true },
+      }),
+      prisma.versionEvent.findMany({
+        where: { projectId, entityId: artifact.id },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+    ]);
 
-  // Relations the target depends on (outgoing edges).
-  const outgoing = state.relations
-    .filter((r) => r.sourceArtifactId === artifact.id)
-    .map((r): RelationLink | null => {
-      const target = artifactsById.get(r.targetArtifactId);
-      if (!target || target.projectId !== projectId) return null;
-      return {
-        relationId: r.id,
-        artifact: summarizeArtifact(target),
-        relationType: r.relationType,
-        description: r.description,
-      };
-    })
-    .filter((x): x is RelationLink => !!x);
+  const outgoing = outgoingRels
+    .filter((r) => r.targetArtifact.projectId === projectId)
+    .map((r) => ({
+      relationId: r.id,
+      artifact: summarizeArtifact(r.targetArtifact),
+      relationType: r.relationType,
+      description: r.description,
+    }));
+  const incoming = incomingRels
+    .filter((r) => r.sourceArtifact.projectId === projectId)
+    .map((r) => ({
+      relationId: r.id,
+      artifact: summarizeArtifact(r.sourceArtifact),
+      relationType: r.relationType,
+      description: r.description,
+    }));
 
-  // Relations that depend on the target (incoming edges).
-  const incoming = state.relations
-    .filter((r) => r.targetArtifactId === artifact.id)
-    .map((r): RelationLink | null => {
-      const source = artifactsById.get(r.sourceArtifactId);
-      if (!source || source.projectId !== projectId) return null;
-      return {
-        relationId: r.id,
-        artifact: summarizeArtifact(source),
-        relationType: r.relationType,
-        description: r.description,
-      };
-    })
-    .filter((x): x is RelationLink => !!x);
-
-  const apiSpecs = state.apiSpecs
-    .filter((s) => s.projectId === projectId && s.artifactId === artifact.id)
-    .map((s) => ({
+  const apiSpecsOut = await Promise.all(
+    apiSpecs.map(async (s) => ({
       id: s.id,
       title: s.title,
       version: s.version,
       baseUrl: s.baseUrl,
-      endpointCount: state.apiEndpoints.filter((e) => e.apiSpecId === s.id).length,
-    }));
+      endpointCount: await prisma.apiEndpoint.count({ where: { apiSpecId: s.id } }),
+    })),
+  );
 
-  const databaseModels = state.databaseModels
-    .filter((m) => m.projectId === projectId && m.artifactId === artifact.id)
-    .map((m) => ({
+  const databaseModelsOut = await Promise.all(
+    databaseModels.map(async (m) => ({
       id: m.id,
       title: m.title,
       databaseType: m.databaseType,
-      entityCount: state.databaseEntities.filter((e) => e.databaseModelId === m.id).length,
-    }));
+      entityCount: await prisma.databaseEntity.count({ where: { databaseModelId: m.id } }),
+    })),
+  );
 
-  const diagrams = state.diagrams
-    .filter((d) => d.projectId === projectId && d.artifactId === artifact.id)
-    .map((d) => ({
-      id: d.id,
-      title: d.title,
-      type: d.type,
-    }));
+  const diagramsOut = diagrams.map((d) => ({ id: d.id, title: d.title, type: d.type }));
 
-  // Documentation: surface this artifact's own doc (truncated) and any
-  // DOCUMENTATION-typed artifact that DOCUMENTS the target.
   const documentation: {
     artifactId: string;
     title: string;
@@ -118,9 +111,8 @@ export function analyzeImpact(req: AuthedRequest, res: Response) {
       source: "self",
     });
   }
-  for (const r of state.relations) {
-    if (r.targetArtifactId !== artifact.id || r.relationType !== "DOCUMENTS") continue;
-    const documenter = artifactsById.get(r.sourceArtifactId);
+  for (const r of documenterRels) {
+    const documenter = r.sourceArtifact;
     if (!documenter || documenter.projectId !== projectId) continue;
     documentation.push({
       artifactId: documenter.id,
@@ -132,12 +124,6 @@ export function analyzeImpact(req: AuthedRequest, res: Response) {
       source: "documenter",
     });
   }
-
-  const recentEvents = state.versionEvents
-    .filter((e) => e.projectId === projectId && e.entityId === artifact.id)
-    .slice()
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 10);
 
   return ok(
     res,
@@ -151,16 +137,27 @@ export function analyzeImpact(req: AuthedRequest, res: Response) {
       },
       directDependencies: outgoing,
       dependentArtifacts: incoming,
-      apiSpecs,
-      databaseModels,
-      diagrams,
+      apiSpecs: apiSpecsOut,
+      databaseModels: databaseModelsOut,
+      diagrams: diagramsOut,
       documentation,
-      recentEvents,
+      recentEvents: recentEvents.map((e) => ({
+        id: e.id,
+        projectId: e.projectId,
+        entityType: e.entityType,
+        entityId: e.entityId,
+        action: e.action,
+        title: e.title,
+        description: e.description,
+        triggeredBy: e.triggeredById,
+        metadata: e.metadata,
+        createdAt: e.createdAt,
+      })),
       impactSummary: {
         affectedArtifacts: incoming.length + outgoing.length,
-        affectedApis: apiSpecs.length,
-        affectedDatabases: databaseModels.length,
-        affectedDiagrams: diagrams.length,
+        affectedApis: apiSpecsOut.length,
+        affectedDatabases: databaseModelsOut.length,
+        affectedDiagrams: diagramsOut.length,
         affectedDocumentation: documentation.length,
       },
     },

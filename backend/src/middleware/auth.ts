@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { db } from "../db/json-db.js";
+import { prisma } from "../lib/prisma.js";
 import { fail } from "../utils/response.js";
 
 const SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
@@ -19,7 +19,7 @@ export function signToken(payload: AuthPayload): string {
   return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN } as jwt.SignOptions);
 }
 
-export function requireAuth(
+export async function requireAuth(
   req: AuthedRequest,
   res: Response,
   next: NextFunction,
@@ -31,7 +31,7 @@ export function requireAuth(
   const token = header.slice("Bearer ".length).trim();
   try {
     const decoded = jwt.verify(token, SECRET) as AuthPayload;
-    const user = db().users.find((u) => u.id === decoded.userId);
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user) return fail(res, 401, "UNAUTHORIZED", "User no longer exists");
     req.user = { userId: user.id, email: user.email };
     return next();

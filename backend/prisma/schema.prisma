@@ -1,0 +1,397 @@
+// Prisma schema — Postgres persistence for the Minotaurus MVP.
+// Generated as part of Phase 6 (PostgreSQL migration). Mirrors the previous
+// JSON DbShape one-to-one so the API contract stays unchanged.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────── Users ──────────────────────────────
+
+enum UserRole {
+  ADMIN
+  ENGINEER
+  ARCHITECT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         UserRole @default(ENGINEER)
+  createdAt    DateTime @default(now())
+
+  ownedProjects     Project[]          @relation("ProjectOwner")
+  artifacts         Artifact[]
+  apiSpecs          ApiSpec[]
+  databaseModels    DatabaseModel[]
+  diagrams          Diagram[]
+  exports           ExportPackage[]
+  relationsAuthored ArtifactRelation[]
+  versionEvents     VersionEvent[]
+}
+
+// ────────────────────────────── Projects ──────────────────────────────
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @default("")
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner            User              @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  artifacts        Artifact[]
+  apiSpecs         ApiSpec[]
+  databaseModels   DatabaseModel[]
+  diagrams         Diagram[]
+  validationIssues ValidationIssue[]
+  exports          ExportPackage[]
+  versionEvents    VersionEvent[]
+
+  @@index([ownerId])
+}
+
+// ────────────────────────────── Artifacts ──────────────────────────────
+
+enum ArtifactType {
+  DOCUMENTATION
+  API_SPEC
+  API_ENDPOINT
+  SERVICE
+  DATABASE_MODEL
+  DATABASE_ENTITY
+  DIAGRAM
+  REQUIREMENT
+  SECURITY_POLICY
+  ENVIRONMENT
+  EXTERNAL_SYSTEM
+}
+
+enum ArtifactStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+}
+
+model Artifact {
+  id                   String         @id @default(uuid())
+  projectId            String
+  title                String
+  type                 ArtifactType
+  status               ArtifactStatus @default(DRAFT)
+  description          String         @default("")
+  tags                 String[]       @default([])
+  gx                   Int            @default(0)
+  gy                   Int            @default(0)
+  createdById          String
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  documentationContent String?
+
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy      User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  relationsOut   ArtifactRelation[] @relation("RelationSource")
+  relationsIn    ArtifactRelation[] @relation("RelationTarget")
+  apiSpecs       ApiSpec[]
+  databaseModels DatabaseModel[]
+  diagrams       Diagram[]
+
+  @@index([projectId])
+  @@index([createdById])
+}
+
+// ────────────────────────────── Relations ──────────────────────────────
+
+enum RelationType {
+  DEPENDS_ON
+  DOCUMENTS
+  IMPLEMENTS
+  USES
+  EXPOSES
+  BELONGS_TO
+  SECURES
+  VALIDATES
+  COMMUNICATES_WITH
+}
+
+model ArtifactRelation {
+  id               String       @id @default(uuid())
+  sourceArtifactId String
+  targetArtifactId String
+  relationType     RelationType
+  description      String       @default("")
+  createdById      String
+  createdAt        DateTime     @default(now())
+
+  sourceArtifact Artifact @relation("RelationSource", fields: [sourceArtifactId], references: [id], onDelete: Cascade)
+  targetArtifact Artifact @relation("RelationTarget", fields: [targetArtifactId], references: [id], onDelete: Cascade)
+  createdBy      User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([sourceArtifactId])
+  @@index([targetArtifactId])
+}
+
+// ────────────────────────────── API Specs ──────────────────────────────
+
+model ApiSpec {
+  id          String   @id @default(uuid())
+  projectId   String
+  artifactId  String?
+  title       String
+  version     String   @default("1.0.0")
+  baseUrl     String   @default("")
+  description String   @default("")
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact  Artifact?     @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  createdBy User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  endpoints ApiEndpoint[]
+
+  @@index([projectId])
+  @@index([artifactId])
+}
+
+enum HttpMethod {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+}
+
+model ApiEndpoint {
+  id             String     @id @default(uuid())
+  apiSpecId      String
+  path           String
+  method         HttpMethod
+  summary        String     @default("")
+  requestSchema  String     @default("")
+  responseSchema String     @default("")
+  requiresAuth   Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  apiSpec ApiSpec @relation(fields: [apiSpecId], references: [id], onDelete: Cascade)
+
+  @@index([apiSpecId])
+}
+
+// ────────────────────────────── Database Models ──────────────────────────────
+
+enum DatabaseType {
+  PostgreSQL
+  MySQL
+  MongoDB
+  Redis
+  SQLite
+}
+
+model DatabaseModel {
+  id           String       @id @default(uuid())
+  projectId    String
+  artifactId   String?
+  title        String
+  databaseType DatabaseType @default(PostgreSQL)
+  description  String       @default("")
+  createdById  String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  project   Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact  Artifact?        @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  createdBy User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  entities  DatabaseEntity[]
+
+  @@index([projectId])
+  @@index([artifactId])
+}
+
+model DatabaseEntity {
+  id              String   @id @default(uuid())
+  databaseModelId String
+  name            String
+  description     String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  databaseModel DatabaseModel   @relation(fields: [databaseModelId], references: [id], onDelete: Cascade)
+  fields        DatabaseField[]
+  referencedBy  DatabaseField[] @relation("FieldReferences")
+
+  @@index([databaseModelId])
+}
+
+model DatabaseField {
+  id                 String  @id @default(uuid())
+  entityId           String
+  name               String
+  type               String  @default("text")
+  required           Boolean @default(false)
+  isPrimaryKey       Boolean @default(false)
+  isForeignKey       Boolean @default(false)
+  referencesEntityId String?
+  description        String  @default("")
+
+  entity           DatabaseEntity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  referencesEntity DatabaseEntity? @relation("FieldReferences", fields: [referencesEntityId], references: [id], onDelete: SetNull)
+
+  @@index([entityId])
+  @@index([referencesEntityId])
+}
+
+// ────────────────────────────── Diagrams ──────────────────────────────
+
+enum DiagramType {
+  FLOWCHART
+  SEQUENCE
+  ERD
+  CLASS
+  STATE
+  GANTT
+  ARCHITECTURE
+}
+
+model Diagram {
+  id            String      @id @default(uuid())
+  projectId     String
+  artifactId    String?
+  title         String
+  type          DiagramType @default(FLOWCHART)
+  mermaidSource String      @default("")
+  description   String      @default("")
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact  Artifact? @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  createdBy User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@index([artifactId])
+}
+
+// ────────────────────────────── Validation ──────────────────────────────
+
+enum IssueSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+enum IssueCategory {
+  DOCUMENTATION
+  API
+  DATABASE
+  SECURITY
+  ARCHITECTURE
+  RELATIONSHIP
+  VERSIONING
+  DIAGRAM
+}
+
+enum IssueStatus {
+  OPEN
+  RESOLVED
+  IGNORED
+}
+
+model ValidationIssue {
+  id         String        @id @default(uuid())
+  projectId  String
+  artifactId String
+  severity   IssueSeverity
+  category   IssueCategory
+  message    String
+  status     IssueStatus   @default(OPEN)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// ────────────────────────────── Export ──────────────────────────────
+
+enum ExportFormat {
+  JSON
+  MARKDOWN
+  PDF
+  ZIP
+}
+
+model ExportPackage {
+  id          String       @id @default(uuid())
+  projectId   String
+  format      ExportFormat
+  sections    String[]     @default([])
+  content     Json
+  createdById String
+  createdAt   DateTime     @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+}
+
+// ────────────────────────────── Version events ──────────────────────────────
+
+enum VersionEntityType {
+  PROJECT
+  ARTIFACT
+  RELATION
+  DOCUMENTATION
+  API_SPEC
+  API_ENDPOINT
+  DATABASE_MODEL
+  DATABASE_ENTITY
+  DATABASE_FIELD
+  DIAGRAM
+  EXPORT
+  VALIDATION
+}
+
+enum VersionAction {
+  CREATED
+  UPDATED
+  DELETED
+  LINKED
+  UNLINKED
+  VALIDATED
+  EXPORTED
+}
+
+model VersionEvent {
+  id            String            @id @default(uuid())
+  projectId     String
+  entityType    VersionEntityType
+  entityId      String
+  action        VersionAction
+  title         String
+  description   String            @default("")
+  triggeredById String
+  metadata      Json              @default("{}")
+  createdAt     DateTime          @default(now())
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  triggeredBy User    @relation(fields: [triggeredById], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@index([entityId])
+  @@index([projectId, createdAt(sort: Desc)])
+}

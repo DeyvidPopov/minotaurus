@@ -1,15 +1,12 @@
 // Pure export payload builder — shared by the HTTP handler and the seed
-// script. Reads from the in-memory db; does not write.
+// script. Reads from Postgres via Prisma; does not write.
 
-import { db, type ArtifactRow } from "../../db/json-db.js";
+import type { Artifact, ExportFormat } from "@prisma/client";
+import { prisma } from "../../lib/prisma.js";
 
-export const EXPORT_FORMATS = ["JSON", "MARKDOWN", "PDF", "ZIP"] as const;
-export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+export const EXPORT_FORMATS: ExportFormat[] = ["JSON", "MARKDOWN", "PDF", "ZIP"];
 
-// Strip the raw `documentationContent` field and surface it as a structured
-// `documentation` object iff non-empty. Keeps the canonical storage on the
-// artifact row — no duplicate documentation tree.
-export function serializeArtifactForExport(a: ArtifactRow) {
+export function serializeArtifactForExport(a: Artifact) {
   const { documentationContent, ...rest } = a;
   const out: Record<string, unknown> = { ...rest };
   if (documentationContent && documentationContent.trim()) {
@@ -21,35 +18,38 @@ export function serializeArtifactForExport(a: ArtifactRow) {
   return out;
 }
 
-export function buildExportContent(
+export async function buildExportContent(
   projectId: string,
   format: ExportFormat,
   sections: string[],
-): unknown {
-  const state = db();
-  const project = state.projects.find((p) => p.id === projectId);
-  const artifacts = state.artifacts.filter((a) => a.projectId === projectId);
-  const ids = new Set(artifacts.map((a) => a.id));
-  const relations = state.relations.filter(
-    (r) => ids.has(r.sourceArtifactId) && ids.has(r.targetArtifactId),
+): Promise<unknown> {
+  const [project, artifacts, allRelations, issues, apiSpecs, apiEndpoints, databaseModels, databaseEntities, databaseFields, diagrams, versionEvents] =
+    await Promise.all([
+      prisma.project.findUnique({ where: { id: projectId } }),
+      prisma.artifact.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
+      prisma.artifactRelation.findMany({
+        where: { sourceArtifact: { projectId } },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.validationIssue.findMany({ where: { projectId } }),
+      prisma.apiSpec.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
+      prisma.apiEndpoint.findMany({ where: { apiSpec: { projectId } } }),
+      prisma.databaseModel.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
+      prisma.databaseEntity.findMany({ where: { databaseModel: { projectId } } }),
+      prisma.databaseField.findMany({ where: { entity: { databaseModel: { projectId } } } }),
+      prisma.diagram.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
+      prisma.versionEvent.findMany({
+        where: { projectId },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+  const artifactIds = new Set(artifacts.map((a) => a.id));
+  const relations = allRelations.filter(
+    (r) => artifactIds.has(r.sourceArtifactId) && artifactIds.has(r.targetArtifactId),
   );
-  const issues = state.validationIssues.filter((v) => v.projectId === projectId);
-  const apiSpecs = state.apiSpecs.filter((s) => s.projectId === projectId);
-  const apiSpecIds = new Set(apiSpecs.map((s) => s.id));
-  const apiEndpoints = state.apiEndpoints.filter((e) => apiSpecIds.has(e.apiSpecId));
-  const databaseModels = state.databaseModels.filter((m) => m.projectId === projectId);
-  const dbModelIds = new Set(databaseModels.map((m) => m.id));
-  const databaseEntities = state.databaseEntities.filter((e) => dbModelIds.has(e.databaseModelId));
-  const dbEntityIds = new Set(databaseEntities.map((e) => e.id));
-  const databaseFields = state.databaseFields.filter((f) => dbEntityIds.has(f.entityId));
-  const diagrams = state.diagrams.filter((d) => d.projectId === projectId);
-  const versionEvents = state.versionEvents
-    .filter((e) => e.projectId === projectId)
-    .slice()
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const wanted = new Set(sections.map((s) => s.toUpperCase()));
-  // DOCUMENTATION implies ARTIFACTS — docs live inside artifact objects.
   const wantsArtifacts = wanted.has("ARTIFACTS") || wanted.has("DOCUMENTATION");
   const wantsValidation =
     wanted.has("VALIDATION") ||
@@ -57,20 +57,32 @@ export function buildExportContent(
     wanted.has("VALIDATION_REPORT");
   const wantsGraph = wanted.has("GRAPH");
   const wantsApiSpecs = wanted.has("API_SPECS") || wanted.has("API_ENDPOINTS");
-  const wantsDatabaseModels =
-    wanted.has("DATABASE_MODELS") || wanted.has("DATABASE_ENTITIES");
+  const wantsDatabaseModels = wanted.has("DATABASE_MODELS") || wanted.has("DATABASE_ENTITIES");
   const wantsDiagrams = wanted.has("DIAGRAMS");
-  const wantsVersionHistory =
-    wanted.has("VERSION_HISTORY") || wanted.has("RECENT_CHANGES");
+  const wantsVersionHistory = wanted.has("VERSION_HISTORY") || wanted.has("RECENT_CHANGES");
   const wantsImpact = wanted.has("IMPACT_ANALYSIS") || wanted.has("IMPACT");
 
   const payload: Record<string, unknown> = {
     project,
     generatedAt: new Date().toISOString(),
   };
+
   if (wantsArtifacts) payload.artifacts = artifacts.map(serializeArtifactForExport);
-  if (wanted.has("RELATIONS")) payload.relations = relations;
-  if (wantsValidation) payload.validationIssues = issues;
+  if (wanted.has("RELATIONS")) {
+    payload.relations = relations.map((r) => ({
+      id: r.id,
+      sourceArtifactId: r.sourceArtifactId,
+      targetArtifactId: r.targetArtifactId,
+      relationType: r.relationType,
+      description: r.description,
+      createdBy: r.createdById,
+      createdAt: r.createdAt,
+    }));
+  }
+  if (wantsValidation) {
+    payload.validationIssues = issues.map((v) => ({ ...v }));
+  }
+
   if (wantsVersionHistory) {
     payload.versionHistory = versionEvents.slice(0, 100).map((e) => ({
       id: e.id,
@@ -79,12 +91,13 @@ export function buildExportContent(
       action: e.action,
       title: e.title,
       description: e.description,
-      triggeredBy: e.triggeredBy,
+      triggeredBy: e.triggeredById,
       metadata: e.metadata,
       createdAt: e.createdAt,
     }));
     payload.recentChanges = payload.versionHistory;
   }
+
   if (wantsImpact) {
     const artifactsById = new Map(artifacts.map((a) => [a.id, a]));
     payload.impactAnalysis = artifacts.map((a) => {
@@ -116,26 +129,7 @@ export function buildExportContent(
       };
     });
   }
-  if (wantsDiagrams) {
-    payload.diagrams = diagrams.map((d) => ({
-      id: d.id,
-      projectId: d.projectId,
-      artifactId: d.artifactId,
-      title: d.title,
-      type: d.type,
-      mermaidSource: d.mermaidSource,
-      description: d.description,
-      createdAt: d.createdAt,
-      updatedAt: d.updatedAt,
-      linkedArtifact:
-        d.artifactId
-          ? (() => {
-              const a = artifacts.find((x) => x.id === d.artifactId);
-              return a ? { id: a.id, title: a.title, type: a.type } : null;
-            })()
-          : null,
-    }));
-  }
+
   if (wantsDatabaseModels) {
     const entityNameById = new Map(databaseEntities.map((e) => [e.id, e.name]));
     payload.databaseModels = databaseModels.map((m) => ({
@@ -147,13 +141,12 @@ export function buildExportContent(
       description: m.description,
       createdAt: m.createdAt,
       updatedAt: m.updatedAt,
-      linkedArtifact:
-        m.artifactId
-          ? (() => {
-              const a = artifacts.find((x) => x.id === m.artifactId);
-              return a ? { id: a.id, title: a.title, type: a.type } : null;
-            })()
-          : null,
+      linkedArtifact: m.artifactId
+        ? (() => {
+            const a = artifacts.find((x) => x.id === m.artifactId);
+            return a ? { id: a.id, title: a.title, type: a.type } : null;
+          })()
+        : null,
       entities: databaseEntities
         .filter((e) => e.databaseModelId === m.id)
         .map((e) => ({
@@ -180,6 +173,7 @@ export function buildExportContent(
         })),
     }));
   }
+
   if (wantsApiSpecs) {
     payload.apiSpecs = apiSpecs.map((s) => ({
       id: s.id,
@@ -191,13 +185,12 @@ export function buildExportContent(
       description: s.description,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
-      linkedArtifact:
-        s.artifactId
-          ? (() => {
-              const a = artifacts.find((x) => x.id === s.artifactId);
-              return a ? { id: a.id, title: a.title, type: a.type } : null;
-            })()
-          : null,
+      linkedArtifact: s.artifactId
+        ? (() => {
+            const a = artifacts.find((x) => x.id === s.artifactId);
+            return a ? { id: a.id, title: a.title, type: a.type } : null;
+          })()
+        : null,
       endpoints: apiEndpoints
         .filter((e) => e.apiSpecId === s.id)
         .map((e) => ({
@@ -213,6 +206,27 @@ export function buildExportContent(
         })),
     }));
   }
+
+  if (wantsDiagrams) {
+    payload.diagrams = diagrams.map((d) => ({
+      id: d.id,
+      projectId: d.projectId,
+      artifactId: d.artifactId,
+      title: d.title,
+      type: d.type,
+      mermaidSource: d.mermaidSource,
+      description: d.description,
+      createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
+      linkedArtifact: d.artifactId
+        ? (() => {
+            const a = artifacts.find((x) => x.id === d.artifactId);
+            return a ? { id: a.id, title: a.title, type: a.type } : null;
+          })()
+        : null,
+    }));
+  }
+
   if (wantsGraph) {
     payload.graph = {
       nodes: artifacts.map((a) => ({
@@ -333,7 +347,7 @@ export function buildExportContent(
     if (wantsVersionHistory && versionEvents.length > 0) {
       lines.push("\n## Version history\n");
       for (const e of versionEvents.slice(0, 100)) {
-        const day = e.createdAt.slice(0, 10);
+        const day = e.createdAt.toISOString().slice(0, 10);
         lines.push(`- [${day}] **${e.action}** ${e.entityType} — ${e.title}${e.description ? "  _" + e.description + "_" : ""}`);
       }
     }

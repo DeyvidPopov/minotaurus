@@ -2,7 +2,24 @@
 
 ## Last Completed Feature
 
-Phase 5 — Version History + Impact Analysis:
+Phase 6 — PostgreSQL migration:
+- Prisma schema with 14 models replacing the JSON DbShape (User, Project, Artifact,
+  ArtifactRelation, ApiSpec, ApiEndpoint, DatabaseModel, DatabaseEntity, DatabaseField,
+  Diagram, ValidationIssue, ExportPackage, VersionEvent + enums).
+- `src/lib/prisma.ts` singleton; every controller, engine, middleware and the seed
+  now uses Prisma directly.
+- `backend/src/db/json-db.ts` and `data.json` deleted; `src/db/` removed.
+- Initial SQL migration committed under
+  `backend/prisma/migrations/20260527120000_init/migration.sql` (365 lines), so a fresh
+  deploy can run `prisma migrate deploy` instead of needing a shadow DB.
+- Validation engine, export engine, version-event helper all async + Prisma-backed.
+- Seed wipes + reloads the entire dataset transactionally.
+- Backend + frontend typechecks clean. Live DB verification was deferred — Postgres on
+  this machine listens on :5433 and the seeded password was rejected. The user
+  authorized "write all code, skip live verification." First run on a real DB needs:
+  `npx prisma migrate deploy && npm run seed`.
+
+## Phase 5 — Version History + Impact Analysis (previous pass)
 - New `versionEvents[]` collection; pure `recordVersionEvent()` helper used by every CUD path
 - Every artifact / relation / documentation / API spec / API endpoint / DB model / DB entity /
   DB field / diagram / export / validation run now writes a `VersionEvent`
@@ -22,7 +39,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-254b85b — *Add version history and impact analysis*
+e896ca3 — *Migrate persistence layer to PostgreSQL*
 
 ## Current Working State
 

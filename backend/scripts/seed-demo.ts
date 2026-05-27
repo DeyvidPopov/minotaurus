@@ -1,31 +1,17 @@
 import bcrypt from "bcryptjs";
 import {
-  db,
-  persist,
-  resetDbForTests,
-  type ApiEndpointRow,
-  type ApiSpecRow,
-  type ArtifactRow,
-  type ArtifactStatus,
-  type ArtifactType,
-  type DatabaseEntityRow,
-  type DatabaseFieldRow,
-  type DatabaseModelRow,
-  type DiagramRow,
-  type ExportPackageRow,
-  type HttpMethod,
-  type ProjectRow,
-  type RelationRow,
-  type RelationType,
-  type UserRow,
-} from "../src/db/json-db.js";
-import { newId } from "../src/utils/ids.js";
-import { runValidationForProject } from "../src/modules/validation/validation.engine.js";
+  ArtifactStatus,
+  ArtifactType,
+  DatabaseType,
+  DiagramType,
+  HttpMethod,
+  RelationType,
+  type Prisma,
+} from "@prisma/client";
+import { prisma } from "../src/lib/prisma.js";
 import { recordVersionEvent } from "../src/modules/versions/versions.engine.js";
-import {
-  buildExportContent,
-  type ExportFormat,
-} from "../src/modules/exports/exports.engine.js";
+import { runValidationForProject } from "../src/modules/validation/validation.engine.js";
+import { buildExportContent } from "../src/modules/exports/exports.engine.js";
 
 const DEMO_EMAIL = "deyvid@minotaurus.dev";
 const DEMO_PASSWORD = "minotaurus";
@@ -50,89 +36,58 @@ Platform. Every request that reaches a protected endpoint resolves identity here
 
 ## API / communication
 - Exposed to clients through the **API Gateway** at \`POST /auth/login\`, \`POST /auth/register\`, \`GET /auth/me\`.
-- Internally talks to the User Database over the private subnet.
 
 ## Security notes
 - Passwords are hashed with bcrypt (cost ≥ 10).
 - Tokens are signed with the secret resolved at boot from the platform secret store.
-- All credential errors return a uniform \`INVALID_CREDENTIALS\` response to avoid user enumeration.
 
 ## Future improvements
 - Add WebAuthn / passkeys.
 - Move to short-lived asymmetric (Ed25519) signing keys with JWKS rotation.
-- Surface admin-impersonation audit logs.
 `;
 
 const DOC_GATEWAY = `# API Gateway
 
 ## Purpose
-The single ingress for all customer-facing HTTP traffic. Performs routing, JWT
-validation, rate limiting, and request shaping before forwarding to backend services.
+The single ingress for all customer-facing HTTP traffic.
 
 ## Responsibilities
 - Terminate TLS.
-- Validate JWTs by calling the **Authentication Service** (or verifying signature locally with the cached JWKS in the future).
+- Validate JWTs by calling the **Authentication Service**.
 - Route by path: \`/auth/*\`, \`/products/*\`, \`/orders/*\`.
 - Apply per-IP and per-user rate limits.
-- Emit access logs with correlation IDs.
 
 ## Dependencies
 - **Authentication Service** — token introspection and login proxying.
 - **Product Catalog API** — read-side traffic for the storefront.
 
-## API / communication
-- Public ingress: \`https://api.shop.example.com\`.
-- Communicates with internal services over HTTP/2 on the private subnet.
-
-## Security notes
-- Strips inbound \`Authorization\` headers from public IPs that don't match the allowed-origin list.
-- Adds a server-side request ID; never trusts client-supplied tracing headers.
-- Denies all routes that aren't explicitly whitelisted.
-
 ## Future improvements
 - Switch JWT verification to local JWKS to avoid the auth hop.
-- Move config to a hot-reloadable source so route changes don't require restarts.
-- Add tenant-aware quota tracking.
 `;
 
 const DOC_ORDER = `# Order Service
 
 ## Purpose
-Owns the lifecycle of an order from cart submission to fulfilment. The source of
-truth for everything an internal team needs to know about a customer's purchase.
+Owns the lifecycle of an order from cart submission to fulfilment.
 
 ## Responsibilities
 - Validate cart contents against the **Product Catalog API**.
-- Reserve inventory (best-effort — soft reservation, not a lock).
+- Reserve inventory (best-effort).
 - Create a payment intent against the **Payment Service**.
-- Persist the resulting order and emit an event for downstream consumers.
 
 ## Dependencies
 - **Product Catalog API** — product existence, price, availability.
-- **Payment Service** — the modern integration; preferred for all new orders.
-- **Legacy Payment Service** — _deprecated._ Still wired up for one in-flight
-  customer cohort and will trigger a validation error until the migration is complete.
-
-## API / communication
-- \`POST /orders\` (via the API Gateway): create order.
-- \`GET /orders/:id\`: fetch by id.
-- Emits \`order.created\` and \`order.fulfilled\` events on the internal bus.
-
-## Security notes
-- Never accepts price from the client; always re-reads from the Product Catalog API.
-- Idempotency keys are required on \`POST /orders\` to make retries safe.
+- **Payment Service** — modern integration.
+- **Legacy Payment Service** — _deprecated._ Scheduled for removal.
 
 ## Future improvements
 - Finish the Legacy Payment Service migration and remove the dependency edge.
-- Move inventory reservation from soft to a strong lock backed by Redis.
-- Split fulfilment hooks into a separate, queue-driven worker.
 `;
 
 const DOC_ARCH = `# System Architecture Documentation
 
 ## Purpose
-The high-level map of the Online Shop Platform — the document architects, on-call
-engineers, and new joiners read first.
+The high-level map of the Online Shop Platform.
 
 ## Responsibilities
 - Describe how requests flow from the customer browser to the data stores.
@@ -140,234 +95,210 @@ engineers, and new joiners read first.
 - Make every external dependency obvious.
 - Call out known compromises (e.g. the legacy payment integration).
 
-## Dependencies
-- This document references every artifact in the project via \`DOCUMENTS\` relations.
-  It does not depend on running services.
-
-## API / communication
-N/A — this is a document, not a service. It is regenerated from the SSOT export.
-
-## Security notes
-- Do not include real customer data in examples.
-- Treat the architecture diagram as internal — share with vendors only after redaction.
-
 ## Future improvements
 - Add a sequence diagram for the order-creation flow.
-- Add a runbook section linked from each service artifact.
 - Auto-publish to the internal documentation site on every SSOT export.
 `;
 
 // ───────────────────── helpers ─────────────────────
 
-function makeArtifact(
-  user: UserRow,
-  project: ProjectRow,
-  now: string,
-  spec: {
-    title: string;
-    type: ArtifactType;
-    status: ArtifactStatus;
-    description: string;
-    tags?: string[];
-    gx: number;
-    gy: number;
-    documentationContent?: string;
-  },
-): ArtifactRow {
-  return {
-    id: newId(),
-    projectId: project.id,
-    title: spec.title,
-    type: spec.type,
-    status: spec.status,
-    description: spec.description,
-    tags: spec.tags ?? [],
-    gx: spec.gx,
-    gy: spec.gy,
-    createdBy: user.id,
-    createdAt: now,
-    updatedAt: now,
-    documentationContent: spec.documentationContent,
-  };
+interface ArtifactSpec {
+  title: string;
+  type: ArtifactType;
+  status: ArtifactStatus;
+  description: string;
+  tags?: string[];
+  gx: number;
+  gy: number;
+  documentationContent?: string;
 }
-
-function makeRelation(
-  user: UserRow,
-  now: string,
-  source: ArtifactRow,
-  target: ArtifactRow,
-  type: RelationType,
-  description = "",
-): RelationRow {
-  return {
-    id: newId(),
-    sourceArtifactId: source.id,
-    targetArtifactId: target.id,
-    relationType: type,
-    description,
-    createdBy: user.id,
-    createdAt: now,
-  };
-}
-
-function makeExport(
-  user: UserRow,
-  project: ProjectRow,
-  format: ExportFormat,
-  sections: string[],
-): ExportPackageRow {
-  return {
-    id: newId(),
-    projectId: project.id,
-    format,
-    sections,
-    content: buildExportContent(project.id, format, sections),
-    createdBy: user.id,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-// ───────────────────── seed ─────────────────────
 
 async function main() {
-  resetDbForTests();
-  const state = db();
-  const now = new Date().toISOString();
+  // Wipe in dependency-safe order. Postgres FK cascades will handle most of
+  // it, but explicit deletes keep the seed re-runnable.
+  await prisma.$transaction([
+    prisma.versionEvent.deleteMany(),
+    prisma.exportPackage.deleteMany(),
+    prisma.validationIssue.deleteMany(),
+    prisma.diagram.deleteMany(),
+    prisma.databaseField.deleteMany(),
+    prisma.databaseEntity.deleteMany(),
+    prisma.databaseModel.deleteMany(),
+    prisma.apiEndpoint.deleteMany(),
+    prisma.apiSpec.deleteMany(),
+    prisma.artifactRelation.deleteMany(),
+    prisma.artifact.deleteMany(),
+    prisma.project.deleteMany(),
+    prisma.user.deleteMany(),
+  ]);
 
-  // user
+  // ── user ──
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
-  const user: UserRow = {
-    id: newId(),
-    email: DEMO_EMAIL,
-    passwordHash,
-    firstName: "Deyvid",
-    lastName: "Popov",
-    role: "ADMIN",
-    createdAt: now,
-  };
-  state.users.push(user);
-
-  // project
-  const project: ProjectRow = {
-    id: newId(),
-    name: "Online Shop Platform",
-    description:
-      "Reference e-commerce architecture: gateway, auth, catalog, orders, payments. Used as the thesis walkthrough demo.",
-    ownerId: user.id,
-    createdAt: now,
-    updatedAt: now,
-  };
-  state.projects.push(project);
-
-  // artifacts — laid out on a rough grid so the graph view is readable
-  const auth      = makeArtifact(user, project, now, { title: "Authentication Service",    type: "SERVICE",          status: "ACTIVE",     description: "Issues JWTs and validates credentials for all first-party clients.",                  tags: ["auth"],         gx: -160, gy: -40,  documentationContent: DOC_AUTH });
-  const userDb    = makeArtifact(user, project, now, { title: "User Database",              type: "DATABASE_MODEL",   status: "ACTIVE",     description: "Postgres — accounts, hashed credentials, last-seen.",                                  tags: ["postgres"],     gx: -340, gy:  80 });
-  const catalog   = makeArtifact(user, project, now, { title: "Product Catalog API",        type: "API_ENDPOINT",     status: "ACTIVE",     description: "Read-mostly catalog API for the storefront and internal services.",                    tags: ["rest"],         gx:  180, gy: -40 });
-  const prodDb    = makeArtifact(user, project, now, { title: "Product Database",           type: "DATABASE_MODEL",   status: "ACTIVE",     description: "Postgres — products, SKUs, prices, stock counters.",                                   tags: ["postgres"],     gx:  360, gy:  80 });
-  const order     = makeArtifact(user, project, now, { title: "Order Service",              type: "SERVICE",          status: "ACTIVE",     description: "Owns the order lifecycle. Talks to catalog and payment services.",                     tags: ["orders"],       gx:  100, gy: 160,  documentationContent: DOC_ORDER });
-  const payment   = makeArtifact(user, project, now, { title: "Payment Service",            type: "SERVICE",          status: "ACTIVE",     description: "Modern payment integration — Stripe-backed, used for all new orders.",                 tags: ["payments"],     gx:  260, gy: 240 });
-  const legacy    = makeArtifact(user, project, now, { title: "Legacy Payment Service",     type: "SERVICE",          status: "DEPRECATED", description: "Old payment integration. Scheduled for removal once the last cohort migrates.",        tags: ["legacy"],       gx:  -40, gy: 240 });
-  const policy    = makeArtifact(user, project, now, { title: "JWT Security Policy",        type: "SECURITY_POLICY",  status: "ACTIVE",     description: "Signing algorithm, TTLs, audience scoping and revocation rules for JWTs.",            tags: ["security"],     gx: -340, gy: -160 });
-  const gateway   = makeArtifact(user, project, now, { title: "API Gateway",                type: "SERVICE",          status: "ACTIVE",     description: "Single public ingress. Routes traffic, validates JWTs, applies rate limits.",          tags: ["gateway"],      gx:    0, gy: -160, documentationContent: DOC_GATEWAY });
-  const archDoc   = makeArtifact(user, project, now, { title: "System Architecture Documentation", type: "DOCUMENTATION", status: "ACTIVE", description: "High-level map of the Online Shop Platform.",                                          tags: ["docs"],         gx:  340, gy: -200, documentationContent: DOC_ARCH });
-
-  state.artifacts.push(
-    auth, userDb, catalog, prodDb, order, payment, legacy, policy, gateway, archDoc,
-  );
-
-  // relations (10)
-  // API spec — Authentication API linked to the Auth Service, with three endpoints
-  const authSpec: ApiSpecRow = {
-    id: newId(),
-    projectId: project.id,
-    artifactId: auth.id,
-    title: "Authentication API",
-    version: "1.0.0",
-    baseUrl: "/api/auth",
-    description: "Public ingress for credential exchange and identity introspection.",
-    createdBy: user.id,
-    createdAt: now,
-    updatedAt: now,
-  };
-  state.apiSpecs.push(authSpec);
-
-  const makeEndpoint = (
-    path: string,
-    method: HttpMethod,
-    summary: string,
-    requestSchema: string,
-    responseSchema: string,
-    requiresAuth: boolean,
-  ): ApiEndpointRow => ({
-    id: newId(),
-    apiSpecId: authSpec.id,
-    path,
-    method,
-    summary,
-    requestSchema,
-    responseSchema,
-    requiresAuth,
-    createdAt: now,
-    updatedAt: now,
-  });
-  state.apiEndpoints.push(
-    makeEndpoint("/auth/login",    "POST", "Issue a token for valid credentials.", '{ "email": "string", "password": "string" }', '{ "token": "string", "user": { "id": "string", "email": "string" } }', false),
-    makeEndpoint("/auth/register", "POST", "Create an account and return a token.", '{ "email": "string", "password": "string", "firstName": "string", "lastName": "string" }', '{ "token": "string", "user": { ... } }', false),
-    makeEndpoint("/auth/me",       "GET",  "Return the authenticated user.",        "",                                                                                  '{ "user": { "id": "string", "email": "string" } }',  true),
-  );
-
-  // Database model — User Management Database linked to the User Database artifact
-  const dbModel: DatabaseModelRow = {
-    id: newId(),
-    projectId: project.id,
-    artifactId: userDb.id,
-    title: "User Management Database",
-    databaseType: "PostgreSQL",
-    description: "Accounts, sessions and roles for the platform.",
-    createdBy: user.id,
-    createdAt: now,
-    updatedAt: now,
-  };
-  state.databaseModels.push(dbModel);
-
-  const makeEntity = (name: string, description: string): DatabaseEntityRow => ({
-    id: newId(),
-    databaseModelId: dbModel.id,
-    name,
-    description,
-    createdAt: now,
-    updatedAt: now,
-  });
-  const usersEntity = makeEntity("users", "End-user accounts.");
-  const sessionsEntity = makeEntity("sessions", "Active and revoked refresh-token sessions per user.");
-  const rolesEntity = makeEntity("roles", "Role identifiers assignable to users.");
-  state.databaseEntities.push(usersEntity, sessionsEntity, rolesEntity);
-
-  const makeField = (
-    entity: DatabaseEntityRow,
-    name: string,
-    type: string,
-    opts: Partial<Omit<DatabaseFieldRow, "id" | "entityId" | "name" | "type">> = {},
-  ): DatabaseFieldRow => ({
-    id: newId(),
-    entityId: entity.id,
-    name,
-    type,
-    required: opts.required ?? false,
-    isPrimaryKey: opts.isPrimaryKey ?? false,
-    isForeignKey: opts.isForeignKey ?? !!opts.referencesEntityId,
-    referencesEntityId: opts.referencesEntityId ?? null,
-    description: opts.description ?? "",
+  const user = await prisma.user.create({
+    data: {
+      email: DEMO_EMAIL,
+      passwordHash,
+      firstName: "Deyvid",
+      lastName: "Popov",
+      role: "ADMIN",
+    },
   });
 
-  // Architecture Overview diagram linked to the API Gateway
-  const archDiagram: DiagramRow = {
-    id: newId(),
-    projectId: project.id,
-    artifactId: gateway.id,
-    title: "Architecture Overview",
-    type: "ARCHITECTURE",
-    mermaidSource: `flowchart TD
+  // ── project ──
+  const project = await prisma.project.create({
+    data: {
+      name: "Online Shop Platform",
+      description:
+        "Reference e-commerce architecture: gateway, auth, catalog, orders, payments. Used as the thesis walkthrough demo.",
+      ownerId: user.id,
+    },
+  });
+
+  // ── artifacts ──
+  const specs: Record<string, ArtifactSpec> = {
+    auth:    { title: "Authentication Service",         type: "SERVICE",          status: "ACTIVE",     description: "Issues JWTs and validates credentials for all first-party clients.", tags: ["auth"],       gx: -160, gy: -40, documentationContent: DOC_AUTH },
+    userDb:  { title: "User Database",                  type: "DATABASE_MODEL",   status: "ACTIVE",     description: "Postgres — accounts, hashed credentials, last-seen.",                tags: ["postgres"],   gx: -340, gy:  80 },
+    catalog: { title: "Product Catalog API",            type: "API_ENDPOINT",     status: "ACTIVE",     description: "Read-mostly catalog API for the storefront and internal services.",  tags: ["rest"],       gx:  180, gy: -40 },
+    prodDb:  { title: "Product Database",               type: "DATABASE_MODEL",   status: "ACTIVE",     description: "Postgres — products, SKUs, prices, stock counters.",                tags: ["postgres"],   gx:  360, gy:  80 },
+    order:   { title: "Order Service",                  type: "SERVICE",          status: "ACTIVE",     description: "Owns the order lifecycle. Talks to catalog and payment services.",  tags: ["orders"],     gx:  100, gy: 160, documentationContent: DOC_ORDER },
+    payment: { title: "Payment Service",                type: "SERVICE",          status: "ACTIVE",     description: "Modern payment integration — Stripe-backed, used for all new orders.", tags: ["payments"], gx:  260, gy: 240 },
+    legacy:  { title: "Legacy Payment Service",         type: "SERVICE",          status: "DEPRECATED", description: "Old payment integration. Scheduled for removal once the last cohort migrates.", tags: ["legacy"], gx: -40, gy: 240 },
+    policy:  { title: "JWT Security Policy",            type: "SECURITY_POLICY",  status: "ACTIVE",     description: "Signing algorithm, TTLs, audience scoping and revocation rules for JWTs.", tags: ["security"], gx: -340, gy: -160 },
+    gateway: { title: "API Gateway",                    type: "SERVICE",          status: "ACTIVE",     description: "Single public ingress. Routes traffic, validates JWTs, applies rate limits.", tags: ["gateway"], gx: 0, gy: -160, documentationContent: DOC_GATEWAY },
+    archDoc: { title: "System Architecture Documentation", type: "DOCUMENTATION", status: "ACTIVE",     description: "High-level map of the Online Shop Platform.",                       tags: ["docs"],       gx:  340, gy: -200, documentationContent: DOC_ARCH },
+  };
+
+  const artifactRows: Record<string, { id: string; title: string; type: ArtifactType; status: ArtifactStatus; documentationContent: string | null }> = {};
+  for (const [key, s] of Object.entries(specs)) {
+    const created = await prisma.artifact.create({
+      data: {
+        projectId: project.id,
+        title: s.title,
+        type: s.type,
+        status: s.status,
+        description: s.description,
+        tags: s.tags ?? [],
+        gx: s.gx,
+        gy: s.gy,
+        createdById: user.id,
+        documentationContent: s.documentationContent,
+      },
+    });
+    artifactRows[key] = {
+      id: created.id,
+      title: created.title,
+      type: created.type,
+      status: created.status,
+      documentationContent: created.documentationContent,
+    };
+  }
+
+  const a = artifactRows;
+
+  // ── relations ──
+  const relationSpecs: { source: string; target: string; type: RelationType; description: string }[] = [
+    { source: "auth",    target: "userDb",  type: "DEPENDS_ON",        description: "Auth Service reads/writes user records." },
+    { source: "policy",  target: "auth",    type: "SECURES",           description: "JWT policy governs the Authentication Service." },
+    { source: "gateway", target: "auth",    type: "COMMUNICATES_WITH", description: "Gateway delegates token checks to Auth." },
+    { source: "gateway", target: "catalog", type: "COMMUNICATES_WITH", description: "Gateway routes /products/* to the catalog API." },
+    { source: "catalog", target: "prodDb",  type: "DEPENDS_ON",        description: "Catalog API reads product rows from Postgres." },
+    { source: "order",   target: "catalog", type: "USES",              description: "Order Service validates carts against the catalog." },
+    { source: "order",   target: "payment", type: "DEPENDS_ON",        description: "Modern payment integration — preferred." },
+    { source: "order",   target: "legacy",  type: "DEPENDS_ON",        description: "Legacy integration kept for one cohort — pending migration." },
+    { source: "archDoc", target: "gateway", type: "DOCUMENTS",         description: "Architecture doc covers the gateway." },
+    { source: "archDoc", target: "order",   type: "DOCUMENTS",         description: "Architecture doc covers the order flow." },
+  ];
+  const relationRows: { id: string; sourceArtifactId: string; targetArtifactId: string; relationType: RelationType; sourceKey: string; targetKey: string }[] = [];
+  for (const r of relationSpecs) {
+    const created = await prisma.artifactRelation.create({
+      data: {
+        sourceArtifactId: a[r.source].id,
+        targetArtifactId: a[r.target].id,
+        relationType: r.type,
+        description: r.description,
+        createdById: user.id,
+      },
+    });
+    relationRows.push({
+      id: created.id,
+      sourceArtifactId: created.sourceArtifactId,
+      targetArtifactId: created.targetArtifactId,
+      relationType: created.relationType,
+      sourceKey: r.source,
+      targetKey: r.target,
+    });
+  }
+
+  // ── API spec ──
+  const authSpec = await prisma.apiSpec.create({
+    data: {
+      projectId: project.id,
+      artifactId: a.auth.id,
+      title: "Authentication API",
+      version: "1.0.0",
+      baseUrl: "/api/auth",
+      description: "Public ingress for credential exchange and identity introspection.",
+      createdById: user.id,
+    },
+  });
+
+  const endpointSpecs: { path: string; method: HttpMethod; summary: string; requestSchema: string; responseSchema: string; requiresAuth: boolean }[] = [
+    { path: "/auth/login",    method: "POST", summary: "Issue a token for valid credentials.", requestSchema: '{ "email": "string", "password": "string" }', responseSchema: '{ "token": "string", "user": { "id": "string", "email": "string" } }', requiresAuth: false },
+    { path: "/auth/register", method: "POST", summary: "Create an account and return a token.", requestSchema: '{ "email": "string", "password": "string", "firstName": "string", "lastName": "string" }', responseSchema: '{ "token": "string", "user": { ... } }', requiresAuth: false },
+    { path: "/auth/me",       method: "GET",  summary: "Return the authenticated user.",        requestSchema: "",                                                                                  responseSchema: '{ "user": { "id": "string", "email": "string" } }',  requiresAuth: true  },
+  ];
+  const endpointRows: { id: string; path: string; method: HttpMethod }[] = [];
+  for (const ep of endpointSpecs) {
+    const created = await prisma.apiEndpoint.create({
+      data: { apiSpecId: authSpec.id, ...ep },
+    });
+    endpointRows.push({ id: created.id, path: created.path, method: created.method });
+  }
+
+  // ── Database model ──
+  const dbModel = await prisma.databaseModel.create({
+    data: {
+      projectId: project.id,
+      artifactId: a.userDb.id,
+      title: "User Management Database",
+      databaseType: "PostgreSQL",
+      description: "Accounts, sessions and roles for the platform.",
+      createdById: user.id,
+    },
+  });
+  const usersEntity = await prisma.databaseEntity.create({
+    data: { databaseModelId: dbModel.id, name: "users", description: "End-user accounts." },
+  });
+  const sessionsEntity = await prisma.databaseEntity.create({
+    data: { databaseModelId: dbModel.id, name: "sessions", description: "Active and revoked refresh-token sessions per user." },
+  });
+  const rolesEntity = await prisma.databaseEntity.create({
+    data: { databaseModelId: dbModel.id, name: "roles", description: "Role identifiers assignable to users." },
+  });
+
+  await prisma.databaseField.createMany({
+    data: [
+      { entityId: usersEntity.id,    name: "id",            type: "uuid",        isPrimaryKey: true, required: true },
+      { entityId: usersEntity.id,    name: "email",         type: "text",        required: true },
+      { entityId: usersEntity.id,    name: "password_hash", type: "text",        required: true },
+      { entityId: usersEntity.id,    name: "created_at",    type: "timestamptz", required: true },
+      { entityId: sessionsEntity.id, name: "id",            type: "uuid",        isPrimaryKey: true, required: true },
+      { entityId: sessionsEntity.id, name: "user_id",       type: "uuid",        isForeignKey: true, referencesEntityId: usersEntity.id, required: true, description: "Owning user" },
+      { entityId: sessionsEntity.id, name: "expires_at",    type: "timestamptz", required: true },
+      { entityId: sessionsEntity.id, name: "revoked_at",    type: "timestamptz" },
+      { entityId: rolesEntity.id,    name: "id",            type: "uuid",        isPrimaryKey: true, required: true },
+      { entityId: rolesEntity.id,    name: "name",          type: "text",        required: true },
+    ],
+  });
+
+  // ── Diagram ──
+  const archDiagram = await prisma.diagram.create({
+    data: {
+      projectId: project.id,
+      artifactId: a.gateway.id,
+      title: "Architecture Overview",
+      type: "ARCHITECTURE",
+      mermaidSource: `flowchart TD
   Client["Client browser"] --> API_Gateway["API Gateway"]
   API_Gateway --> Auth_Service["Authentication Service"]
   API_Gateway --> Product_Service["Product Catalog API"]
@@ -376,111 +307,57 @@ async function main() {
   Order_Service["Order Service"] --> Product_Service
   Order_Service --> Payment_Service["Payment Service"]
   Order_Service --> Legacy_Payment_Service["Legacy Payment Service"]`,
-    description: "High-level request flow through the Online Shop Platform.",
-    createdBy: user.id,
-    createdAt: now,
-    updatedAt: now,
-  };
-  state.diagrams.push(archDiagram);
+      description: "High-level request flow through the Online Shop Platform.",
+      createdById: user.id,
+    },
+  });
 
-  state.databaseFields.push(
-    // users
-    makeField(usersEntity, "id",            "uuid",        { isPrimaryKey: true, required: true }),
-    makeField(usersEntity, "email",         "text",        { required: true }),
-    makeField(usersEntity, "password_hash", "text",        { required: true }),
-    makeField(usersEntity, "created_at",    "timestamptz", { required: true }),
-    // sessions
-    makeField(sessionsEntity, "id",          "uuid",        { isPrimaryKey: true, required: true }),
-    makeField(sessionsEntity, "user_id",     "uuid",        { isForeignKey: true, referencesEntityId: usersEntity.id, required: true, description: "Owning user" }),
-    makeField(sessionsEntity, "expires_at",  "timestamptz", { required: true }),
-    makeField(sessionsEntity, "revoked_at",  "timestamptz"),
-    // roles
-    makeField(rolesEntity, "id",   "uuid", { isPrimaryKey: true, required: true }),
-    makeField(rolesEntity, "name", "text", { required: true }),
-  );
-
-  state.relations.push(
-    makeRelation(user, now, auth,    userDb,  "DEPENDS_ON",        "Auth Service reads/writes user records."),
-    makeRelation(user, now, policy,  auth,    "SECURES",           "JWT policy governs the Authentication Service."),
-    makeRelation(user, now, gateway, auth,    "COMMUNICATES_WITH", "Gateway delegates token checks to Auth."),
-    makeRelation(user, now, gateway, catalog, "COMMUNICATES_WITH", "Gateway routes /products/* to the catalog API."),
-    makeRelation(user, now, catalog, prodDb,  "DEPENDS_ON",        "Catalog API reads product rows from Postgres."),
-    makeRelation(user, now, order,   catalog, "USES",              "Order Service validates carts against the catalog."),
-    makeRelation(user, now, order,   payment, "DEPENDS_ON",        "Modern payment integration — preferred."),
-    makeRelation(user, now, order,   legacy,  "DEPENDS_ON",        "Legacy integration kept for one cohort — pending migration."),
-    makeRelation(user, now, archDoc, gateway, "DOCUMENTS",         "Architecture doc covers the gateway."),
-    makeRelation(user, now, archDoc, order,   "DOCUMENTS",         "Architecture doc covers the order flow."),
-  );
-
-  persist();
-
-  // ── version history: backfill realistic events so the timeline is populated
-  // out of the box. Days are spaced so they group naturally on the timeline.
+  // ── Version history: backfill realistic events spanning ~12 days ──
+  const baseTime = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
   const at = (daysAgo: number, hour = 12, minute = 0) => {
-    const d = new Date(Date.parse(now) - daysAgo * dayMs);
+    const t = baseTime - daysAgo * dayMs;
+    const d = new Date(t);
     d.setUTCHours(hour, minute, 0, 0);
-    return d.toISOString();
+    return d;
   };
 
-  const seedEvents: {
-    entityType: Parameters<typeof recordVersionEvent>[0]["entityType"];
-    entityId: string;
-    action: Parameters<typeof recordVersionEvent>[0]["action"];
-    title: string;
-    description: string;
-    metadata?: Record<string, unknown>;
-    at: string;
-  }[] = [
-    { entityType: "ARTIFACT",       entityId: auth.id,       action: "CREATED", title: auth.title,    description: "SERVICE (ACTIVE)",    at: at(12, 9, 14) },
-    { entityType: "ARTIFACT",       entityId: userDb.id,     action: "CREATED", title: userDb.title,  description: "DATABASE_MODEL",      at: at(12, 9, 32) },
-    { entityType: "DATABASE_MODEL", entityId: dbModel.id,    action: "CREATED", title: dbModel.title, description: "PostgreSQL",          metadata: { databaseType: "PostgreSQL" }, at: at(11, 11, 5) },
-    { entityType: "DATABASE_ENTITY", entityId: usersEntity.id, action: "CREATED", title: usersEntity.name,    description: "Added to User Management Database", metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 10) },
-    { entityType: "DATABASE_ENTITY", entityId: sessionsEntity.id, action: "CREATED", title: sessionsEntity.name, description: "Added to User Management Database", metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 12) },
-    { entityType: "DATABASE_ENTITY", entityId: rolesEntity.id, action: "CREATED", title: rolesEntity.name, description: "Added to User Management Database", metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 14) },
-    { entityType: "ARTIFACT",       entityId: catalog.id,    action: "CREATED", title: catalog.title, description: "API_ENDPOINT",        at: at(10, 14, 2) },
-    { entityType: "ARTIFACT",       entityId: prodDb.id,     action: "CREATED", title: prodDb.title,  description: "DATABASE_MODEL",      at: at(10, 14, 10) },
-    { entityType: "ARTIFACT",       entityId: gateway.id,    action: "CREATED", title: gateway.title, description: "SERVICE",             at: at(9,  10, 0) },
-    { entityType: "ARTIFACT",       entityId: order.id,      action: "CREATED", title: order.title,   description: "SERVICE",             at: at(9,  10, 20) },
-    { entityType: "ARTIFACT",       entityId: payment.id,    action: "CREATED", title: payment.title, description: "SERVICE",             at: at(9,  10, 40) },
-    { entityType: "ARTIFACT",       entityId: legacy.id,     action: "CREATED", title: legacy.title,  description: "SERVICE (DEPRECATED)", at: at(8, 9, 30) },
-    { entityType: "API_SPEC",       entityId: authSpec.id,   action: "CREATED", title: authSpec.title, description: `v${authSpec.version} · ${authSpec.baseUrl}`, metadata: { version: authSpec.version }, at: at(7, 13, 15) },
-    { entityType: "API_ENDPOINT",   entityId: state.apiEndpoints[0].id, action: "CREATED", title: `${state.apiEndpoints[0].method} ${state.apiEndpoints[0].path}`, description: `Added to "${authSpec.title}"`, metadata: { specId: authSpec.id }, at: at(7, 13, 16) },
-    { entityType: "API_ENDPOINT",   entityId: state.apiEndpoints[1].id, action: "CREATED", title: `${state.apiEndpoints[1].method} ${state.apiEndpoints[1].path}`, description: `Added to "${authSpec.title}"`, metadata: { specId: authSpec.id }, at: at(7, 13, 17) },
-    { entityType: "API_ENDPOINT",   entityId: state.apiEndpoints[2].id, action: "CREATED", title: `${state.apiEndpoints[2].method} ${state.apiEndpoints[2].path}`, description: `Added to "${authSpec.title}"`, metadata: { specId: authSpec.id }, at: at(7, 13, 18) },
-    { entityType: "RELATION",       entityId: state.relations[0].id, action: "LINKED",  title: `${auth.title} → ${userDb.title}`, description: "DEPENDS_ON", metadata: { relationType: "DEPENDS_ON", sourceArtifactId: auth.id, targetArtifactId: userDb.id }, at: at(6, 11, 0) },
-    { entityType: "RELATION",       entityId: state.relations[2].id, action: "LINKED",  title: `${gateway.title} → ${auth.title}`, description: "COMMUNICATES_WITH", metadata: { relationType: "COMMUNICATES_WITH", sourceArtifactId: gateway.id, targetArtifactId: auth.id }, at: at(6, 11, 5) },
-    { entityType: "DIAGRAM",        entityId: archDiagram.id, action: "CREATED", title: archDiagram.title, description: archDiagram.type, metadata: { type: archDiagram.type }, at: at(5, 16, 30) },
-    { entityType: "DOCUMENTATION",  entityId: auth.id,        action: "CREATED", title: auth.title,    description: "Documentation created", metadata: { length: (auth.documentationContent ?? "").length }, at: at(4, 10, 0) },
-    { entityType: "DOCUMENTATION",  entityId: gateway.id,     action: "CREATED", title: gateway.title, description: "Documentation created", metadata: { length: (gateway.documentationContent ?? "").length }, at: at(4, 10, 30) },
-    { entityType: "DOCUMENTATION",  entityId: order.id,       action: "CREATED", title: order.title,   description: "Documentation created", metadata: { length: (order.documentationContent ?? "").length }, at: at(4, 11, 0) },
-    { entityType: "DOCUMENTATION",  entityId: archDoc.id,     action: "CREATED", title: archDoc.title, description: "Documentation created", metadata: { length: (archDoc.documentationContent ?? "").length }, at: at(4, 11, 30) },
-    { entityType: "ARTIFACT",       entityId: auth.id,        action: "UPDATED", title: auth.title,    description: "status, tags",          metadata: { changed: ["status", "tags"] }, at: at(3, 14, 0) },
-    { entityType: "ARTIFACT",       entityId: gateway.id,     action: "UPDATED", title: gateway.title, description: "description",            metadata: { changed: ["description"] },   at: at(2, 9, 0) },
-    { entityType: "DATABASE_MODEL", entityId: dbModel.id,     action: "UPDATED", title: dbModel.title, description: "description",            metadata: { changed: ["description"] },   at: at(2, 9, 30) },
+  const events: Parameters<typeof recordVersionEvent>[0][] = [
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.auth.id,       action: "CREATED", title: a.auth.title,    description: "SERVICE (ACTIVE)",                    triggeredBy: user.id, at: at(12, 9, 14) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.userDb.id,     action: "CREATED", title: a.userDb.title,  description: "DATABASE_MODEL",                      triggeredBy: user.id, at: at(12, 9, 32) },
+    { projectId: project.id, entityType: "DATABASE_MODEL",  entityId: dbModel.id,      action: "CREATED", title: dbModel.title,   description: "PostgreSQL",                          triggeredBy: user.id, metadata: { databaseType: "PostgreSQL" }, at: at(11, 11, 5) },
+    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: usersEntity.id,  action: "CREATED", title: usersEntity.name,    description: "Added to User Management Database", triggeredBy: user.id, metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 10) },
+    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: sessionsEntity.id, action: "CREATED", title: sessionsEntity.name, description: "Added to User Management Database", triggeredBy: user.id, metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 12) },
+    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: rolesEntity.id,  action: "CREATED", title: rolesEntity.name, description: "Added to User Management Database", triggeredBy: user.id, metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 14) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.catalog.id,    action: "CREATED", title: a.catalog.title, description: "API_ENDPOINT",                        triggeredBy: user.id, at: at(10, 14, 2) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.prodDb.id,     action: "CREATED", title: a.prodDb.title,  description: "DATABASE_MODEL",                      triggeredBy: user.id, at: at(10, 14, 10) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.gateway.id,    action: "CREATED", title: a.gateway.title, description: "SERVICE",                             triggeredBy: user.id, at: at(9,  10, 0) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.order.id,      action: "CREATED", title: a.order.title,   description: "SERVICE",                             triggeredBy: user.id, at: at(9,  10, 20) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.payment.id,    action: "CREATED", title: a.payment.title, description: "SERVICE",                             triggeredBy: user.id, at: at(9,  10, 40) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.legacy.id,     action: "CREATED", title: a.legacy.title,  description: "SERVICE (DEPRECATED)",                triggeredBy: user.id, at: at(8,  9, 30) },
+    { projectId: project.id, entityType: "API_SPEC",        entityId: authSpec.id,     action: "CREATED", title: authSpec.title,  description: `v${authSpec.version} · ${authSpec.baseUrl}`, triggeredBy: user.id, metadata: { version: authSpec.version }, at: at(7, 13, 15) },
+    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[0].id, action: "CREATED", title: `${endpointRows[0].method} ${endpointRows[0].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: user.id, metadata: { specId: authSpec.id }, at: at(7, 13, 16) },
+    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[1].id, action: "CREATED", title: `${endpointRows[1].method} ${endpointRows[1].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: user.id, metadata: { specId: authSpec.id }, at: at(7, 13, 17) },
+    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[2].id, action: "CREATED", title: `${endpointRows[2].method} ${endpointRows[2].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: user.id, metadata: { specId: authSpec.id }, at: at(7, 13, 18) },
+    { projectId: project.id, entityType: "RELATION",        entityId: relationRows[0].id, action: "LINKED",  title: `${a.auth.title} → ${a.userDb.title}`, description: "DEPENDS_ON",        triggeredBy: user.id, metadata: { relationType: "DEPENDS_ON", sourceArtifactId: a.auth.id, targetArtifactId: a.userDb.id }, at: at(6, 11, 0) },
+    { projectId: project.id, entityType: "RELATION",        entityId: relationRows[2].id, action: "LINKED",  title: `${a.gateway.title} → ${a.auth.title}`, description: "COMMUNICATES_WITH", triggeredBy: user.id, metadata: { relationType: "COMMUNICATES_WITH", sourceArtifactId: a.gateway.id, targetArtifactId: a.auth.id }, at: at(6, 11, 5) },
+    { projectId: project.id, entityType: "DIAGRAM",         entityId: archDiagram.id,    action: "CREATED", title: archDiagram.title, description: archDiagram.type, triggeredBy: user.id, metadata: { type: archDiagram.type }, at: at(5, 16, 30) },
+    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.auth.id,         action: "CREATED", title: a.auth.title,    description: "Documentation created", triggeredBy: user.id, metadata: { length: (a.auth.documentationContent ?? "").length }, at: at(4, 10, 0) },
+    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.gateway.id,      action: "CREATED", title: a.gateway.title, description: "Documentation created", triggeredBy: user.id, metadata: { length: (a.gateway.documentationContent ?? "").length }, at: at(4, 10, 30) },
+    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.order.id,        action: "CREATED", title: a.order.title,   description: "Documentation created", triggeredBy: user.id, metadata: { length: (a.order.documentationContent ?? "").length }, at: at(4, 11, 0) },
+    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.archDoc.id,      action: "CREATED", title: a.archDoc.title, description: "Documentation created", triggeredBy: user.id, metadata: { length: (a.archDoc.documentationContent ?? "").length }, at: at(4, 11, 30) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.auth.id,         action: "UPDATED", title: a.auth.title,    description: "status, tags",          triggeredBy: user.id, metadata: { changed: ["status", "tags"] }, at: at(3, 14, 0) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.gateway.id,      action: "UPDATED", title: a.gateway.title, description: "description",          triggeredBy: user.id, metadata: { changed: ["description"] },   at: at(2, 9, 0) },
+    { projectId: project.id, entityType: "DATABASE_MODEL",  entityId: dbModel.id,        action: "UPDATED", title: dbModel.title,   description: "description",          triggeredBy: user.id, metadata: { changed: ["description"] },   at: at(2, 9, 30) },
   ];
 
-  for (const ev of seedEvents) {
-    recordVersionEvent({
-      projectId: project.id,
-      entityType: ev.entityType,
-      entityId: ev.entityId,
-      action: ev.action,
-      title: ev.title,
-      description: ev.description,
-      triggeredBy: user.id,
-      metadata: ev.metadata,
-      at: ev.at,
-    });
-  }
-  persist();
+  for (const e of events) await recordVersionEvent(e);
 
-  // validation — runs against the artifacts/relations we just persisted
-  // (records its own VALIDATED event via the engine)
-  const issues = runValidationForProject(project.id, user.id);
+  // ── Validation ──
+  const issues = await runValidationForProject(project.id, user.id);
 
-  // exports (one rich JSON, one Markdown for human reading)
-  const jsonExport = makeExport(user, project, "JSON", [
+  // ── Exports ──
+  const jsonContent = await buildExportContent(project.id, "JSON", [
     "ARTIFACTS",
     "RELATIONS",
     "API_SPECS",
@@ -491,7 +368,7 @@ async function main() {
     "VERSION_HISTORY",
     "IMPACT_ANALYSIS",
   ]);
-  const markdownExport = makeExport(user, project, "MARKDOWN", [
+  const mdContent = await buildExportContent(project.id, "MARKDOWN", [
     "ARTIFACTS",
     "API_SPECS",
     "DATABASE_MODELS",
@@ -500,9 +377,24 @@ async function main() {
     "VALIDATION_REPORT",
     "VERSION_HISTORY",
   ]);
-  state.exports.push(jsonExport, markdownExport);
-
-  persist();
+  await prisma.exportPackage.create({
+    data: {
+      projectId: project.id,
+      format: "JSON",
+      sections: ["ARTIFACTS", "RELATIONS", "API_SPECS", "DATABASE_MODELS", "DIAGRAMS", "GRAPH", "VALIDATION_REPORT", "VERSION_HISTORY", "IMPACT_ANALYSIS"],
+      content: jsonContent as Prisma.InputJsonValue,
+      createdById: user.id,
+    },
+  });
+  await prisma.exportPackage.create({
+    data: {
+      projectId: project.id,
+      format: "MARKDOWN",
+      sections: ["ARTIFACTS", "API_SPECS", "DATABASE_MODELS", "DIAGRAMS", "RELATIONS", "VALIDATION_REPORT", "VERSION_HISTORY"],
+      content: mdContent as Prisma.InputJsonValue,
+      createdById: user.id,
+    },
+  });
 
   // eslint-disable-next-line no-console
   console.log(
@@ -510,27 +402,13 @@ async function main() {
       {
         demoUser: { email: DEMO_EMAIL, password: DEMO_PASSWORD, id: user.id },
         project: { id: project.id, name: project.name },
-        artifacts: state.artifacts.map((a) => ({ id: a.id, title: a.title, status: a.status })),
-        relations: state.relations.map((r) => r.id),
-        apiSpecs: state.apiSpecs.map((s) => ({ id: s.id, title: s.title, endpointCount: state.apiEndpoints.filter((e) => e.apiSpecId === s.id).length })),
-        databaseModels: state.databaseModels.map((m) => ({
-          id: m.id,
-          title: m.title,
-          entityCount: state.databaseEntities.filter((e) => e.databaseModelId === m.id).length,
-        })),
-        diagrams: state.diagrams.map((d) => ({ id: d.id, title: d.title, type: d.type })),
-        versionEvents: state.versionEvents.length,
-        validation: {
-          issueCount: issues.length,
-          severities: issues.reduce<Record<string, number>>((acc, v) => {
-            acc[v.severity] = (acc[v.severity] || 0) + 1;
-            return acc;
-          }, {}),
-        },
-        exports: [
-          { id: jsonExport.id, format: jsonExport.format, sections: jsonExport.sections },
-          { id: markdownExport.id, format: markdownExport.format, sections: markdownExport.sections },
-        ],
+        artifacts: Object.values(artifactRows).map((x) => ({ id: x.id, title: x.title, status: x.status })),
+        relationCount: relationRows.length,
+        apiSpec: { id: authSpec.id, endpointCount: endpointRows.length },
+        dbModel: { id: dbModel.id, entityCount: 3 },
+        diagrams: [{ id: archDiagram.id, type: archDiagram.type }],
+        validationIssueCount: issues.length,
+        versionEventCount: await prisma.versionEvent.count({ where: { projectId: project.id } }),
       },
       null,
       2,
@@ -538,8 +416,10 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    // eslint-disable-next-line no-console
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());

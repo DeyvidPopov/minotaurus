@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { db, persist, type UserRow } from "../../db/json-db.js";
-import { newId } from "../../utils/ids.js";
+import type { User } from "@prisma/client";
+import { prisma } from "../../lib/prisma.js";
 import { signToken } from "../../middleware/auth.js";
 import { created, fail, ok } from "../../utils/response.js";
 
@@ -18,7 +18,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-function toPublicUser(u: UserRow) {
+export function toPublicUser(u: User) {
   return {
     id: u.id,
     email: u.email,
@@ -35,28 +35,23 @@ export async function register(req: Request, res: Response) {
     return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
   }
   const { email, password, firstName, lastName } = parsed.data;
-  const state = db();
-  if (state.users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
     return fail(res, 409, "EMAIL_TAKEN", "Email is already registered");
   }
   const passwordHash = await bcrypt.hash(password, 10);
-  const user: UserRow = {
-    id: newId(),
-    email,
-    passwordHash,
-    firstName,
-    lastName,
-    role: state.users.length === 0 ? "ADMIN" : "ENGINEER",
-    createdAt: new Date().toISOString(),
-  };
-  state.users.push(user);
-  persist();
+  const userCount = await prisma.user.count();
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      firstName,
+      lastName,
+      role: userCount === 0 ? "ADMIN" : "ENGINEER",
+    },
+  });
   const token = signToken({ userId: user.id, email: user.email });
-  return created(
-    res,
-    { token, user: toPublicUser(user) },
-    "Account created",
-  );
+  return created(res, { token, user: toPublicUser(user) }, "Account created");
 }
 
 export async function login(req: Request, res: Response) {
@@ -65,9 +60,9 @@ export async function login(req: Request, res: Response) {
     return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
   }
   const { email, password } = parsed.data;
-  const user = db().users.find(
-    (u) => u.email.toLowerCase() === email.toLowerCase(),
-  );
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
   if (!user) return fail(res, 401, "INVALID_CREDENTIALS", "Invalid email or password");
   const okPw = await bcrypt.compare(password, user.passwordHash);
   if (!okPw) return fail(res, 401, "INVALID_CREDENTIALS", "Invalid email or password");
@@ -75,9 +70,10 @@ export async function login(req: Request, res: Response) {
   return ok(res, { token, user: toPublicUser(user) }, "Login successful");
 }
 
-export function me(req: Request, res: Response) {
+export async function me(req: Request, res: Response) {
   const userId = (req as Request & { user?: { userId: string } }).user?.userId;
-  const user = db().users.find((u) => u.id === userId);
+  if (!userId) return fail(res, 401, "UNAUTHORIZED", "User not found");
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return fail(res, 401, "UNAUTHORIZED", "User not found");
   return ok(res, { user: toPublicUser(user) }, "OK");
 }
@@ -92,9 +88,10 @@ const updateMeSchema = z
     message: "At least one field is required",
   });
 
-export function updateMe(req: Request, res: Response) {
+export async function updateMe(req: Request, res: Response) {
   const userId = (req as Request & { user?: { userId: string } }).user?.userId;
-  const user = db().users.find((u) => u.id === userId);
+  if (!userId) return fail(res, 401, "UNAUTHORIZED", "User not found");
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return fail(res, 401, "UNAUTHORIZED", "User not found");
 
   const parsed = updateMeSchema.safeParse(req.body);
@@ -103,17 +100,24 @@ export function updateMe(req: Request, res: Response) {
   }
 
   if (parsed.data.email && parsed.data.email.toLowerCase() !== user.email.toLowerCase()) {
-    const taken = db().users.some(
-      (u) => u.id !== user.id && u.email.toLowerCase() === parsed.data.email!.toLowerCase(),
-    );
+    const taken = await prisma.user.findFirst({
+      where: {
+        id: { not: user.id },
+        email: { equals: parsed.data.email, mode: "insensitive" },
+      },
+    });
     if (taken) return fail(res, 409, "EMAIL_TAKEN", "Email is already registered");
-    user.email = parsed.data.email;
   }
-  if (parsed.data.firstName) user.firstName = parsed.data.firstName;
-  if (parsed.data.lastName) user.lastName = parsed.data.lastName;
 
-  persist();
-  return ok(res, { user: toPublicUser(user) }, "Profile updated");
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      ...(parsed.data.email ? { email: parsed.data.email } : {}),
+      ...(parsed.data.firstName ? { firstName: parsed.data.firstName } : {}),
+      ...(parsed.data.lastName ? { lastName: parsed.data.lastName } : {}),
+    },
+  });
+  return ok(res, { user: toPublicUser(updated) }, "Profile updated");
 }
 
 const passwordSchema = z.object({
@@ -123,7 +127,8 @@ const passwordSchema = z.object({
 
 export async function changePassword(req: Request, res: Response) {
   const userId = (req as Request & { user?: { userId: string } }).user?.userId;
-  const user = db().users.find((u) => u.id === userId);
+  if (!userId) return fail(res, 401, "UNAUTHORIZED", "User not found");
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return fail(res, 401, "UNAUTHORIZED", "User not found");
 
   const parsed = passwordSchema.safeParse(req.body);
@@ -133,9 +138,10 @@ export async function changePassword(req: Request, res: Response) {
   const okPw = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
   if (!okPw) return fail(res, 401, "INVALID_CREDENTIALS", "Current password is incorrect");
 
-  user.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
-  persist();
-  return ok(res, { user: toPublicUser(user) }, "Password updated");
+  const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+  return ok(res, { user: toPublicUser(updated) }, "Password updated");
 }
-
-export { toPublicUser };
