@@ -24,5 +24,9 @@ export const authApi = {
     return data;
   },
   me: () => apiClient.get<{ user: User }>("/auth/me"),
+  updateMe: (body: Partial<Pick<User, "firstName" | "lastName" | "email">>) =>
+    apiClient.patch<{ user: User }>("/auth/me", body),
+  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+    apiClient.post<{ user: User }>("/auth/change-password", body),
   logout: () => setAccessToken(null),
 };
