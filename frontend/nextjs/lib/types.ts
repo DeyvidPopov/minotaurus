@@ -38,7 +38,8 @@ export type Category =
   | "SECURITY"
   | "ARCHITECTURE"
   | "RELATIONSHIP"
-  | "VERSIONING";
+  | "VERSIONING"
+  | "DIAGRAM";
 
 export type EntityType =
   | "ARTIFACT"

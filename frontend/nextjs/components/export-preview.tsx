@@ -4,7 +4,8 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen, Database, Key, Link2, ArrowRight } from "lucide-react";
+import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen, Database, Key, Link2, ArrowRight, GitMerge } from "lucide-react";
+import { MermaidPreview } from "@/components/mermaid-preview";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
@@ -106,6 +107,16 @@ interface ExportedDatabaseModel {
   entities?: ExportedDatabaseEntity[];
 }
 
+interface ExportedDiagram {
+  id: string;
+  title: string;
+  type: string;
+  mermaidSource?: string;
+  description?: string;
+  artifactId?: string | null;
+  linkedArtifact?: { id: string; title: string; type: ArtifactType } | null;
+}
+
 interface ExportContent {
   project?: ExportedProject;
   generatedAt?: string;
@@ -114,6 +125,7 @@ interface ExportContent {
   validationIssues?: ExportedIssue[];
   apiSpecs?: ExportedApiSpec[];
   databaseModels?: ExportedDatabaseModel[];
+  diagrams?: ExportedDiagram[];
 }
 
 export interface ExportPreviewModel {
@@ -153,6 +165,7 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
   const totalEndpoints = apiSpecs.reduce((s, x) => s + (x.endpoints?.length ?? 0), 0);
   const databaseModels = parsed?.databaseModels ?? [];
   const totalEntities = databaseModels.reduce((s, m) => s + (m.entities?.length ?? 0), 0);
+  const diagrams = parsed?.diagrams ?? [];
   const docCount = artifacts.filter((a) => a.documentation?.markdownContent?.trim()).length;
 
   return (
@@ -171,12 +184,13 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
           <span className="text-[11.5px] text-fg-subtle">sections: {preview.sections.join(", ") || "—"}</span>
         </div>
         {!isMarkdown && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mt-3">
             <SummaryCount icon={<Box size={13} />} label="Artifacts" value={artifacts.length} />
             <SummaryCount icon={<BookOpen size={13} />} label="With docs" value={docCount} />
             <SummaryCount icon={<Network size={13} />} label="Relations" value={relations.length} />
             <SummaryCount icon={<Plug size={13} />} label="API endpoints" value={totalEndpoints} />
             <SummaryCount icon={<Database size={13} />} label="DB entities" value={totalEntities} />
+            <SummaryCount icon={<GitMerge size={13} />} label="Diagrams" value={diagrams.length} />
             <SummaryCount icon={<Shield size={13} />} label="Issues" value={issues.length} />
           </div>
         )}
@@ -204,6 +218,7 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
               <ArtifactsSection artifacts={artifacts} />
               <ApiSpecsSection apiSpecs={apiSpecs} />
               <DatabaseModelsSection databaseModels={databaseModels} />
+              <DiagramsSection diagrams={diagrams} />
               <RelationsSection relations={relations} artifactsById={artifactsById} />
               <IssuesSection issues={issues} artifactsById={artifactsById} />
             </>
@@ -524,6 +539,56 @@ function DatabaseModelsSection({ databaseModels }: { databaseModels: ExportedDat
             </div>
           );
         })}
+      </div>
+    </Card>
+  );
+}
+
+function DiagramsSection({ diagrams }: { diagrams: ExportedDiagram[] }) {
+  if (diagrams.length === 0) {
+    return (
+      <Card title="Diagrams">
+        <div className="text-fg-muted text-[13px]">Not included in this export.</div>
+      </Card>
+    );
+  }
+  return (
+    <Card title={`Diagrams (${diagrams.length})`}>
+      <div className="flex flex-col gap-3">
+        {diagrams.map((d) => (
+          <div key={d.id} className="bg-panel-2 border border-border rounded-md p-3">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <GitMerge size={13} className="text-accent" />
+              <span className="font-semibold text-[13.5px]">{d.title}</span>
+              <Badge mono>{d.type}</Badge>
+              {d.linkedArtifact && (
+                <span className="flex items-center gap-1.5 text-[12px] text-fg-muted ml-1">
+                  <TypeChip type={d.linkedArtifact.type} />
+                  {d.linkedArtifact.title}
+                </span>
+              )}
+            </div>
+            {d.description && <div className="text-fg-muted text-[12.5px] mb-2">{d.description}</div>}
+            {d.mermaidSource && d.mermaidSource.trim() ? (
+              <>
+                <div className="bg-panel border border-border rounded-md p-3 mb-2">
+                  <MermaidPreview source={d.mermaidSource} />
+                </div>
+                <details className="group">
+                  <summary className="cursor-pointer select-none text-[12px] text-accent hover:underline list-none flex items-center gap-1">
+                    <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
+                    Mermaid source
+                  </summary>
+                  <pre className="mt-2 bg-panel border border-border rounded-md p-2.5 text-[12px] overflow-auto" style={{ maxHeight: 220 }}>
+                    {d.mermaidSource}
+                  </pre>
+                </details>
+              </>
+            ) : (
+              <div className="text-fg-subtle text-[12.5px] italic">No Mermaid source.</div>
+            )}
+          </div>
+        ))}
       </div>
     </Card>
   );

@@ -11,6 +11,7 @@ import {
   type DatabaseEntityRow,
   type DatabaseFieldRow,
   type DatabaseModelRow,
+  type DiagramRow,
   type ExportPackageRow,
   type HttpMethod,
   type ProjectRow,
@@ -358,6 +359,29 @@ async function main() {
     description: opts.description ?? "",
   });
 
+  // Architecture Overview diagram linked to the API Gateway
+  const archDiagram: DiagramRow = {
+    id: newId(),
+    projectId: project.id,
+    artifactId: gateway.id,
+    title: "Architecture Overview",
+    type: "ARCHITECTURE",
+    mermaidSource: `flowchart TD
+  Client[Client browser] --> API_Gateway[API Gateway]
+  API_Gateway --> Auth_Service[Authentication Service]
+  API_Gateway --> Product_Service[Product Catalog API]
+  Auth_Service --> User_DB[(User Database)]
+  Product_Service --> Product_DB[(Product Database)]
+  Order_Service[Order Service] --> Product_Service
+  Order_Service --> Payment_Service[Payment Service]
+  Order_Service --> Legacy_Payment_Service[Legacy Payment Service]`,
+    description: "High-level request flow through the Online Shop Platform.",
+    createdBy: user.id,
+    createdAt: now,
+    updatedAt: now,
+  };
+  state.diagrams.push(archDiagram);
+
   state.databaseFields.push(
     // users
     makeField(usersEntity, "id",            "uuid",        { isPrimaryKey: true, required: true }),
@@ -398,6 +422,7 @@ async function main() {
     "RELATIONS",
     "API_SPECS",
     "DATABASE_MODELS",
+    "DIAGRAMS",
     "GRAPH",
     "VALIDATION_REPORT",
   ]);
@@ -405,6 +430,7 @@ async function main() {
     "ARTIFACTS",
     "API_SPECS",
     "DATABASE_MODELS",
+    "DIAGRAMS",
     "RELATIONS",
     "VALIDATION_REPORT",
   ]);
@@ -426,6 +452,7 @@ async function main() {
           title: m.title,
           entityCount: state.databaseEntities.filter((e) => e.databaseModelId === m.id).length,
         })),
+        diagrams: state.diagrams.map((d) => ({ id: d.id, title: d.title, type: d.type })),
         validation: {
           issueCount: issues.length,
           severities: issues.reduce<Record<string, number>>((acc, v) => {

@@ -23,6 +23,7 @@ export function runValidationForProject(projectId: string): ValidationIssueRow[]
   );
   const entityIds = new Set(databaseEntities.map((e) => e.id));
   const databaseFields = state.databaseFields.filter((f) => entityIds.has(f.entityId));
+  const diagrams = state.diagrams.filter((d) => d.projectId === projectId);
 
   state.validationIssues = state.validationIssues.filter((v) => v.projectId !== projectId);
 
@@ -239,6 +240,72 @@ export function runValidationForProject(projectId: string): ValidationIssueRow[]
           }
         }
       }
+    }
+  }
+
+  // ── Diagram rules ──
+  const HEADER_BY_TYPE: Record<string, RegExp> = {
+    FLOWCHART: /^\s*(flowchart|graph)\b/im,
+    SEQUENCE: /^\s*sequenceDiagram\b/im,
+    ERD: /^\s*erDiagram\b/im,
+    CLASS: /^\s*classDiagram\b/im,
+    STATE: /^\s*stateDiagram\b/im,
+    GANTT: /^\s*gantt\b/im,
+    ARCHITECTURE: /^\s*(flowchart|graph)\b/im,
+  };
+  const ARROW_RE = /(-->|->>|-->>|--x|--o|==>|\|\|--|\|\|--\|\||o--|--\|>|==>|<-->|<--|\.->|\.\.>)/;
+
+  for (const diagram of diagrams) {
+    const src = diagram.mermaidSource ?? "";
+    // Rule 1: empty Mermaid source
+    if (!src.trim()) {
+      issues.push({
+        id: newId(),
+        projectId,
+        artifactId: diagram.artifactId ?? diagram.id,
+        severity: "WARNING",
+        category: "DIAGRAM",
+        message: `Diagram "${diagram.title}" has an empty Mermaid source.`,
+        status: "OPEN",
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      // Rule 2: heuristic — header keyword + at least one arrow-like token
+      const headerRe = HEADER_BY_TYPE[diagram.type] ?? HEADER_BY_TYPE.FLOWCHART;
+      const headerOk = headerRe.test(src);
+      const arrowOk = ARROW_RE.test(src);
+      if (!headerOk || !arrowOk) {
+        const reasons: string[] = [];
+        if (!headerOk) reasons.push("missing diagram-type header");
+        if (!arrowOk) reasons.push("no relations/arrows detected");
+        issues.push({
+          id: newId(),
+          projectId,
+          artifactId: diagram.artifactId ?? diagram.id,
+          severity: "WARNING",
+          category: "DIAGRAM",
+          message: `Diagram "${diagram.title}" may be invalid Mermaid (${reasons.join(", ")}).`,
+          status: "OPEN",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
+    // Rule 3: ARCHITECTURE diagram without a linked artifact
+    if (diagram.type === "ARCHITECTURE" && !diagram.artifactId) {
+      issues.push({
+        id: newId(),
+        projectId,
+        artifactId: diagram.id,
+        severity: "INFO",
+        category: "DIAGRAM",
+        message: `Architecture diagram "${diagram.title}" is not linked to an artifact.`,
+        status: "OPEN",
+        createdAt: now,
+        updatedAt: now,
+      });
     }
   }
 

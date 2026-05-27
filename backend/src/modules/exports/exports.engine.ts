@@ -42,6 +42,7 @@ export function buildExportContent(
   const databaseEntities = state.databaseEntities.filter((e) => dbModelIds.has(e.databaseModelId));
   const dbEntityIds = new Set(databaseEntities.map((e) => e.id));
   const databaseFields = state.databaseFields.filter((f) => dbEntityIds.has(f.entityId));
+  const diagrams = state.diagrams.filter((d) => d.projectId === projectId);
 
   const wanted = new Set(sections.map((s) => s.toUpperCase()));
   // DOCUMENTATION implies ARTIFACTS — docs live inside artifact objects.
@@ -54,6 +55,7 @@ export function buildExportContent(
   const wantsApiSpecs = wanted.has("API_SPECS") || wanted.has("API_ENDPOINTS");
   const wantsDatabaseModels =
     wanted.has("DATABASE_MODELS") || wanted.has("DATABASE_ENTITIES");
+  const wantsDiagrams = wanted.has("DIAGRAMS");
 
   const payload: Record<string, unknown> = {
     project,
@@ -62,6 +64,26 @@ export function buildExportContent(
   if (wantsArtifacts) payload.artifacts = artifacts.map(serializeArtifactForExport);
   if (wanted.has("RELATIONS")) payload.relations = relations;
   if (wantsValidation) payload.validationIssues = issues;
+  if (wantsDiagrams) {
+    payload.diagrams = diagrams.map((d) => ({
+      id: d.id,
+      projectId: d.projectId,
+      artifactId: d.artifactId,
+      title: d.title,
+      type: d.type,
+      mermaidSource: d.mermaidSource,
+      description: d.description,
+      createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
+      linkedArtifact:
+        d.artifactId
+          ? (() => {
+              const a = artifacts.find((x) => x.id === d.artifactId);
+              return a ? { id: a.id, title: a.title, type: a.type } : null;
+            })()
+          : null,
+    }));
+  }
   if (wantsDatabaseModels) {
     const entityNameById = new Map(databaseEntities.map((e) => [e.id, e.name]));
     payload.databaseModels = databaseModels.map((m) => ({
@@ -171,6 +193,22 @@ export function buildExportContent(
         if (a.documentationContent && a.documentationContent.trim()) {
           lines.push(`#### Documentation`);
           lines.push(a.documentationContent.trim() + "\n");
+        }
+      }
+    }
+    if (wantsDiagrams && diagrams.length > 0) {
+      lines.push("\n## Diagrams\n");
+      const titleById = new Map(artifacts.map((a) => [a.id, a.title]));
+      for (const d of diagrams) {
+        lines.push(`### ${d.title}  \`${d.type}\``);
+        if (d.artifactId) lines.push(`Linked artifact: **${titleById.get(d.artifactId) ?? d.artifactId}**`);
+        if (d.description) lines.push(`\n${d.description}`);
+        if (d.mermaidSource && d.mermaidSource.trim()) {
+          lines.push("\n```mermaid");
+          lines.push(d.mermaidSource.trim());
+          lines.push("```\n");
+        } else {
+          lines.push("\n_No Mermaid source._\n");
         }
       }
     }

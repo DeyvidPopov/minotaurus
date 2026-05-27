@@ -84,7 +84,8 @@ export interface ValidationIssueRow {
     | "SECURITY"
     | "ARCHITECTURE"
     | "RELATIONSHIP"
-    | "VERSIONING";
+    | "VERSIONING"
+    | "DIAGRAM";
   message: string;
   status: "OPEN" | "RESOLVED" | "IGNORED";
   createdAt: string;
@@ -169,6 +170,28 @@ export interface DatabaseFieldRow {
   description: string;
 }
 
+export type DiagramType =
+  | "FLOWCHART"
+  | "SEQUENCE"
+  | "ERD"
+  | "CLASS"
+  | "STATE"
+  | "GANTT"
+  | "ARCHITECTURE";
+
+export interface DiagramRow {
+  id: string;
+  projectId: string;
+  artifactId: string | null;
+  title: string;
+  type: DiagramType;
+  mermaidSource: string;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DbShape {
   users: UserRow[];
   projects: ProjectRow[];
@@ -181,6 +204,7 @@ export interface DbShape {
   databaseModels: DatabaseModelRow[];
   databaseEntities: DatabaseEntityRow[];
   databaseFields: DatabaseFieldRow[];
+  diagrams: DiagramRow[];
 }
 
 const empty: DbShape = {
@@ -195,6 +219,7 @@ const empty: DbShape = {
   databaseModels: [],
   databaseEntities: [],
   databaseFields: [],
+  diagrams: [],
 };
 
 const DATA_FILE =

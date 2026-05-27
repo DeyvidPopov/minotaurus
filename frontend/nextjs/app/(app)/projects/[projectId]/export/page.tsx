@@ -30,6 +30,7 @@ const SECTIONS = [
   { id: "RELATIONS", label: "Relations" },
   { id: "API_SPECS", label: "API specs & endpoints" },
   { id: "DATABASE_MODELS", label: "Database models" },
+  { id: "DIAGRAMS", label: "Diagrams" },
   { id: "VALIDATION", label: "Validation issues" },
 ];
 
