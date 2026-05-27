@@ -2,6 +2,20 @@
 
 ## Last Completed Feature
 
+Phase 6 finalization — Postgres runtime live and verified:
+- Detected Postgres on **:5433** (the local install uses 5433, not the spec's 5432).
+- Credentials `postgres / postgres123!` confirmed working.
+- Created `minotaurus` database; applied `20260527120000_init` migration; verified 13
+  tables + 13 enums on disk.
+- Added `GET /api/health/db` → `{ database, provider, port }`.
+- `npm run seed` populated the demo end-to-end against Postgres: 10 artifacts, 10
+  relations, 1 API spec + 3 endpoints, 1 DB model + 3 entities, 1 diagram,
+  27 version events, 3 validation issues, 2 exports.
+- E2E smoke through the running backend: login OK, projects load, artifacts/graph/api
+  specs/db models/diagrams/version history/impact/exports all read from Postgres.
+- `npm run test:api` 11/11 PASS.
+
+## Phase 6 code (shipped earlier in the session)
 Phase 6 — PostgreSQL migration:
 - Prisma schema with 14 models replacing the JSON DbShape (User, Project, Artifact,
   ArtifactRelation, ApiSpec, ApiEndpoint, DatabaseModel, DatabaseEntity, DatabaseField,
@@ -39,7 +53,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-e896ca3 — *Migrate persistence layer to PostgreSQL*
+cf2611f — *Finalize PostgreSQL runtime integration*
 
 ## Current Working State
 

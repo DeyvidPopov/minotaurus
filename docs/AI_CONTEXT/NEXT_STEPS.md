@@ -1,20 +1,31 @@
 # Next Steps
 
-Phase 6 (PostgreSQL migration) is shipped. All controllers and engines run on
-Prisma/Postgres; the JSON file is gone. The frontend is unchanged.
+Phase 6 (PostgreSQL migration) is shipped and **live-verified**. Local Postgres on
+:5433, healthcheck `GET /api/health/db` reports connected, seed populates the demo,
+all 11 backend smoke tests + the per-page E2E check pass through Postgres. The
+frontend is unchanged.
 
 ## To bring a fresh checkout online
 ```
 cd backend
 npm install
-# create the database (one-time):
-psql -U postgres -c "CREATE DATABASE minotaurus;"
-# apply the initial migration:
+# Create the database (one-time):
+psql -U postgres -h localhost -p 5433 -c "CREATE DATABASE minotaurus;"
+# Apply the initial migration:
 npx prisma migrate deploy
-# seed the demo project:
+# Seed the demo:
 npm run seed
-# start:
-npm run dev
+# Run:
+npm run dev    # backend on :4000
+
+# In another terminal:
+cd ../frontend/nextjs && npm run dev   # frontend on :3000
+```
+
+## Sanity check
+```
+curl http://localhost:4000/api/health/db
+# → { "success": true, "data": { "database": "connected", "provider": "postgresql", "port": 5433 } }
 ```
 
 ## Recommended next phase

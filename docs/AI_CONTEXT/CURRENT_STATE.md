@@ -29,15 +29,21 @@ Backend:
 - Settings
 
 ## Current Persistence
-PostgreSQL (Prisma ORM). Schema in `backend/prisma/schema.prisma`.
-Connection via `DATABASE_URL` in `backend/.env`.
-Initial migration in `backend/prisma/migrations/20260527120000_init/migration.sql`.
+PostgreSQL (Prisma ORM) — **live and verified**.
+
+- Runtime: PostgreSQL 18 on `localhost:5433` (the local install uses 5433, not the
+  spec's default 5432).
+- Connection: `DATABASE_URL=postgresql://postgres:postgres123!@localhost:5433/minotaurus`
+  in `backend/.env`.
+- Initial migration applied: `backend/prisma/migrations/20260527120000_init/migration.sql`.
+- 13 tables + `_prisma_migrations`; 13 enums; all FK indexes created.
+- Healthcheck: `GET /api/health/db` returns `{ database: "connected", provider: "postgresql", port }`.
 
 To bootstrap a fresh local environment:
 ```
 cd backend
 npm install
-createdb minotaurus       # (or `CREATE DATABASE minotaurus` via psql)
+psql -U postgres -h localhost -p 5433 -c "CREATE DATABASE minotaurus;"
 npx prisma migrate deploy
 npm run seed
 npm run dev
@@ -62,12 +68,12 @@ validation.engine.ts
 - versions (version history + impact analysis)
 
 ## Current Commit
-e896ca3
+cf2611f
 
 ## Current Goal
-Phase 6 shipped: PostgreSQL migration. Every controller and engine now reads/writes
-through Prisma; the JSON file persistence is gone. API surface and frontend
-contracts are unchanged. Recommended next phase: AI architecture analysis.
+Phase 6 finalized: PostgreSQL migration is live. Database reachable on :5433 with the
+working password; migrations applied, seed run, end-to-end verified. Recommended next
+phase: AI architecture analysis.
 
 ## Important Constraints
 - Do not migrate PostgreSQL yet

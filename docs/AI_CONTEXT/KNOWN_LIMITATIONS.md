@@ -60,19 +60,22 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - No notifications backend. The Notifications tab on Settings is disabled stubs.
 - No API tokens module yet. The API tokens tab is a "coming next" placeholder.
 
-## Phase 6 migration caveats (live verification skipped)
-- The Phase 6 commit was authored without a live Postgres connection on the dev
-  machine (port mismatch: the installed instance was on :5433, the brief assumed
-  :5432; password reset required elevated rights that weren't available). Verification
-  was limited to `prisma format`, `prisma validate`, `prisma generate`, and
-  `tsc --noEmit` on both backend and frontend — all clean.
-- First run on a real database should: ensure Postgres is reachable on the URL in
-  `backend/.env`, `npx prisma migrate deploy`, `npm run seed`, `npm run dev`.
+## Phase 6 runtime (now finalized)
+- Database is **live** on `localhost:5433` (PostgreSQL 18). Credentials: `postgres /
+  postgres123!`, database name `minotaurus`. Connection string in `backend/.env`.
+- Healthcheck: `GET /api/health/db` returns `{ database: "connected", provider:
+  "postgresql", port: 5433 }`.
+- Initial migration `20260527120000_init` applied. 13 tables + 13 enums + indexes
+  verified to exist via `psql \dt` and `pg_type`.
+- The local Postgres uses **port 5433**, not the 5432 the spec assumed. If you wire
+  this project into another environment, set `DATABASE_URL` to whatever your
+  Postgres actually listens on; the schema does not care.
 - The seed assumes an empty database; if you run it twice it cleans every table
   first via a single `$transaction` of `deleteMany`s.
-- Cascade behavior matches the JSON era: deleting an Artifact cascades to its
-  relations, API specs, DB models and diagrams via the schema's `onDelete: Cascade`
-  / `SetNull` directives.
+- Cascade behavior: deleting a Project cascades to artifacts/relations/specs/etc.;
+  deleting an Artifact cascades to its relations and **nulls** the FK on its API
+  specs / DB models / diagrams (they survive as "unlinked", matching what the
+  frontend already handles).
 
 ## Versioning / History (Phase 5 — shipped)
 - Implemented in `backend/src/modules/versions/`. Every CUD action on artifacts,

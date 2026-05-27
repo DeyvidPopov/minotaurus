@@ -69,7 +69,21 @@
 - Seed: 26 backdated version events spanning 12 days so the timeline is populated
   out of the box; seeded exports include VERSION_HISTORY and IMPACT_ANALYSIS
 
-## PHASE 6 (current pass) — PostgreSQL migration
+## PHASE 6 FINALIZED — live Postgres runtime (current pass)
+- Postgres detected on **:5433** (the local install uses 5433, not the spec's :5432).
+- Working credentials: `postgres / postgres123!`.
+- Created `minotaurus` database; applied `20260527120000_init` migration.
+- Verified 13 tables + 13 enums + indexes exist on disk.
+- Added `GET /api/health/db` → `{ database: "connected", provider: "postgresql", port }`.
+- `npm run seed` populates the demo project end-to-end against Postgres (10 artifacts,
+  10 relations, 1 API spec + 3 endpoints, 1 DB model + 3 entities, 1 diagram,
+  27 version events, 3 validation issues, 2 exports).
+- `npm run start` boots cleanly; backend smoke `test:api` passes 11/11 endpoints;
+  custom end-to-end check confirms login, projects, artifacts, graph, API specs,
+  DB models, diagrams, version history, impact analysis and exports all read from
+  Postgres.
+
+## PHASE 6 — PostgreSQL migration (code shipped earlier in this session)
 - New `backend/prisma/schema.prisma` with 14 models matching the previous JSON shape one-to-one
   (User, Project, Artifact, ArtifactRelation, ApiSpec, ApiEndpoint, DatabaseModel, DatabaseEntity,
   DatabaseField, Diagram, ValidationIssue, ExportPackage, VersionEvent + enums for every union

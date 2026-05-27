@@ -41,13 +41,35 @@ import {
   versionEventsRouter,
 } from "./modules/versions/versions.routes.js";
 import { requireAuth } from "./middleware/auth.js";
-import { ok } from "./utils/response.js";
+import { fail, ok } from "./utils/response.js";
+import { prisma } from "./lib/prisma.js";
 
 export const apiRouter = Router();
 
 apiRouter.get("/health", (_req, res) =>
   ok(res, { status: "ok", time: new Date().toISOString() }, "Healthy"),
 );
+
+apiRouter.get("/health/db", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    const url = process.env.DATABASE_URL ?? "";
+    const portMatch = url.match(/:(\d+)\//);
+    const port = portMatch ? Number(portMatch[1]) : null;
+    return ok(
+      res,
+      {
+        database: "connected",
+        provider: "postgresql",
+        port,
+      },
+      "Database reachable",
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown database error";
+    return fail(res, 503, "DB_UNREACHABLE", message);
+  }
+});
 
 apiRouter.use("/auth", authRouter);
 
