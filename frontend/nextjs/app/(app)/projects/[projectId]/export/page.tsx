@@ -25,7 +25,7 @@ interface ExportDetail extends ExportSummary {
 }
 
 const SECTIONS = [
-  { id: "ARTIFACTS", label: "Artifacts" },
+  { id: "ARTIFACTS", label: "Artifacts (includes documentation)" },
   { id: "RELATIONS", label: "Relations" },
   { id: "VALIDATION", label: "Validation issues" },
 ];

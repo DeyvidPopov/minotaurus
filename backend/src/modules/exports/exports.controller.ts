@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   db,
   persist,
+  type ArtifactRow,
   type ExportPackageRow,
 } from "../../db/json-db.js";
 import { newId } from "../../utils/ids.js";
@@ -22,6 +23,21 @@ function projectAccess(projectId: string, userId: string): "ok" | "not_found" | 
   return project.ownerId === userId ? "ok" : "forbidden";
 }
 
+// Strip the raw `documentationContent` field and surface it as a structured
+// `documentation` object iff non-empty. Keeps the canonical storage on the
+// artifact row — no duplicate documentation tree.
+function serializeArtifactForExport(a: ArtifactRow) {
+  const { documentationContent, ...rest } = a;
+  const out: Record<string, unknown> = { ...rest };
+  if (documentationContent && documentationContent.trim()) {
+    out.documentation = {
+      markdownContent: documentationContent,
+      updatedAt: a.updatedAt,
+    };
+  }
+  return out;
+}
+
 function buildContent(
   projectId: string,
   format: (typeof FORMATS)[number],
@@ -37,23 +53,33 @@ function buildContent(
   const issues = state.validationIssues.filter((v) => v.projectId === projectId);
 
   const wanted = new Set(sections.map((s) => s.toUpperCase()));
+  // DOCUMENTATION implies ARTIFACTS — docs live inside artifact objects, so
+  // we always emit the artifacts array when either section is selected.
+  const wantsArtifacts = wanted.has("ARTIFACTS") || wanted.has("DOCUMENTATION");
+  const wantsValidation = wanted.has("VALIDATION") || wanted.has("VALIDATION_ISSUES");
+
   const payload: Record<string, unknown> = {
     project,
     generatedAt: new Date().toISOString(),
   };
-  if (wanted.has("ARTIFACTS")) payload.artifacts = artifacts;
+  if (wantsArtifacts) payload.artifacts = artifacts.map(serializeArtifactForExport);
   if (wanted.has("RELATIONS")) payload.relations = relations;
-  if (wanted.has("VALIDATION") || wanted.has("VALIDATION_ISSUES"))
-    payload.validationIssues = issues;
+  if (wantsValidation) payload.validationIssues = issues;
 
   if (format === "MARKDOWN") {
     const lines: string[] = [];
     lines.push(`# ${project?.name ?? "Project"}\n`);
     if (project?.description) lines.push(project.description + "\n");
-    if (wanted.has("ARTIFACTS")) {
+    if (wantsArtifacts) {
       lines.push("## Artifacts\n");
       for (const a of artifacts) {
-        lines.push(`- **${a.title}** (${a.type}, ${a.status}) — ${a.description}`);
+        lines.push(`### ${a.title}`);
+        lines.push(`_${a.type} · ${a.status}_\n`);
+        if (a.description) lines.push(`${a.description}\n`);
+        if (a.documentationContent && a.documentationContent.trim()) {
+          lines.push(`#### Documentation`);
+          lines.push(a.documentationContent.trim() + "\n");
+        }
       }
     }
     if (wanted.has("RELATIONS")) {
