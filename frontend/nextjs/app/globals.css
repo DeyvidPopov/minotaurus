@@ -243,6 +243,25 @@ body {
   line-height: 1;
 }
 
+/* Mermaid host — keep diagrams centered, scroll if too wide. */
+.mermaid-host {
+  width: 100%;
+  min-height: 0;
+}
+.mermaid-host > svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-host--centered {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.mermaid-host--centered > svg {
+  margin: 0 auto;
+}
+
 /* Rendered Markdown — light styling so docs look right inside cards. */
 .prose-markdown {
   color: var(--fg);

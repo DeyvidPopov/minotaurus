@@ -20,6 +20,8 @@ async function getMermaid() {
   return mermaidPromise;
 }
 
+export type MermaidStatus = "idle" | "pending" | "ok" | "error";
+
 interface Props {
   source: string;
   className?: string;
@@ -27,9 +29,20 @@ interface Props {
   rev?: number;
   /** Debounce ms; default 250 */
   debounceMs?: number;
+  /** Called after each render attempt — useful for live "Valid Mermaid" indicators */
+  onStatusChange?: (status: MermaidStatus, error: string | null) => void;
+  /** Center the SVG horizontally in its container */
+  center?: boolean;
 }
 
-export function MermaidPreview({ source, className, rev, debounceMs = 250 }: Props) {
+export function MermaidPreview({
+  source,
+  className,
+  rev,
+  debounceMs = 250,
+  onStatusChange,
+  center = true,
+}: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -38,6 +51,7 @@ export function MermaidPreview({ source, className, rev, debounceMs = 250 }: Pro
     let cancelled = false;
     setPending(true);
     setError(null);
+    onStatusChange?.("pending", null);
 
     const handle = window.setTimeout(async () => {
       if (cancelled) return;
@@ -45,6 +59,7 @@ export function MermaidPreview({ source, className, rev, debounceMs = 250 }: Pro
       if (!trimmed) {
         if (hostRef.current) hostRef.current.innerHTML = "";
         setPending(false);
+        onStatusChange?.("idle", null);
         return;
       }
       try {
@@ -55,12 +70,14 @@ export function MermaidPreview({ source, className, rev, debounceMs = 250 }: Pro
         if (cancelled) return;
         if (hostRef.current) hostRef.current.innerHTML = svg;
         setError(null);
+        onStatusChange?.("ok", null);
       } catch (err) {
         if (cancelled) return;
         // Mermaid throws on syntax errors; surface the message rather than crashing.
         if (hostRef.current) hostRef.current.innerHTML = "";
         const message = err instanceof Error ? err.message : "Unknown Mermaid error";
         setError(message);
+        onStatusChange?.("error", message);
       } finally {
         if (!cancelled) setPending(false);
       }
@@ -70,7 +87,7 @@ export function MermaidPreview({ source, className, rev, debounceMs = 250 }: Pro
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [source, rev, debounceMs]);
+  }, [source, rev, debounceMs, onStatusChange]);
 
   return (
     <div className={className}>
@@ -80,7 +97,11 @@ export function MermaidPreview({ source, className, rev, debounceMs = 250 }: Pro
           <div className="text-fg-muted whitespace-pre-wrap break-words">{error}</div>
         </div>
       ) : (
-        <div ref={hostRef} className="mermaid-host" style={{ overflow: "auto" }} />
+        <div
+          ref={hostRef}
+          className={"mermaid-host" + (center ? " mermaid-host--centered" : "")}
+          style={{ overflow: "auto" }}
+        />
       )}
       {pending && !error && (
         <div className="text-[11px] text-fg-subtle mt-1">rendering…</div>

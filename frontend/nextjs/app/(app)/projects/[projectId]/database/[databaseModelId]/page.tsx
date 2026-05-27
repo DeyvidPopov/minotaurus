@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Edit, Trash2, Plus, X, Key, Link2, Save, Database, ArrowRight } from "lucide-react";
+import { Edit, Trash2, Plus, X, Key, Link2, Save, Database, ArrowRight, GitMerge, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
 import { Empty } from "@/components/ui/empty";
 import { Tabs } from "@/components/ui/tabs";
+import { Segmented } from "@/components/ui/segmented";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   DATABASE_TYPES,
@@ -24,9 +25,50 @@ import {
   type DatabaseModel,
   type DatabaseType,
 } from "@/lib/api/database-models";
+import { diagramsApi } from "@/lib/api/diagrams";
 import { ApiError } from "@/lib/api/client";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import { MermaidPreview } from "@/components/mermaid-preview";
+
+// ───────────────────────── Mermaid generator ─────────────────────────
+
+function escapeName(s: string) {
+  // Mermaid identifiers don't allow spaces; replace anything non-alphanumeric with _.
+  return s.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
+function generateMermaidErd(
+  modelTitle: string,
+  entities: DatabaseEntity[],
+  entityById: Map<string, DatabaseEntity>,
+): string {
+  const lines: string[] = ["erDiagram"];
+  if (entities.length === 0) {
+    lines.push(`  %% ${modelTitle} — no entities yet`);
+    return lines.join("\n");
+  }
+  for (const e of entities) {
+    lines.push(`  ${escapeName(e.name)} {`);
+    for (const f of e.fields) {
+      const flags: string[] = [];
+      if (f.isPrimaryKey) flags.push("PK");
+      if (f.isForeignKey || f.referencesEntityId) flags.push("FK");
+      lines.push(`    ${escapeName(f.type)} ${escapeName(f.name)}${flags.length ? " " + flags.join(",") : ""}`);
+    }
+    if (e.fields.length === 0) lines.push("    string placeholder");
+    lines.push(`  }`);
+  }
+  for (const e of entities) {
+    for (const f of e.fields) {
+      if (!f.referencesEntityId) continue;
+      const target = entityById.get(f.referencesEntityId);
+      if (!target) continue;
+      lines.push(`  ${escapeName(e.name)} }o--|| ${escapeName(target.name)} : "${f.name}"`);
+    }
+  }
+  return lines.join("\n");
+}
 
 export default function DatabaseModelDetailPage({
   params,
@@ -73,6 +115,11 @@ export default function DatabaseModelDetailPage({
 
   const entityById = useMemo(() => new Map(entities.map((e) => [e.id, e])), [entities]);
 
+  const generatedErd = useMemo(
+    () => (model ? generateMermaidErd(model.title, entities, entityById) : ""),
+    [model, entities, entityById],
+  );
+
   if (!model) {
     return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
   }
@@ -109,8 +156,24 @@ export default function DatabaseModelDetailPage({
     }
   };
 
+  const generateErdDiagram = async () => {
+    try {
+      const d = await diagramsApi.create(projectId, {
+        title: `${model.title} ERD`,
+        type: "ERD",
+        artifactId: model.artifactId,
+        mermaidSource: generatedErd,
+        description: `Auto-generated from database model "${model.title}".`,
+      });
+      toast.success(`Diagram "${d.title}" created`);
+      router.push(`/projects/${projectId}/diagrams/${d.id}`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not generate diagram");
+    }
+  };
+
   return (
-    <div className="px-8 py-6 max-w-[1100px] mx-auto">
+    <div className="px-8 py-6 max-w-[1200px] mx-auto">
       <PageHeader
         eyebrow={
           <>
@@ -165,9 +228,40 @@ export default function DatabaseModelDetailPage({
         />
       )}
 
-      {tab === "erd" && <ErdView entities={entities} entityById={entityById} />}
+      {tab === "erd" && (
+        <ErdView
+          model={model}
+          entities={entities}
+          entityById={entityById}
+          generatedErd={generatedErd}
+          onGenerateDiagram={generateErdDiagram}
+        />
+      )}
 
-      {tab === "mermaid" && <MermaidView model={model} entities={entities} entityById={entityById} />}
+      {tab === "mermaid" && (
+        <Card
+          title="Mermaid ERD source"
+          subtitle="Auto-generated from the entities and fields above. Paste into any Mermaid viewer."
+          action={
+            <Button
+              size="sm"
+              icon={<Copy size={12} />}
+              onClick={() => {
+                navigator.clipboard.writeText(generatedErd).then(
+                  () => toast.success("Mermaid source copied"),
+                  () => toast.error("Clipboard blocked"),
+                );
+              }}
+            >
+              Copy
+            </Button>
+          }
+        >
+          <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono" style={{ maxHeight: 480 }}>
+            {generatedErd}
+          </pre>
+        </Card>
+      )}
 
       {editingModel && (
         <EditModelModal
@@ -198,7 +292,7 @@ export default function DatabaseModelDetailPage({
         <FieldModal
           entity={fieldModal.entity}
           field={fieldModal.field}
-          siblingEntities={entities.filter((e) => true)}
+          siblingEntities={entities}
           onClose={() => setFieldModal(null)}
           onSaved={() => { setFieldModal(null); load(); }}
         />
@@ -207,7 +301,98 @@ export default function DatabaseModelDetailPage({
   );
 }
 
-// ───────────────────────── Entities editor ─────────────────────────
+// ───────────────────────── Entities editor (polished) ─────────────────────────
+
+function PkBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded font-mono font-bold leading-none"
+      style={{
+        color: "var(--c-warning)",
+        border: "1px solid color-mix(in srgb, var(--c-warning) 35%, transparent)",
+        background: "color-mix(in srgb, var(--c-warning) 12%, transparent)",
+      }}
+      title="Primary key"
+    >
+      <Key size={10} /> PK
+    </span>
+  );
+}
+
+function FkBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded font-mono font-bold leading-none"
+      style={{
+        color: "var(--c-info)",
+        border: "1px solid color-mix(in srgb, var(--c-info) 35%, transparent)",
+        background: "color-mix(in srgb, var(--c-info) 12%, transparent)",
+      }}
+      title="Foreign key"
+    >
+      <Link2 size={10} /> FK
+    </span>
+  );
+}
+
+function FieldRow({
+  field,
+  entityById,
+  onEdit,
+  onDelete,
+}: {
+  field: DatabaseField;
+  entityById: Map<string, DatabaseEntity>;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const target = field.referencesEntityId ? entityById.get(field.referencesEntityId) : null;
+  const targetPk = target?.fields.find((f) => f.isPrimaryKey);
+  const hasFk = field.isForeignKey || !!field.referencesEntityId;
+  return (
+    <tr className="border-b border-border last:border-0 hover:bg-panel-hover transition-colors">
+      <td className="px-3.5 py-2.5 font-mono text-[12.5px] font-semibold">
+        <div className="flex items-center gap-2">
+          {field.isPrimaryKey && <Key size={11} className="text-warning shrink-0" />}
+          {hasFk && <Link2 size={11} className="text-info shrink-0" />}
+          {field.name}
+        </div>
+      </td>
+      <td className="px-3.5 py-2.5 font-mono text-[12.5px] text-fg-muted">{field.type}</td>
+      <td className="px-3.5 py-2.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {field.isPrimaryKey && <PkBadge />}
+          {hasFk && <FkBadge />}
+          {field.required && (
+            <span className="inline-flex items-center text-[10.5px] px-1.5 py-0.5 rounded font-mono leading-none text-fg-muted border border-border bg-panel-2">
+              required
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="px-3.5 py-2.5 text-[12.5px]">
+        {hasFk ? (
+          target ? (
+            <span className="font-mono inline-flex items-center gap-1">
+              <ArrowRight size={11} className="text-fg-subtle" />
+              <span className="text-fg-muted">{target.name}.{targetPk?.name ?? "?"}</span>
+            </span>
+          ) : (
+            <span className="text-danger text-[11.5px]">missing target</span>
+          )
+        ) : (
+          <span className="text-fg-subtle">—</span>
+        )}
+      </td>
+      <td className="px-3.5 py-2.5 text-right">
+        <div className="flex items-center gap-1 justify-end">
+          <Button size="sm" icon={<Edit size={12} />} onClick={onEdit} />
+          <Button size="sm" icon={<Trash2 size={12} />} onClick={onDelete} />
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 function EntitiesEditor({
   entities,
@@ -244,7 +429,7 @@ function EntitiesEditor({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <div className="flex justify-end">
         <Button variant="primary" icon={<Plus size={14} />} onClick={onAddEntity}>
           Add entity
@@ -253,9 +438,7 @@ function EntitiesEditor({
       {entities.map((entity) => (
         <Card
           key={entity.id}
-          title={
-            <span className="font-mono font-semibold text-[14px]">{entity.name}</span>
-          }
+          title={<span className="font-mono font-semibold text-[14px]">{entity.name}</span>}
           subtitle={entity.description || "No description"}
           action={
             <div className="flex items-center gap-1">
@@ -281,40 +464,13 @@ function EntitiesEditor({
               </thead>
               <tbody>
                 {entity.fields.map((f) => (
-                  <tr key={f.id} className="border-b border-border last:border-0">
-                    <td className="px-3.5 py-2 font-mono text-[12.5px]">{f.name}</td>
-                    <td className="px-3.5 py-2 font-mono text-[12.5px] text-fg-muted">{f.type}</td>
-                    <td className="px-3.5 py-2">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {f.isPrimaryKey && (
-                          <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-mono font-bold"
-                            style={{ color: "var(--c-warning)", border: "1px solid color-mix(in srgb, var(--c-warning) 30%, transparent)", background: "color-mix(in srgb, var(--c-warning) 10%, transparent)" }}>
-                            <Key size={10} /> PK
-                          </span>
-                        )}
-                        {(f.isForeignKey || f.referencesEntityId) && (
-                          <span className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-mono font-bold"
-                            style={{ color: "var(--c-info)", border: "1px solid color-mix(in srgb, var(--c-info) 30%, transparent)", background: "color-mix(in srgb, var(--c-info) 10%, transparent)" }}>
-                            <Link2 size={10} /> FK
-                          </span>
-                        )}
-                        {f.required && <Badge mono>required</Badge>}
-                      </div>
-                    </td>
-                    <td className="px-3.5 py-2 text-[12.5px]">
-                      {f.referencesEntityId ? (
-                        <span className="font-mono">{entityById.get(f.referencesEntityId)?.name ?? <em className="text-danger">missing entity</em>}</span>
-                      ) : (
-                        <span className="text-fg-subtle">—</span>
-                      )}
-                    </td>
-                    <td className="px-3.5 py-2 text-right">
-                      <div className="flex items-center gap-1 justify-end">
-                        <Button size="sm" icon={<Edit size={12} />} onClick={() => onEditField(entity, f)} />
-                        <Button size="sm" icon={<Trash2 size={12} />} onClick={() => onDeleteField(f.id)} />
-                      </div>
-                    </td>
-                  </tr>
+                  <FieldRow
+                    key={f.id}
+                    field={f}
+                    entityById={entityById}
+                    onEdit={() => onEditField(entity, f)}
+                    onDelete={() => onDeleteField(f.id)}
+                  />
                 ))}
               </tbody>
             </table>
@@ -325,15 +481,23 @@ function EntitiesEditor({
   );
 }
 
-// ───────────────────────── ERD view (entity boxes + FK arrows summary) ─────────────────────────
+// ───────────────────────── ERD view — visual Mermaid + summary ─────────────────────────
 
 function ErdView({
+  model,
   entities,
   entityById,
+  generatedErd,
+  onGenerateDiagram,
 }: {
+  model: DatabaseModel;
   entities: DatabaseEntity[];
   entityById: Map<string, DatabaseEntity>;
+  generatedErd: string;
+  onGenerateDiagram: () => void;
 }) {
+  const [view, setView] = useState<"preview" | "source">("preview");
+
   if (entities.length === 0) {
     return (
       <Card>
@@ -341,20 +505,60 @@ function ErdView({
       </Card>
     );
   }
+
   const allFks = entities.flatMap((e) =>
     e.fields
-      .filter((f) => f.referencesEntityId)
+      .filter((f) => f.referencesEntityId || f.isForeignKey)
       .map((f) => ({
         sourceEntity: e.name,
         sourceField: f.name,
         targetEntity: f.referencesEntityId ? entityById.get(f.referencesEntityId)?.name ?? null : null,
-        targetMissing: f.referencesEntityId ? !entityById.has(f.referencesEntityId) : false,
+        targetPk: f.referencesEntityId
+          ? entityById.get(f.referencesEntityId)?.fields.find((x) => x.isPrimaryKey)?.name ?? null
+          : null,
+        targetMissing: !!f.referencesEntityId && !entityById.has(f.referencesEntityId),
       })),
   );
 
+  const copySource = () => {
+    navigator.clipboard.writeText(generatedErd).then(
+      () => toast.success("Mermaid source copied"),
+      () => toast.error("Clipboard blocked"),
+    );
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <Card title="Entities" subtitle="One box per entity. PK and FK fields are highlighted.">
+    <div className="flex flex-col gap-5">
+      <Card
+        title="Schema diagram"
+        subtitle={`${entities.length} entities · ${allFks.length} relationship${allFks.length === 1 ? "" : "s"} · auto-generated from this model`}
+        action={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Segmented
+              value={view}
+              onChange={(v) => setView(v as "preview" | "source")}
+              options={[
+                { value: "preview", label: "Preview" },
+                { value: "source", label: "Source" },
+              ]}
+            />
+            <Button size="sm" icon={<Copy size={12} />} onClick={copySource}>Copy Mermaid</Button>
+            <Button size="sm" icon={<GitMerge size={12} />} onClick={onGenerateDiagram}>Generate diagram</Button>
+          </div>
+        }
+      >
+        {view === "preview" ? (
+          <div className="bg-panel-2 border border-border rounded-md p-4" style={{ minHeight: 280 }}>
+            <MermaidPreview source={generatedErd} />
+          </div>
+        ) : (
+          <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono" style={{ maxHeight: 420 }}>
+            {generatedErd}
+          </pre>
+        )}
+      </Card>
+
+      <Card title="Entities" subtitle="Compact view of each entity. PK and FK fields are highlighted; FK rows show the target column.">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {entities.map((e) => (
             <div key={e.id} className="bg-panel-2 border border-border rounded-md overflow-hidden">
@@ -365,17 +569,34 @@ function ErdView({
                 <div className="px-3 py-2 text-fg-subtle text-[12px] italic">No fields</div>
               ) : (
                 <div className="text-[12.5px] font-mono">
-                  {e.fields.map((f) => (
-                    <div key={f.id} className="flex items-center gap-2 px-3 py-1.5 border-t border-border first:border-t-0">
-                      {f.isPrimaryKey && <Key size={10} className="text-warning shrink-0" />}
-                      {(f.isForeignKey || f.referencesEntityId) && <Link2 size={10} className="text-info shrink-0" />}
-                      <span className="font-semibold">{f.name}</span>
-                      <span className="text-fg-muted">: {f.type}</span>
-                      {f.referencesEntityId && (
-                        <span className="ml-auto text-fg-subtle text-[11px]">→ {entityById.get(f.referencesEntityId)?.name ?? "?"}</span>
-                      )}
-                    </div>
-                  ))}
+                  {e.fields.map((f) => {
+                    const target = f.referencesEntityId ? entityById.get(f.referencesEntityId) : null;
+                    const targetPk = target?.fields.find((x) => x.isPrimaryKey);
+                    const hasFk = f.isForeignKey || !!f.referencesEntityId;
+                    return (
+                      <div
+                        key={f.id}
+                        className="flex items-center gap-2 px-3 py-1.5 border-t border-border first:border-t-0 hover:bg-panel transition-colors"
+                      >
+                        {f.isPrimaryKey && <Key size={10} className="text-warning shrink-0" />}
+                        {hasFk && <Link2 size={10} className="text-info shrink-0" />}
+                        <span className="font-semibold">{f.name}</span>
+                        <span className="text-fg-muted">{f.type}</span>
+                        {f.isPrimaryKey && <PkBadge />}
+                        {hasFk && <FkBadge />}
+                        {hasFk && (
+                          target ? (
+                            <span className="ml-auto text-fg-subtle text-[11px] inline-flex items-center gap-1">
+                              <ArrowRight size={10} />
+                              {target.name}.{targetPk?.name ?? "?"}
+                            </span>
+                          ) : (
+                            <span className="ml-auto text-[11px] text-danger">missing</span>
+                          )
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -390,86 +611,29 @@ function ErdView({
           <div className="flex flex-col gap-1.5">
             {allFks.map((fk, i) => (
               <div key={i} className="flex items-center gap-2 text-[13px] font-mono">
-                <span>{fk.sourceEntity}.{fk.sourceField}</span>
+                <span className="font-semibold">{fk.sourceEntity}.{fk.sourceField}</span>
                 <ArrowRight size={13} className="text-fg-subtle" />
-                <span className={fk.targetMissing ? "text-danger" : ""}>{fk.targetEntity ?? <em>missing</em>}</span>
+                <span className={fk.targetMissing ? "text-danger" : "text-fg-muted"}>
+                  {fk.targetEntity ?? <em>missing</em>}
+                  {fk.targetEntity && fk.targetPk ? `.${fk.targetPk}` : ""}
+                </span>
                 {fk.targetMissing && <span className="text-danger text-[11px] font-sans ml-2">target entity is missing</span>}
               </div>
             ))}
           </div>
         )}
       </Card>
+
+      <div>
+        <details className="text-[12.5px]">
+          <summary className="cursor-pointer text-fg-muted hover:text-fg">View raw Mermaid source — used to render the preview</summary>
+          <pre className="mt-2 bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono" style={{ maxHeight: 240 }}>
+            {generatedErd}
+          </pre>
+        </details>
+      </div>
     </div>
   );
-}
-
-// ───────────────────────── Mermaid view (source only — paste-ready) ─────────────────────────
-
-function MermaidView({
-  model,
-  entities,
-  entityById,
-}: {
-  model: DatabaseModel;
-  entities: DatabaseEntity[];
-  entityById: Map<string, DatabaseEntity>;
-}) {
-  const source = useMemo(() => {
-    const lines: string[] = ["erDiagram"];
-    if (entities.length === 0) {
-      lines.push(`  %% ${model.title} — no entities yet`);
-      return lines.join("\n");
-    }
-    for (const e of entities) {
-      lines.push(`  ${escapeName(e.name)} {`);
-      for (const f of e.fields) {
-        const flags: string[] = [];
-        if (f.isPrimaryKey) flags.push("PK");
-        if (f.isForeignKey || f.referencesEntityId) flags.push("FK");
-        lines.push(`    ${escapeName(f.type)} ${escapeName(f.name)}${flags.length ? " " + flags.join(",") : ""}`);
-      }
-      if (e.fields.length === 0) lines.push("    string placeholder");
-      lines.push(`  }`);
-    }
-    for (const e of entities) {
-      for (const f of e.fields) {
-        if (!f.referencesEntityId) continue;
-        const target = entityById.get(f.referencesEntityId);
-        if (!target) continue;
-        lines.push(`  ${escapeName(e.name)} }o--|| ${escapeName(target.name)} : "${f.name}"`);
-      }
-    }
-    return lines.join("\n");
-  }, [model.title, entities, entityById]);
-
-  return (
-    <Card
-      title="Mermaid ERD source"
-      subtitle="Paste into a Mermaid-aware viewer (GitHub README, Notion, mermaid.live) to render the diagram."
-      action={
-        <Button
-          size="sm"
-          onClick={() => {
-            navigator.clipboard.writeText(source).then(
-              () => toast.success("Mermaid source copied"),
-              () => toast.error("Clipboard blocked"),
-            );
-          }}
-        >
-          Copy
-        </Button>
-      }
-    >
-      <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto" style={{ maxHeight: 420 }}>
-        {source}
-      </pre>
-    </Card>
-  );
-}
-
-function escapeName(s: string) {
-  // Mermaid identifiers don't allow spaces; replace anything non-alphanumeric with _.
-  return s.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
 // ───────────────────────── modals ─────────────────────────
