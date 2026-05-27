@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Edit, Link as LinkIcon, Trash2, X } from "lucide-react";
+import { Edit, Link as LinkIcon, Trash2, X, Plug, Database } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import { Empty } from "@/components/ui/empty";
 import { GraphCanvas } from "@/components/graph/graph-canvas";
 import { DocumentationEditor } from "@/components/documentation-editor";
 import { artifactsApi, relationsApi } from "@/lib/api/artifacts";
+import { apiSpecsApi, type ApiSpec } from "@/lib/api/api-specs";
+import { databaseModelsApi, type DatabaseModel } from "@/lib/api/database-models";
 import { validationApi } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
 import { EDGE_COLOR } from "@/lib/mock-data";
@@ -61,6 +63,8 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
   const [outgoing, setOutgoing] = useState<BackendRelation[]>([]);
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [siblings, setSiblings] = useState<Artifact[]>([]);
+  const [linkedSpecs, setLinkedSpecs] = useState<ApiSpec[]>([]);
+  const [linkedDbModels, setLinkedDbModels] = useState<DatabaseModel[]>([]);
   const [tab, setTab] = useState("overview");
 
   const [editing, setEditing] = useState(false);
@@ -68,17 +72,21 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
 
   const load = async () => {
     try {
-      const [art, rels, vi, sibs] = await Promise.all([
+      const [art, rels, vi, sibs, specs, models] = await Promise.all([
         artifactsApi.get(artifactId),
         relationsApi.list(artifactId) as Promise<{ incoming: BackendRelation[]; outgoing: BackendRelation[] }>,
         validationApi.list(projectId),
         artifactsApi.list(projectId),
+        apiSpecsApi.list(projectId, { artifactId }),
+        databaseModelsApi.list(projectId, { artifactId }),
       ]);
       setA(art);
       setIncoming(rels.incoming);
       setOutgoing(rels.outgoing);
       setIssues(vi.filter((v) => v.artifactId === art.id));
       setSiblings(sibs);
+      setLinkedSpecs(specs);
+      setLinkedDbModels(models);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to load artifact");
     }
@@ -197,6 +205,26 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
               <Meta k="Updated" v={<span className="text-[13px] text-fg-muted">{timeAgo(a.updatedAt)}</span>} />
               <Meta k="ID"      v={<span className="font-mono text-[12px] text-fg-muted">{a.id}</span>} last />
             </Card>
+            {(linkedSpecs.length > 0 || linkedDbModels.length > 0) && (
+              <Card title="Linked resources">
+                {linkedSpecs.map((s) => (
+                  <Link key={s.id} href={`/projects/${projectId}/api/${s.id}`} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
+                    <Plug size={13} className="text-accent shrink-0" />
+                    <span className="flex-1 min-w-0 text-[13px] font-medium truncate">{s.title}</span>
+                    <Badge mono>v{s.version}</Badge>
+                    <Badge tone="success">{s.endpointCount}</Badge>
+                  </Link>
+                ))}
+                {linkedDbModels.map((m) => (
+                  <Link key={m.id} href={`/projects/${projectId}/database/${m.id}`} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
+                    <Database size={13} className="text-accent shrink-0" />
+                    <span className="flex-1 min-w-0 text-[13px] font-medium truncate">{m.title}</span>
+                    <Badge mono>{m.databaseType}</Badge>
+                    <Badge tone="success">{m.entityCount}</Badge>
+                  </Link>
+                ))}
+              </Card>
+            )}
             <Card title={`Linked (${incoming.length + outgoing.length})`}>
               {[...outgoing, ...incoming].slice(0, 6).map((r) => {
                 const isOut = r.source === a.id;

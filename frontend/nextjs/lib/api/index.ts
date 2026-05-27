@@ -6,6 +6,7 @@ export * from "./projects";
 export * from "./artifacts";
 export * from "./documentation";
 export * from "./api-specs";
+export * from "./database-models";
 
 import { apiClient } from "./client";
 import type {

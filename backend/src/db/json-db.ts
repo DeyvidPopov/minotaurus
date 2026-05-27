@@ -129,6 +129,46 @@ export interface ApiEndpointRow {
   updatedAt: string;
 }
 
+export type DatabaseType =
+  | "PostgreSQL"
+  | "MySQL"
+  | "MongoDB"
+  | "Redis"
+  | "SQLite";
+
+export interface DatabaseModelRow {
+  id: string;
+  projectId: string;
+  artifactId: string | null;
+  title: string;
+  databaseType: DatabaseType;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DatabaseEntityRow {
+  id: string;
+  databaseModelId: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DatabaseFieldRow {
+  id: string;
+  entityId: string;
+  name: string;
+  type: string;
+  required: boolean;
+  isPrimaryKey: boolean;
+  isForeignKey: boolean;
+  referencesEntityId: string | null;
+  description: string;
+}
+
 export interface DbShape {
   users: UserRow[];
   projects: ProjectRow[];
@@ -138,6 +178,9 @@ export interface DbShape {
   exports: ExportPackageRow[];
   apiSpecs: ApiSpecRow[];
   apiEndpoints: ApiEndpointRow[];
+  databaseModels: DatabaseModelRow[];
+  databaseEntities: DatabaseEntityRow[];
+  databaseFields: DatabaseFieldRow[];
 }
 
 const empty: DbShape = {
@@ -149,6 +192,9 @@ const empty: DbShape = {
   exports: [],
   apiSpecs: [],
   apiEndpoints: [],
+  databaseModels: [],
+  databaseEntities: [],
+  databaseFields: [],
 };
 
 const DATA_FILE =

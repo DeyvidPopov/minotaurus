@@ -16,6 +16,13 @@ export function runValidationForProject(projectId: string): ValidationIssueRow[]
   const apiEndpoints = state.apiEndpoints.filter((e) =>
     apiSpecs.some((s) => s.id === e.apiSpecId),
   );
+  const databaseModels = state.databaseModels.filter((m) => m.projectId === projectId);
+  const dbModelIds = new Set(databaseModels.map((m) => m.id));
+  const databaseEntities = state.databaseEntities.filter((e) =>
+    dbModelIds.has(e.databaseModelId),
+  );
+  const entityIds = new Set(databaseEntities.map((e) => e.id));
+  const databaseFields = state.databaseFields.filter((f) => entityIds.has(f.entityId));
 
   state.validationIssues = state.validationIssues.filter((v) => v.projectId !== projectId);
 
@@ -151,6 +158,86 @@ export function runValidationForProject(projectId: string): ValidationIssueRow[]
           createdAt: now,
           updatedAt: now,
         });
+      }
+    }
+  }
+
+  // ── Database model rules ──
+  for (const model of databaseModels) {
+    const modelEntities = databaseEntities.filter((e) => e.databaseModelId === model.id);
+
+    // Empty database model
+    if (modelEntities.length === 0) {
+      issues.push({
+        id: newId(),
+        projectId,
+        artifactId: model.artifactId ?? model.id,
+        severity: "WARNING",
+        category: "DATABASE",
+        message: `Database model "${model.title}" has no entities.`,
+        status: "OPEN",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    for (const entity of modelEntities) {
+      const entityFields = databaseFields.filter((f) => f.entityId === entity.id);
+
+      if (entityFields.length === 0) {
+        issues.push({
+          id: newId(),
+          projectId,
+          artifactId: model.artifactId ?? model.id,
+          severity: "WARNING",
+          category: "DATABASE",
+          message: `Entity "${entity.name}" in "${model.title}" has no fields.`,
+          status: "OPEN",
+          createdAt: now,
+          updatedAt: now,
+        });
+      } else if (!entityFields.some((f) => f.isPrimaryKey)) {
+        issues.push({
+          id: newId(),
+          projectId,
+          artifactId: model.artifactId ?? model.id,
+          severity: "WARNING",
+          category: "DATABASE",
+          message: `Entity "${entity.name}" in "${model.title}" has no primary key.`,
+          status: "OPEN",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      for (const field of entityFields) {
+        if (field.isForeignKey || field.referencesEntityId) {
+          if (!field.referencesEntityId) {
+            issues.push({
+              id: newId(),
+              projectId,
+              artifactId: model.artifactId ?? model.id,
+              severity: "ERROR",
+              category: "DATABASE",
+              message: `Foreign key "${entity.name}.${field.name}" has no target entity.`,
+              status: "OPEN",
+              createdAt: now,
+              updatedAt: now,
+            });
+          } else if (!entityIds.has(field.referencesEntityId)) {
+            issues.push({
+              id: newId(),
+              projectId,
+              artifactId: model.artifactId ?? model.id,
+              severity: "ERROR",
+              category: "DATABASE",
+              message: `Foreign key "${entity.name}.${field.name}" references a missing entity.`,
+              status: "OPEN",
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
+        }
       }
     }
   }

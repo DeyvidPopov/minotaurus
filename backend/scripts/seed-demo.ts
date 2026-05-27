@@ -8,6 +8,9 @@ import {
   type ArtifactRow,
   type ArtifactStatus,
   type ArtifactType,
+  type DatabaseEntityRow,
+  type DatabaseFieldRow,
+  type DatabaseModelRow,
   type ExportPackageRow,
   type HttpMethod,
   type ProjectRow,
@@ -311,6 +314,66 @@ async function main() {
     makeEndpoint("/auth/me",       "GET",  "Return the authenticated user.",        "",                                                                                  '{ "user": { "id": "string", "email": "string" } }',  true),
   );
 
+  // Database model — User Management Database linked to the User Database artifact
+  const dbModel: DatabaseModelRow = {
+    id: newId(),
+    projectId: project.id,
+    artifactId: userDb.id,
+    title: "User Management Database",
+    databaseType: "PostgreSQL",
+    description: "Accounts, sessions and roles for the platform.",
+    createdBy: user.id,
+    createdAt: now,
+    updatedAt: now,
+  };
+  state.databaseModels.push(dbModel);
+
+  const makeEntity = (name: string, description: string): DatabaseEntityRow => ({
+    id: newId(),
+    databaseModelId: dbModel.id,
+    name,
+    description,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const usersEntity = makeEntity("users", "End-user accounts.");
+  const sessionsEntity = makeEntity("sessions", "Active and revoked refresh-token sessions per user.");
+  const rolesEntity = makeEntity("roles", "Role identifiers assignable to users.");
+  state.databaseEntities.push(usersEntity, sessionsEntity, rolesEntity);
+
+  const makeField = (
+    entity: DatabaseEntityRow,
+    name: string,
+    type: string,
+    opts: Partial<Omit<DatabaseFieldRow, "id" | "entityId" | "name" | "type">> = {},
+  ): DatabaseFieldRow => ({
+    id: newId(),
+    entityId: entity.id,
+    name,
+    type,
+    required: opts.required ?? false,
+    isPrimaryKey: opts.isPrimaryKey ?? false,
+    isForeignKey: opts.isForeignKey ?? !!opts.referencesEntityId,
+    referencesEntityId: opts.referencesEntityId ?? null,
+    description: opts.description ?? "",
+  });
+
+  state.databaseFields.push(
+    // users
+    makeField(usersEntity, "id",            "uuid",        { isPrimaryKey: true, required: true }),
+    makeField(usersEntity, "email",         "text",        { required: true }),
+    makeField(usersEntity, "password_hash", "text",        { required: true }),
+    makeField(usersEntity, "created_at",    "timestamptz", { required: true }),
+    // sessions
+    makeField(sessionsEntity, "id",          "uuid",        { isPrimaryKey: true, required: true }),
+    makeField(sessionsEntity, "user_id",     "uuid",        { isForeignKey: true, referencesEntityId: usersEntity.id, required: true, description: "Owning user" }),
+    makeField(sessionsEntity, "expires_at",  "timestamptz", { required: true }),
+    makeField(sessionsEntity, "revoked_at",  "timestamptz"),
+    // roles
+    makeField(rolesEntity, "id",   "uuid", { isPrimaryKey: true, required: true }),
+    makeField(rolesEntity, "name", "text", { required: true }),
+  );
+
   state.relations.push(
     makeRelation(user, now, auth,    userDb,  "DEPENDS_ON",        "Auth Service reads/writes user records."),
     makeRelation(user, now, policy,  auth,    "SECURES",           "JWT policy governs the Authentication Service."),
@@ -334,12 +397,14 @@ async function main() {
     "ARTIFACTS",
     "RELATIONS",
     "API_SPECS",
+    "DATABASE_MODELS",
     "GRAPH",
     "VALIDATION_REPORT",
   ]);
   const markdownExport = makeExport(user, project, "MARKDOWN", [
     "ARTIFACTS",
     "API_SPECS",
+    "DATABASE_MODELS",
     "RELATIONS",
     "VALIDATION_REPORT",
   ]);
@@ -356,6 +421,11 @@ async function main() {
         artifacts: state.artifacts.map((a) => ({ id: a.id, title: a.title, status: a.status })),
         relations: state.relations.map((r) => r.id),
         apiSpecs: state.apiSpecs.map((s) => ({ id: s.id, title: s.title, endpointCount: state.apiEndpoints.filter((e) => e.apiSpecId === s.id).length })),
+        databaseModels: state.databaseModels.map((m) => ({
+          id: m.id,
+          title: m.title,
+          entityCount: state.databaseEntities.filter((e) => e.databaseModelId === m.id).length,
+        })),
         validation: {
           issueCount: issues.length,
           severities: issues.reduce<Record<string, number>>((acc, v) => {

@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen } from "lucide-react";
+import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen, Database, Key, Link2, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
@@ -78,6 +78,34 @@ interface ExportedApiSpec {
   endpoints?: ExportedApiEndpoint[];
 }
 
+interface ExportedDatabaseField {
+  id: string;
+  name: string;
+  type: string;
+  required?: boolean;
+  isPrimaryKey?: boolean;
+  isForeignKey?: boolean;
+  referencesEntityId?: string | null;
+  referencesEntityName?: string | null;
+}
+
+interface ExportedDatabaseEntity {
+  id: string;
+  name: string;
+  description?: string;
+  fields?: ExportedDatabaseField[];
+}
+
+interface ExportedDatabaseModel {
+  id: string;
+  title: string;
+  databaseType: string;
+  description?: string;
+  artifactId?: string | null;
+  linkedArtifact?: { id: string; title: string; type: ArtifactType } | null;
+  entities?: ExportedDatabaseEntity[];
+}
+
 interface ExportContent {
   project?: ExportedProject;
   generatedAt?: string;
@@ -85,6 +113,7 @@ interface ExportContent {
   relations?: ExportedRelation[];
   validationIssues?: ExportedIssue[];
   apiSpecs?: ExportedApiSpec[];
+  databaseModels?: ExportedDatabaseModel[];
 }
 
 export interface ExportPreviewModel {
@@ -122,6 +151,8 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
   const issues = parsed?.validationIssues ?? [];
   const apiSpecs = parsed?.apiSpecs ?? [];
   const totalEndpoints = apiSpecs.reduce((s, x) => s + (x.endpoints?.length ?? 0), 0);
+  const databaseModels = parsed?.databaseModels ?? [];
+  const totalEntities = databaseModels.reduce((s, m) => s + (m.entities?.length ?? 0), 0);
   const docCount = artifacts.filter((a) => a.documentation?.markdownContent?.trim()).length;
 
   return (
@@ -140,11 +171,12 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
           <span className="text-[11.5px] text-fg-subtle">sections: {preview.sections.join(", ") || "—"}</span>
         </div>
         {!isMarkdown && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-3">
             <SummaryCount icon={<Box size={13} />} label="Artifacts" value={artifacts.length} />
             <SummaryCount icon={<BookOpen size={13} />} label="With docs" value={docCount} />
             <SummaryCount icon={<Network size={13} />} label="Relations" value={relations.length} />
             <SummaryCount icon={<Plug size={13} />} label="API endpoints" value={totalEndpoints} />
+            <SummaryCount icon={<Database size={13} />} label="DB entities" value={totalEntities} />
             <SummaryCount icon={<Shield size={13} />} label="Issues" value={issues.length} />
           </div>
         )}
@@ -171,6 +203,7 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
             <>
               <ArtifactsSection artifacts={artifacts} />
               <ApiSpecsSection apiSpecs={apiSpecs} />
+              <DatabaseModelsSection databaseModels={databaseModels} />
               <RelationsSection relations={relations} artifactsById={artifactsById} />
               <IssuesSection issues={issues} artifactsById={artifactsById} />
             </>
@@ -426,6 +459,71 @@ function ApiSpecsSection({ apiSpecs }: { apiSpecs: ExportedApiSpec[] }) {
             )}
           </div>
         ))}
+      </div>
+    </Card>
+  );
+}
+
+function DatabaseModelsSection({ databaseModels }: { databaseModels: ExportedDatabaseModel[] }) {
+  if (databaseModels.length === 0) {
+    return (
+      <Card title="Database models">
+        <div className="text-fg-muted text-[13px]">Not included in this export.</div>
+      </Card>
+    );
+  }
+  return (
+    <Card title={`Database models (${databaseModels.length})`}>
+      <div className="flex flex-col gap-3">
+        {databaseModels.map((m) => {
+          const entities = m.entities ?? [];
+          return (
+            <div key={m.id} className="bg-panel-2 border border-border rounded-md p-3">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <Database size={13} className="text-accent" />
+                <span className="font-semibold text-[13.5px]">{m.title}</span>
+                <Badge mono>{m.databaseType}</Badge>
+                {m.linkedArtifact && (
+                  <span className="flex items-center gap-1.5 text-[12px] text-fg-muted ml-1">
+                    <TypeChip type={m.linkedArtifact.type} />
+                    {m.linkedArtifact.title}
+                  </span>
+                )}
+              </div>
+              {m.description && <div className="text-fg-muted text-[12.5px] mb-2">{m.description}</div>}
+              {entities.length === 0 ? (
+                <div className="text-fg-subtle text-[12.5px] italic">No entities.</div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {entities.map((e) => (
+                    <div key={e.id} className="bg-panel border border-border rounded-md overflow-hidden">
+                      <div className="px-3 py-1.5 bg-panel-2 font-mono font-semibold text-[12.5px] border-b border-border">{e.name}</div>
+                      {(e.fields ?? []).length === 0 ? (
+                        <div className="px-3 py-2 text-fg-subtle text-[12px] italic">No fields</div>
+                      ) : (
+                        <div className="text-[12px] font-mono">
+                          {(e.fields ?? []).map((f) => (
+                            <div key={f.id} className="flex items-center gap-2 px-3 py-1 border-t border-border first:border-t-0">
+                              {f.isPrimaryKey && <Key size={9} className="text-warning shrink-0" />}
+                              {(f.isForeignKey || f.referencesEntityId) && <Link2 size={9} className="text-info shrink-0" />}
+                              <span className="font-semibold">{f.name}</span>
+                              <span className="text-fg-muted">: {f.type}</span>
+                              {f.referencesEntityName && (
+                                <span className="ml-auto text-fg-subtle text-[11px] inline-flex items-center gap-1">
+                                  <ArrowRight size={9} /> {f.referencesEntityName}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </Card>
   );

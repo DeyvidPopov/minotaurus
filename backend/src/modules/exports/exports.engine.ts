@@ -37,6 +37,11 @@ export function buildExportContent(
   const apiSpecs = state.apiSpecs.filter((s) => s.projectId === projectId);
   const apiSpecIds = new Set(apiSpecs.map((s) => s.id));
   const apiEndpoints = state.apiEndpoints.filter((e) => apiSpecIds.has(e.apiSpecId));
+  const databaseModels = state.databaseModels.filter((m) => m.projectId === projectId);
+  const dbModelIds = new Set(databaseModels.map((m) => m.id));
+  const databaseEntities = state.databaseEntities.filter((e) => dbModelIds.has(e.databaseModelId));
+  const dbEntityIds = new Set(databaseEntities.map((e) => e.id));
+  const databaseFields = state.databaseFields.filter((f) => dbEntityIds.has(f.entityId));
 
   const wanted = new Set(sections.map((s) => s.toUpperCase()));
   // DOCUMENTATION implies ARTIFACTS — docs live inside artifact objects.
@@ -47,6 +52,8 @@ export function buildExportContent(
     wanted.has("VALIDATION_REPORT");
   const wantsGraph = wanted.has("GRAPH");
   const wantsApiSpecs = wanted.has("API_SPECS") || wanted.has("API_ENDPOINTS");
+  const wantsDatabaseModels =
+    wanted.has("DATABASE_MODELS") || wanted.has("DATABASE_ENTITIES");
 
   const payload: Record<string, unknown> = {
     project,
@@ -55,6 +62,50 @@ export function buildExportContent(
   if (wantsArtifacts) payload.artifacts = artifacts.map(serializeArtifactForExport);
   if (wanted.has("RELATIONS")) payload.relations = relations;
   if (wantsValidation) payload.validationIssues = issues;
+  if (wantsDatabaseModels) {
+    const entityNameById = new Map(databaseEntities.map((e) => [e.id, e.name]));
+    payload.databaseModels = databaseModels.map((m) => ({
+      id: m.id,
+      projectId: m.projectId,
+      artifactId: m.artifactId,
+      title: m.title,
+      databaseType: m.databaseType,
+      description: m.description,
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+      linkedArtifact:
+        m.artifactId
+          ? (() => {
+              const a = artifacts.find((x) => x.id === m.artifactId);
+              return a ? { id: a.id, title: a.title, type: a.type } : null;
+            })()
+          : null,
+      entities: databaseEntities
+        .filter((e) => e.databaseModelId === m.id)
+        .map((e) => ({
+          id: e.id,
+          name: e.name,
+          description: e.description,
+          createdAt: e.createdAt,
+          updatedAt: e.updatedAt,
+          fields: databaseFields
+            .filter((f) => f.entityId === e.id)
+            .map((f) => ({
+              id: f.id,
+              name: f.name,
+              type: f.type,
+              required: f.required,
+              isPrimaryKey: f.isPrimaryKey,
+              isForeignKey: f.isForeignKey,
+              referencesEntityId: f.referencesEntityId,
+              referencesEntityName: f.referencesEntityId
+                ? entityNameById.get(f.referencesEntityId) ?? null
+                : null,
+              description: f.description,
+            })),
+        })),
+    }));
+  }
   if (wantsApiSpecs) {
     payload.apiSpecs = apiSpecs.map((s) => ({
       id: s.id,
@@ -121,6 +172,41 @@ export function buildExportContent(
           lines.push(`#### Documentation`);
           lines.push(a.documentationContent.trim() + "\n");
         }
+      }
+    }
+    if (wantsDatabaseModels && databaseModels.length > 0) {
+      lines.push("\n## Database models\n");
+      const titleById = new Map(artifacts.map((a) => [a.id, a.title]));
+      const entityNameById = new Map(databaseEntities.map((e) => [e.id, e.name]));
+      for (const m of databaseModels) {
+        lines.push(`### ${m.title}  \`${m.databaseType}\``);
+        if (m.artifactId) lines.push(`Linked artifact: **${titleById.get(m.artifactId) ?? m.artifactId}**`);
+        if (m.description) lines.push(`\n${m.description}`);
+        const modelEntities = databaseEntities.filter((e) => e.databaseModelId === m.id);
+        if (modelEntities.length === 0) {
+          lines.push("\n_No entities._");
+        } else {
+          for (const e of modelEntities) {
+            lines.push(`\n#### ${e.name}`);
+            if (e.description) lines.push(e.description);
+            const fields = databaseFields.filter((f) => f.entityId === e.id);
+            if (fields.length === 0) {
+              lines.push("_No fields._");
+            } else {
+              for (const f of fields) {
+                const flags: string[] = [];
+                if (f.isPrimaryKey) flags.push("PK");
+                if (f.isForeignKey || f.referencesEntityId) {
+                  const target = f.referencesEntityId ? entityNameById.get(f.referencesEntityId) : null;
+                  flags.push(`FK → ${target ?? "?"}`);
+                }
+                if (f.required) flags.push("required");
+                lines.push(`- \`${f.name}: ${f.type}\`${flags.length ? "  _" + flags.join(", ") + "_" : ""}`);
+              }
+            }
+          }
+        }
+        lines.push("");
       }
     }
     if (wantsApiSpecs && apiSpecs.length > 0) {

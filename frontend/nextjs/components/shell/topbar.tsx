@@ -61,6 +61,10 @@ export function Topbar({ onOpenSearch, onOpenMobileNav }: { onOpenSearch: () => 
       crumbs.push({ label: "API Specs", href: `/projects/${segs[1]}/api`, now: !segs[3] });
       if (segs[3]) crumbs.push({ label: "Spec", now: true });
     }
+    else if (segs[2] === "database") {
+      crumbs.push({ label: "Database Model", href: `/projects/${segs[1]}/database`, now: !segs[3] });
+      if (segs[3]) crumbs.push({ label: "Model", now: true });
+    }
   } else if (segs[0] === "settings") crumbs.push({ label: "Settings", now: true });
 
   return (
