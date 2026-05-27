@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Box, Network, Shield, ChevronDown, FileText, BookOpen } from "lucide-react";
+import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
@@ -59,12 +59,32 @@ interface ExportedProject {
   description?: string;
 }
 
+interface ExportedApiEndpoint {
+  id: string;
+  path: string;
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  summary?: string;
+  requiresAuth?: boolean;
+}
+
+interface ExportedApiSpec {
+  id: string;
+  title: string;
+  version: string;
+  baseUrl?: string;
+  description?: string;
+  artifactId?: string | null;
+  linkedArtifact?: { id: string; title: string; type: ArtifactType } | null;
+  endpoints?: ExportedApiEndpoint[];
+}
+
 interface ExportContent {
   project?: ExportedProject;
   generatedAt?: string;
   artifacts?: ExportedArtifact[];
   relations?: ExportedRelation[];
   validationIssues?: ExportedIssue[];
+  apiSpecs?: ExportedApiSpec[];
 }
 
 export interface ExportPreviewModel {
@@ -100,6 +120,8 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
   const artifacts = parsed?.artifacts ?? [];
   const relations = parsed?.relations ?? [];
   const issues = parsed?.validationIssues ?? [];
+  const apiSpecs = parsed?.apiSpecs ?? [];
+  const totalEndpoints = apiSpecs.reduce((s, x) => s + (x.endpoints?.length ?? 0), 0);
   const docCount = artifacts.filter((a) => a.documentation?.markdownContent?.trim()).length;
 
   return (
@@ -118,10 +140,11 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
           <span className="text-[11.5px] text-fg-subtle">sections: {preview.sections.join(", ") || "—"}</span>
         </div>
         {!isMarkdown && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-3">
             <SummaryCount icon={<Box size={13} />} label="Artifacts" value={artifacts.length} />
             <SummaryCount icon={<BookOpen size={13} />} label="With docs" value={docCount} />
             <SummaryCount icon={<Network size={13} />} label="Relations" value={relations.length} />
+            <SummaryCount icon={<Plug size={13} />} label="API endpoints" value={totalEndpoints} />
             <SummaryCount icon={<Shield size={13} />} label="Issues" value={issues.length} />
           </div>
         )}
@@ -147,6 +170,7 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
           ) : (
             <>
               <ArtifactsSection artifacts={artifacts} />
+              <ApiSpecsSection apiSpecs={apiSpecs} />
               <RelationsSection relations={relations} artifactsById={artifactsById} />
               <IssuesSection issues={issues} artifactsById={artifactsById} />
             </>
@@ -323,5 +347,86 @@ function ArtifactRef({
       <TypeChip type={a.type} />
       <span className="text-[13px] font-medium">{a.title}</span>
     </div>
+  );
+}
+
+const METHOD_TONE: Record<ExportedApiEndpoint["method"], string> = {
+  GET: "var(--c-info)",
+  POST: "var(--c-success)",
+  PUT: "var(--c-warning)",
+  PATCH: "var(--c-warning)",
+  DELETE: "var(--c-danger)",
+};
+
+function ApiSpecsSection({ apiSpecs }: { apiSpecs: ExportedApiSpec[] }) {
+  if (apiSpecs.length === 0) {
+    return (
+      <Card title="API specs">
+        <div className="text-fg-muted text-[13px]">Not included in this export.</div>
+      </Card>
+    );
+  }
+  return (
+    <Card title={`API specs (${apiSpecs.length})`}>
+      <div className="flex flex-col gap-3">
+        {apiSpecs.map((s) => (
+          <div key={s.id} className="bg-panel-2 border border-border rounded-md p-3">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <Plug size={13} className="text-accent" />
+              <span className="font-semibold text-[13.5px]">{s.title}</span>
+              <Badge mono>v{s.version}</Badge>
+              {s.baseUrl && <Badge mono>{s.baseUrl}</Badge>}
+              {s.linkedArtifact && (
+                <span className="flex items-center gap-1.5 text-[12px] text-fg-muted ml-1">
+                  <TypeChip type={s.linkedArtifact.type} />
+                  {s.linkedArtifact.title}
+                </span>
+              )}
+            </div>
+            {s.description && <div className="text-fg-muted text-[12.5px] mb-2">{s.description}</div>}
+            {!s.endpoints || s.endpoints.length === 0 ? (
+              <div className="text-fg-subtle text-[12.5px] italic">No endpoints.</div>
+            ) : (
+              <div className="bg-panel border border-border rounded-md overflow-hidden">
+                <table className="w-full text-[13px]">
+                  <thead className="bg-panel-2">
+                    <tr className="text-fg-muted text-[11px] uppercase tracking-wider">
+                      <th className="text-left px-3 py-2 border-b border-border">Method</th>
+                      <th className="text-left px-3 py-2 border-b border-border">Path</th>
+                      <th className="text-left px-3 py-2 border-b border-border">Summary</th>
+                      <th className="text-left px-3 py-2 border-b border-border">Auth</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.endpoints.map((e) => (
+                      <tr key={e.id} className="border-b border-border last:border-0">
+                        <td className="px-3 py-2">
+                          <span className="font-mono text-[10.5px] font-bold px-1.5 py-0.5 rounded" style={{
+                            color: METHOD_TONE[e.method],
+                            border: `1px solid ${METHOD_TONE[e.method]}33`,
+                            background: `${METHOD_TONE[e.method]}11`,
+                          }}>
+                            {e.method}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-[12px]">{e.path}</td>
+                        <td className="px-3 py-2">{e.summary || <em className="text-fg-subtle">—</em>}</td>
+                        <td className="px-3 py-2">
+                          {e.requiresAuth ? (
+                            <span className="inline-flex items-center gap-1 text-[11.5px]"><Lock size={11} /> required</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11.5px] text-fg-muted"><LockOpen size={11} /> public</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }

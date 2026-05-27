@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Home, Folder, Compass, Box, Network,
-  Shield, Package, Settings, LogOut,
+  Plug, Shield, Package, Settings, LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -40,6 +40,7 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
     { id: "overview",   label: "Overview",        href: `/projects/${project.id}`,             icon: <Compass size={16} /> },
     { id: "artifacts",  label: "Artifacts",       href: `/projects/${project.id}/artifacts`,   icon: <Box size={16} />,    badge: project.artifactCount },
     { id: "graph",      label: "Knowledge Graph", href: `/projects/${project.id}/graph`,       icon: <Network size={16} /> },
+    { id: "api",        label: "API Specs",       href: `/projects/${project.id}/api`,         icon: <Plug size={16} /> },
     { id: "validation", label: "Validation",      href: `/projects/${project.id}/validation`,  icon: <Shield size={16} />, badge: project.validationIssueCount, badgeTone: "warning" },
     { id: "export",     label: "Export SSOT",     href: `/projects/${project.id}/export`,      icon: <Package size={16} /> },
   ] : [];

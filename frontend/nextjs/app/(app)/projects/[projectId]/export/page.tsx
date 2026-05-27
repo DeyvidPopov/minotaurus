@@ -28,6 +28,7 @@ interface ExportDetail extends ExportSummary, ExportPreviewModel {
 const SECTIONS = [
   { id: "ARTIFACTS", label: "Artifacts (includes documentation)" },
   { id: "RELATIONS", label: "Relations" },
+  { id: "API_SPECS", label: "API specs & endpoints" },
   { id: "VALIDATION", label: "Validation issues" },
 ];
 

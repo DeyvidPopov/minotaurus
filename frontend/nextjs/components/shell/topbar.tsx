@@ -57,6 +57,10 @@ export function Topbar({ onOpenSearch, onOpenMobileNav }: { onOpenSearch: () => 
     } else if (segs[2] === "graph") crumbs.push({ label: "Knowledge Graph", now: true });
     else if (segs[2] === "validation") crumbs.push({ label: "Validation", now: true });
     else if (segs[2] === "export") crumbs.push({ label: "Export SSOT", now: true });
+    else if (segs[2] === "api") {
+      crumbs.push({ label: "API Specs", href: `/projects/${segs[1]}/api`, now: !segs[3] });
+      if (segs[3]) crumbs.push({ label: "Spec", now: true });
+    }
   } else if (segs[0] === "settings") crumbs.push({ label: "Settings", now: true });
 
   return (

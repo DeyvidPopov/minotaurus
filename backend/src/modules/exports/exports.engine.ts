@@ -34,6 +34,9 @@ export function buildExportContent(
     (r) => ids.has(r.sourceArtifactId) && ids.has(r.targetArtifactId),
   );
   const issues = state.validationIssues.filter((v) => v.projectId === projectId);
+  const apiSpecs = state.apiSpecs.filter((s) => s.projectId === projectId);
+  const apiSpecIds = new Set(apiSpecs.map((s) => s.id));
+  const apiEndpoints = state.apiEndpoints.filter((e) => apiSpecIds.has(e.apiSpecId));
 
   const wanted = new Set(sections.map((s) => s.toUpperCase()));
   // DOCUMENTATION implies ARTIFACTS — docs live inside artifact objects.
@@ -43,6 +46,7 @@ export function buildExportContent(
     wanted.has("VALIDATION_ISSUES") ||
     wanted.has("VALIDATION_REPORT");
   const wantsGraph = wanted.has("GRAPH");
+  const wantsApiSpecs = wanted.has("API_SPECS") || wanted.has("API_ENDPOINTS");
 
   const payload: Record<string, unknown> = {
     project,
@@ -51,6 +55,39 @@ export function buildExportContent(
   if (wantsArtifacts) payload.artifacts = artifacts.map(serializeArtifactForExport);
   if (wanted.has("RELATIONS")) payload.relations = relations;
   if (wantsValidation) payload.validationIssues = issues;
+  if (wantsApiSpecs) {
+    payload.apiSpecs = apiSpecs.map((s) => ({
+      id: s.id,
+      projectId: s.projectId,
+      artifactId: s.artifactId,
+      title: s.title,
+      version: s.version,
+      baseUrl: s.baseUrl,
+      description: s.description,
+      createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
+      linkedArtifact:
+        s.artifactId
+          ? (() => {
+              const a = artifacts.find((x) => x.id === s.artifactId);
+              return a ? { id: a.id, title: a.title, type: a.type } : null;
+            })()
+          : null,
+      endpoints: apiEndpoints
+        .filter((e) => e.apiSpecId === s.id)
+        .map((e) => ({
+          id: e.id,
+          path: e.path,
+          method: e.method,
+          summary: e.summary,
+          requestSchema: e.requestSchema,
+          responseSchema: e.responseSchema,
+          requiresAuth: e.requiresAuth,
+          createdAt: e.createdAt,
+          updatedAt: e.updatedAt,
+        })),
+    }));
+  }
   if (wantsGraph) {
     payload.graph = {
       nodes: artifacts.map((a) => ({
@@ -84,6 +121,28 @@ export function buildExportContent(
           lines.push(`#### Documentation`);
           lines.push(a.documentationContent.trim() + "\n");
         }
+      }
+    }
+    if (wantsApiSpecs && apiSpecs.length > 0) {
+      lines.push("\n## API specs\n");
+      const titleById = new Map(artifacts.map((a) => [a.id, a.title]));
+      for (const s of apiSpecs) {
+        lines.push(`### ${s.title}  \`v${s.version}\``);
+        if (s.baseUrl) lines.push(`Base URL: \`${s.baseUrl}\``);
+        if (s.artifactId) lines.push(`Linked artifact: **${titleById.get(s.artifactId) ?? s.artifactId}**`);
+        if (s.description) lines.push(`\n${s.description}`);
+        const specEps = apiEndpoints.filter((e) => e.apiSpecId === s.id);
+        if (specEps.length === 0) {
+          lines.push("\n_No endpoints._");
+        } else {
+          lines.push("");
+          for (const e of specEps) {
+            lines.push(
+              `- **${e.method} ${e.path}** — ${e.summary || "_no summary_"}${e.requiresAuth ? " · 🔒 auth required" : ""}`,
+            );
+          }
+        }
+        lines.push("");
       }
     }
     if (wanted.has("RELATIONS")) {

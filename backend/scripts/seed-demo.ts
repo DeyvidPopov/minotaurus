@@ -3,10 +3,13 @@ import {
   db,
   persist,
   resetDbForTests,
+  type ApiEndpointRow,
+  type ApiSpecRow,
   type ArtifactRow,
   type ArtifactStatus,
   type ArtifactType,
   type ExportPackageRow,
+  type HttpMethod,
   type ProjectRow,
   type RelationRow,
   type RelationType,
@@ -268,6 +271,46 @@ async function main() {
   );
 
   // relations (10)
+  // API spec — Authentication API linked to the Auth Service, with three endpoints
+  const authSpec: ApiSpecRow = {
+    id: newId(),
+    projectId: project.id,
+    artifactId: auth.id,
+    title: "Authentication API",
+    version: "1.0.0",
+    baseUrl: "/api/auth",
+    description: "Public ingress for credential exchange and identity introspection.",
+    createdBy: user.id,
+    createdAt: now,
+    updatedAt: now,
+  };
+  state.apiSpecs.push(authSpec);
+
+  const makeEndpoint = (
+    path: string,
+    method: HttpMethod,
+    summary: string,
+    requestSchema: string,
+    responseSchema: string,
+    requiresAuth: boolean,
+  ): ApiEndpointRow => ({
+    id: newId(),
+    apiSpecId: authSpec.id,
+    path,
+    method,
+    summary,
+    requestSchema,
+    responseSchema,
+    requiresAuth,
+    createdAt: now,
+    updatedAt: now,
+  });
+  state.apiEndpoints.push(
+    makeEndpoint("/auth/login",    "POST", "Issue a token for valid credentials.", '{ "email": "string", "password": "string" }', '{ "token": "string", "user": { "id": "string", "email": "string" } }', false),
+    makeEndpoint("/auth/register", "POST", "Create an account and return a token.", '{ "email": "string", "password": "string", "firstName": "string", "lastName": "string" }', '{ "token": "string", "user": { ... } }', false),
+    makeEndpoint("/auth/me",       "GET",  "Return the authenticated user.",        "",                                                                                  '{ "user": { "id": "string", "email": "string" } }',  true),
+  );
+
   state.relations.push(
     makeRelation(user, now, auth,    userDb,  "DEPENDS_ON",        "Auth Service reads/writes user records."),
     makeRelation(user, now, policy,  auth,    "SECURES",           "JWT policy governs the Authentication Service."),
@@ -290,11 +333,13 @@ async function main() {
   const jsonExport = makeExport(user, project, "JSON", [
     "ARTIFACTS",
     "RELATIONS",
+    "API_SPECS",
     "GRAPH",
     "VALIDATION_REPORT",
   ]);
   const markdownExport = makeExport(user, project, "MARKDOWN", [
     "ARTIFACTS",
+    "API_SPECS",
     "RELATIONS",
     "VALIDATION_REPORT",
   ]);
@@ -310,6 +355,7 @@ async function main() {
         project: { id: project.id, name: project.name },
         artifacts: state.artifacts.map((a) => ({ id: a.id, title: a.title, status: a.status })),
         relations: state.relations.map((r) => r.id),
+        apiSpecs: state.apiSpecs.map((s) => ({ id: s.id, title: s.title, endpointCount: state.apiEndpoints.filter((e) => e.apiSpecId === s.id).length })),
         validation: {
           issueCount: issues.length,
           severities: issues.reduce<Record<string, number>>((acc, v) => {

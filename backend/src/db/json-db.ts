@@ -101,6 +101,34 @@ export interface ExportPackageRow {
   createdAt: string;
 }
 
+export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+export interface ApiSpecRow {
+  id: string;
+  projectId: string;
+  artifactId: string | null;
+  title: string;
+  version: string;
+  baseUrl: string;
+  description: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiEndpointRow {
+  id: string;
+  apiSpecId: string;
+  path: string;
+  method: HttpMethod;
+  summary: string;
+  requestSchema: string;
+  responseSchema: string;
+  requiresAuth: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DbShape {
   users: UserRow[];
   projects: ProjectRow[];
@@ -108,6 +136,8 @@ export interface DbShape {
   relations: RelationRow[];
   validationIssues: ValidationIssueRow[];
   exports: ExportPackageRow[];
+  apiSpecs: ApiSpecRow[];
+  apiEndpoints: ApiEndpointRow[];
 }
 
 const empty: DbShape = {
@@ -117,6 +147,8 @@ const empty: DbShape = {
   relations: [],
   validationIssues: [],
   exports: [],
+  apiSpecs: [],
+  apiEndpoints: [],
 };
 
 const DATA_FILE =

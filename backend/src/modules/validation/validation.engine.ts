@@ -12,6 +12,10 @@ export function runValidationForProject(projectId: string): ValidationIssueRow[]
   const projectRelations = state.relations.filter(
     (r) => ids.has(r.sourceArtifactId) && ids.has(r.targetArtifactId),
   );
+  const apiSpecs = state.apiSpecs.filter((s) => s.projectId === projectId);
+  const apiEndpoints = state.apiEndpoints.filter((e) =>
+    apiSpecs.some((s) => s.id === e.apiSpecId),
+  );
 
   state.validationIssues = state.validationIssues.filter((v) => v.projectId !== projectId);
 
@@ -90,6 +94,64 @@ export function runValidationForProject(projectId: string): ValidationIssueRow[]
         createdAt: now,
         updatedAt: now,
       });
+    }
+  }
+
+  // ── API spec rules ──
+  const artifactById = new Map(artifacts.map((a) => [a.id, a]));
+  for (const spec of apiSpecs) {
+    const specEndpoints = apiEndpoints.filter((e) => e.apiSpecId === spec.id);
+
+    // Rule: API spec with no endpoints
+    if (specEndpoints.length === 0) {
+      issues.push({
+        id: newId(),
+        projectId,
+        artifactId: spec.artifactId ?? spec.id,
+        severity: "WARNING",
+        category: "API",
+        message: `API spec "${spec.title}" has no endpoints.`,
+        status: "OPEN",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const linkedArtifact = spec.artifactId ? artifactById.get(spec.artifactId) : null;
+    const isSecuritySpec =
+      /\b(auth|security)/i.test(spec.title) ||
+      (linkedArtifact && linkedArtifact.type === "SECURITY_POLICY");
+
+    for (const ep of specEndpoints) {
+      // Rule: endpoint missing summary
+      if (!ep.summary || !ep.summary.trim()) {
+        issues.push({
+          id: newId(),
+          projectId,
+          artifactId: spec.artifactId ?? spec.id,
+          severity: "WARNING",
+          category: "API",
+          message: `Endpoint ${ep.method} ${ep.path} in "${spec.title}" has no summary.`,
+          status: "OPEN",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      // Rule: requiresAuth=false on security-related API
+      if (isSecuritySpec && !ep.requiresAuth) {
+        issues.push({
+          id: newId(),
+          projectId,
+          artifactId: spec.artifactId ?? spec.id,
+          severity: "WARNING",
+          category: "SECURITY",
+          message: `Endpoint ${ep.method} ${ep.path} on security-related spec "${spec.title}" is marked public (requiresAuth=false).`,
+          status: "OPEN",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
     }
   }
 
