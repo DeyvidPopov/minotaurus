@@ -1,10 +1,11 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { RelationType, type ArtifactRelation } from "@prisma/client";
+import { ProjectRole, RelationType, type ArtifactRelation } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
+import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 
 const RELATION_TYPES = Object.values(RelationType) as [RelationType, ...RelationType[]];
 
@@ -20,11 +21,16 @@ export function serializeRelation(r: ArtifactRelation) {
   };
 }
 
-async function ownerForArtifact(artifactId: string): Promise<string | null> {
+async function accessForArtifact(
+  artifactId: string,
+  userId: string,
+  minRole: ProjectRole = "VIEWER",
+): Promise<"ok" | "not_found" | "forbidden"> {
   const artifact = await prisma.artifact.findUnique({ where: { id: artifactId } });
-  if (!artifact) return null;
-  const project = await prisma.project.findUnique({ where: { id: artifact.projectId } });
-  return project?.ownerId ?? null;
+  if (!artifact) return "not_found";
+  const a = await getProjectAccess(artifact.projectId, userId);
+  if (a.status !== "ok") return a.status;
+  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
 }
 
 const createSchema = z.object({
@@ -35,10 +41,9 @@ const createSchema = z.object({
 
 export async function listRelations(req: AuthedRequest, res: Response) {
   const artifactId = req.params.artifactId;
-  const artifact = await prisma.artifact.findUnique({ where: { id: artifactId } });
-  if (!artifact) return fail(res, 404, "NOT_FOUND", "Artifact not found");
-  const owner = await ownerForArtifact(artifactId);
-  if (owner !== req.user!.userId) return fail(res, 403, "FORBIDDEN", "Forbidden");
+  const access = await accessForArtifact(artifactId, req.user!.userId);
+  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Artifact not found");
+  if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const [outgoing, incoming] = await Promise.all([
     prisma.artifactRelation.findMany({ where: { sourceArtifactId: artifactId } }),
@@ -59,8 +64,8 @@ export async function createRelation(req: AuthedRequest, res: Response) {
   const artifactId = req.params.artifactId;
   const source = await prisma.artifact.findUnique({ where: { id: artifactId } });
   if (!source) return fail(res, 404, "NOT_FOUND", "Source artifact not found");
-  const owner = await ownerForArtifact(artifactId);
-  if (owner !== req.user!.userId) return fail(res, 403, "FORBIDDEN", "Forbidden");
+  const access = await accessForArtifact(artifactId, req.user!.userId, "DEVELOPER");
+  if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
@@ -103,8 +108,8 @@ export async function createRelation(req: AuthedRequest, res: Response) {
 export async function deleteRelation(req: AuthedRequest, res: Response) {
   const rel = await prisma.artifactRelation.findUnique({ where: { id: req.params.relationId } });
   if (!rel) return fail(res, 404, "NOT_FOUND", "Relation not found");
-  const owner = await ownerForArtifact(rel.sourceArtifactId);
-  if (owner !== req.user!.userId) return fail(res, 403, "FORBIDDEN", "Forbidden");
+  const access = await accessForArtifact(rel.sourceArtifactId, req.user!.userId, "DEVELOPER");
+  if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const [source, target] = await Promise.all([
     prisma.artifact.findUnique({ where: { id: rel.sourceArtifactId } }),

@@ -2,14 +2,13 @@ import type { Response } from "express";
 import { prisma } from "../../lib/prisma.js";
 import { fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { getProjectAccess } from "../../lib/project-access.js";
 
 export async function getGraph(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (project.ownerId !== req.user!.userId) {
-    return fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  const access = await getProjectAccess(projectId, req.user!.userId);
+  if (access.status === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
+  if (access.status !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
   const [artifacts, relations] = await Promise.all([
     prisma.artifact.findMany({ where: { projectId } }),
     prisma.artifactRelation.findMany({

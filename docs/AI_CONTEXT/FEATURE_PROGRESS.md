@@ -12,8 +12,44 @@
 - Database Models (with auto-generated Mermaid ERD preview)
 - Diagrams (Mermaid editor with live preview, syntax status, template picker)
 - Settings
+- **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## RECENT POLISH (current pass)
+## PHASE 7 — Project Team Management + Roles (current pass)
+- New Prisma model `ProjectMember` + enum `ProjectRole` (OWNER / ARCHITECT / DEVELOPER / VIEWER).
+  Migration `20260527220334_add_project_members` applied to live Postgres.
+- Shared membership helpers in `backend/src/lib/project-access.ts`:
+  `getProjectAccess(projectId, userId) → { status, role }`, `hasAtLeast(role, minRole)`,
+  `assertProjectRole(...)`, `assertCanMutate(...)`, plus middleware
+  `requireProjectMembership()` / `requireProjectRole(minRole)`.
+- Every per-controller `project.ownerId === userId` check (api-specs, db-models, diagrams,
+  exports, validation, versions, impact, graph, artifacts, documentation, relations,
+  projects) replaced with the shared membership-based helper, with a `minRole` parameter:
+    - GET → VIEWER (any member)
+    - POST/PATCH/DELETE on artifacts/relations/docs/APIs/DBs/diagrams → DEVELOPER+
+    - POST /validate + PATCH validation-issue + POST /export → ARCHITECT+
+    - PATCH project → ARCHITECT+, DELETE project → OWNER
+- Members CRUD: `GET / POST / PATCH / DELETE /api/projects/:projectId/members`. Add looks
+  up users by email; refuses duplicates (`ALREADY_MEMBER`) and unknown users
+  (`USER_NOT_FOUND`); demotion or removal of the last OWNER is refused (`LAST_OWNER`).
+- Project create now auto-inserts an OWNER membership row in the same transaction.
+- Project list filters by `OR: [{ownerId}, {members.some.userId}]` so members see every
+  project they belong to, not just projects they own.
+- VersionEvent integration on member changes: "Maya joined project as DEVELOPER",
+  "Maya role changed: DEVELOPER → ARCHITECT", "Maya removed from project".
+- Validation rule (`ARCHITECTURE` category, INFO severity): "Single-user project may
+  reduce collaboration visibility."
+- Export engine: new `TEAM` section. JSON gets `team[]`; MARKDOWN gets a `## Team` table.
+  Section added to the frontend export picker and to the seed's bundled exports.
+- Seed: creates Maya Okafor (maya@helix.dev), Iris Lindholm (iris@helix.dev), Ren Tanaka
+  (ren@helix.dev) — all share password `minotaurus`. Memberships seeded as
+  Deyvid=OWNER, Iris=ARCHITECT, Maya=DEVELOPER, Ren=VIEWER. 31 backdated version events
+  now spread realistically across all four authors.
+- Frontend: new route `/projects/[projectId]/team` with member list, role chips, OWNER-only
+  role selects + remove buttons, "You" self-marker, and an invite form (email + role).
+  Sidebar entry "Team" added between "Version History" and "Export SSOT", showing the
+  member count as a badge. Members API client at `lib/api/members.ts`.
+
+## RECENT POLISH (previous pass)
 - Diagram editor:
   - "Templates…" picker modal (no more accidental overwrite)
   - Confirmation modal when editor is non-empty before replacing
@@ -156,5 +192,7 @@
 
 ## TODO (next phases)
 - AI architecture analysis (uses version history + impact + relations as feature inputs)
-- WebSocket live updates
-- Project members + RBAC (Prisma schema now in place to extend cleanly)
+- WebSocket live updates / live "X is editing" presence
+- Email invitations for non-existent users (today an email must already match a Minotaurus
+  account; sending an actual invite email is not implemented)
+- Per-resource ownership transfer (createdById is recorded but there is no UI to reassign)

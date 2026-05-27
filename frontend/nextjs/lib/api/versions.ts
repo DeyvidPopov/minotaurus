@@ -58,6 +58,8 @@ export interface VersionEvent {
   title: string;
   description: string;
   triggeredBy: string;
+  triggeredByName?: string | null;
+  triggeredByInitials?: string | null;
   metadata: Record<string, unknown>;
   createdAt: string;
 }

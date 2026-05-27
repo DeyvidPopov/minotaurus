@@ -14,7 +14,7 @@ export async function runValidationForProject(
   projectId: string,
   triggeredBy?: string,
 ): Promise<ValidationIssue[]> {
-  const [project, artifacts, relations, apiSpecs, apiEndpoints, databaseModels, databaseEntities, databaseFields, diagrams, recentEvents] =
+  const [project, artifacts, relations, apiSpecs, apiEndpoints, databaseModels, databaseEntities, databaseFields, diagrams, recentEvents, memberCount] =
     await Promise.all([
       prisma.project.findUnique({ where: { id: projectId } }),
       prisma.artifact.findMany({ where: { projectId } }),
@@ -37,6 +37,7 @@ export async function runValidationForProject(
         },
         select: { entityId: true },
       }),
+      prisma.projectMember.count({ where: { projectId } }),
     ]);
 
   const now = new Date();
@@ -316,6 +317,18 @@ export async function runValidationForProject(
         });
       }
     }
+  }
+
+  // ── Collaboration / governance heuristics ──
+  if (project && artifacts.length > 0 && memberCount <= 1) {
+    drafts.push({
+      projectId,
+      artifactId: artifacts[0].id,
+      severity: "INFO",
+      category: "ARCHITECTURE",
+      message: "Single-user project may reduce collaboration visibility. Consider inviting team members on the Team page.",
+      status: "OPEN",
+    });
   }
 
   // Apply in one transaction: wipe old issues, insert new, record the run.

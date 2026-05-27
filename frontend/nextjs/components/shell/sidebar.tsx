@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Home, Folder, Compass, Box, Network,
-  Plug, Database, GitMerge, Shield, History, Package, Settings, LogOut,
+  Plug, Database, GitMerge, Shield, History, Package, Settings, LogOut, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -45,6 +45,7 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
     { id: "diagrams",   label: "Diagrams",        href: `/projects/${project.id}/diagrams`,    icon: <GitMerge size={16} /> },
     { id: "validation", label: "Validation",      href: `/projects/${project.id}/validation`,  icon: <Shield size={16} />, badge: project.validationIssueCount, badgeTone: "warning" },
     { id: "versions",   label: "Version History", href: `/projects/${project.id}/versions`,    icon: <History size={16} /> },
+    { id: "team",       label: "Team",            href: `/projects/${project.id}/team`,        icon: <Users size={16} />,  badge: project.members },
     { id: "export",     label: "Export SSOT",     href: `/projects/${project.id}/export`,      icon: <Package size={16} /> },
   ] : [];
 

@@ -1,10 +1,11 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { DatabaseType, type DatabaseEntity, type DatabaseField, type DatabaseModel } from "@prisma/client";
+import { DatabaseType, ProjectRole, type DatabaseEntity, type DatabaseField, type DatabaseModel } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
+import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 
 const DATABASE_TYPES = Object.values(DatabaseType) as [DatabaseType, ...DatabaseType[]];
 
@@ -51,39 +52,42 @@ function serializeField(f: DatabaseField) {
   };
 }
 
-async function projectAccess(projectId: string, userId: string): Promise<"ok" | "not_found" | "forbidden"> {
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return "not_found";
-  return project.ownerId === userId ? "ok" : "forbidden";
+async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
+  const a = await getProjectAccess(projectId, userId);
+  if (a.status !== "ok") return a.status;
+  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
 }
 
-async function findModelForUser(modelId: string, userId: string) {
+async function findModelForUser(modelId: string, userId: string, minRole: ProjectRole = "VIEWER") {
   const row = await prisma.databaseModel.findUnique({ where: { id: modelId } });
   if (!row) return { error: "not_found" as const };
-  const project = await prisma.project.findUnique({ where: { id: row.projectId } });
-  if (!project || project.ownerId !== userId) return { error: "forbidden" as const };
+  const a = await getProjectAccess(row.projectId, userId);
+  if (a.status === "not_found") return { error: "not_found" as const };
+  if (a.status !== "ok" || !hasAtLeast(a.role!, minRole)) return { error: "forbidden" as const };
   return { row };
 }
 
-async function findEntityForUser(entityId: string, userId: string) {
+async function findEntityForUser(entityId: string, userId: string, minRole: ProjectRole = "VIEWER") {
   const row = await prisma.databaseEntity.findUnique({ where: { id: entityId } });
   if (!row) return { error: "not_found" as const };
   const model = await prisma.databaseModel.findUnique({ where: { id: row.databaseModelId } });
   if (!model) return { error: "not_found" as const };
-  const project = await prisma.project.findUnique({ where: { id: model.projectId } });
-  if (!project || project.ownerId !== userId) return { error: "forbidden" as const };
+  const a = await getProjectAccess(model.projectId, userId);
+  if (a.status === "not_found") return { error: "not_found" as const };
+  if (a.status !== "ok" || !hasAtLeast(a.role!, minRole)) return { error: "forbidden" as const };
   return { row, model };
 }
 
-async function findFieldForUser(fieldId: string, userId: string) {
+async function findFieldForUser(fieldId: string, userId: string, minRole: ProjectRole = "VIEWER") {
   const row = await prisma.databaseField.findUnique({ where: { id: fieldId } });
   if (!row) return { error: "not_found" as const };
   const entity = await prisma.databaseEntity.findUnique({ where: { id: row.entityId } });
   if (!entity) return { error: "not_found" as const };
   const model = await prisma.databaseModel.findUnique({ where: { id: entity.databaseModelId } });
   if (!model) return { error: "not_found" as const };
-  const project = await prisma.project.findUnique({ where: { id: model.projectId } });
-  if (!project || project.ownerId !== userId) return { error: "forbidden" as const };
+  const a = await getProjectAccess(model.projectId, userId);
+  if (a.status === "not_found") return { error: "not_found" as const };
+  if (a.status !== "ok" || !hasAtLeast(a.role!, minRole)) return { error: "forbidden" as const };
   return { row, entity, model };
 }
 
@@ -160,7 +164,7 @@ export async function listModels(req: AuthedRequest, res: Response) {
 
 export async function createModel(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId);
+  const access = await projectAccess(projectId, req.user!.userId, "DEVELOPER");
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -213,7 +217,7 @@ export async function patchModel(req: AuthedRequest, res: Response) {
   const parsed = patchModelSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const result = await findModelForUser(req.params.databaseModelId, req.user!.userId);
+  const result = await findModelForUser(req.params.databaseModelId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Database model not found")
@@ -253,7 +257,7 @@ export async function patchModel(req: AuthedRequest, res: Response) {
 }
 
 export async function deleteModel(req: AuthedRequest, res: Response) {
-  const result = await findModelForUser(req.params.databaseModelId, req.user!.userId);
+  const result = await findModelForUser(req.params.databaseModelId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Database model not found")
@@ -289,7 +293,7 @@ export async function listEntities(req: AuthedRequest, res: Response) {
 }
 
 export async function createEntity(req: AuthedRequest, res: Response) {
-  const modelResult = await findModelForUser(req.params.databaseModelId, req.user!.userId);
+  const modelResult = await findModelForUser(req.params.databaseModelId, req.user!.userId, "DEVELOPER");
   if ("error" in modelResult) {
     return modelResult.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Database model not found")
@@ -326,7 +330,7 @@ export async function patchEntity(req: AuthedRequest, res: Response) {
   const parsed = patchEntitySchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const result = await findEntityForUser(req.params.entityId, req.user!.userId);
+  const result = await findEntityForUser(req.params.entityId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Entity not found")
@@ -357,7 +361,7 @@ export async function patchEntity(req: AuthedRequest, res: Response) {
 }
 
 export async function deleteEntity(req: AuthedRequest, res: Response) {
-  const result = await findEntityForUser(req.params.entityId, req.user!.userId);
+  const result = await findEntityForUser(req.params.entityId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Entity not found")
@@ -382,7 +386,7 @@ export async function deleteEntity(req: AuthedRequest, res: Response) {
 }
 
 export async function createField(req: AuthedRequest, res: Response) {
-  const entityResult = await findEntityForUser(req.params.entityId, req.user!.userId);
+  const entityResult = await findEntityForUser(req.params.entityId, req.user!.userId, "DEVELOPER");
   if ("error" in entityResult) {
     return entityResult.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Entity not found")
@@ -437,7 +441,7 @@ export async function patchField(req: AuthedRequest, res: Response) {
   const parsed = patchFieldSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const result = await findFieldForUser(req.params.fieldId, req.user!.userId);
+  const result = await findFieldForUser(req.params.fieldId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Field not found")
@@ -500,7 +504,7 @@ export async function patchField(req: AuthedRequest, res: Response) {
 }
 
 export async function deleteField(req: AuthedRequest, res: Response) {
-  const result = await findFieldForUser(req.params.fieldId, req.user!.userId);
+  const result = await findFieldForUser(req.params.fieldId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Field not found")

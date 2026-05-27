@@ -15,16 +15,20 @@ Backend:
 ## Working Features
 - Auth
 - Projects
+- **Project Team Management + Roles (Phase 7)** — ProjectMember table with OWNER /
+  ARCHITECT / DEVELOPER / VIEWER roles. Project access is now membership-based across
+  every controller. OWNER manages members, ARCHITECT runs validation + exports,
+  DEVELOPER edits artifacts/APIs/DB/diagrams/docs, VIEWER is read-only.
 - Artifacts
 - Relations
 - Documentation
 - API Specs
 - Database Models (with visual Mermaid ERD)
 - Diagrams (Mermaid editor + live preview, polished, readable labels in dark theme)
-- Validation (artifact relation, doc, security, API, DB, diagram, churn, deprecated-still-used rules)
-- Version History (every CUD records a VersionEvent; timeline + filters)
+- Validation (artifact relation, doc, security, API, DB, diagram, churn, deprecated-still-used, single-member rules)
+- Version History (every CUD records a VersionEvent — including member add/role-change/remove; timeline + filters)
 - Impact Analysis (per-artifact blast radius: deps, dependents, APIs, DBs, diagrams, docs, recent events)
-- Export (artifacts, relations, API specs, DB models, diagrams, validation report, graph, version history, impact analysis)
+- Export (TEAM, artifacts, relations, API specs, DB models, diagrams, validation report, graph, version history, impact analysis)
 - Graph
 - Settings
 

@@ -40,6 +40,7 @@ import {
   projectVersionsRouter,
   versionEventsRouter,
 } from "./modules/versions/versions.routes.js";
+import { projectMembersRouter } from "./modules/members/members.routes.js";
 import { requireAuth } from "./middleware/auth.js";
 import { fail, ok } from "./utils/response.js";
 import { prisma } from "./lib/prisma.js";
@@ -82,6 +83,7 @@ apiRouter.use("/projects/:projectId/graph", requireAuth, graphRouter);
 apiRouter.use("/projects/:projectId", requireAuth, projectValidationRouter);
 apiRouter.use("/projects/:projectId", requireAuth, projectExportsRouter);
 apiRouter.use("/projects/:projectId", requireAuth, projectVersionsRouter);
+apiRouter.use("/projects/:projectId/members", requireAuth, projectMembersRouter);
 
 apiRouter.use("/artifacts/:artifactId/relations", requireAuth, artifactRelationsRouter);
 apiRouter.use("/artifacts", requireAuth, artifactsRouter);

@@ -13,10 +13,33 @@ Living list of trade-offs and partial implementations in the current MVP. Update
   `npx prisma migrate deploy`; iterate during dev with `npx prisma migrate dev`.
 
 ## Auth
-- Single-tenant. Project access is gated by `ownerId === userId`. No member/role tables, no organization scoping.
+- Multi-user **per project** (Phase 7). Project access is gated by the `ProjectMember`
+  table with four roles: OWNER, ARCHITECT, DEVELOPER, VIEWER. No organization scoping
+  yet — every user is global; membership is per-project.
 - No refresh tokens, no password reset, no email verification.
 - Changing the password does **not** invalidate existing JWTs — they remain valid until they expire (default 7d).
 - Email changes via `PATCH /auth/me` take effect immediately with no verification flow.
+
+## Team / Roles (Phase 7 — shipped)
+- Roles enforced server-side at every mutation endpoint (controllers use the shared
+  `getProjectAccess` + `hasAtLeast` helpers from `src/lib/project-access.ts`):
+  - OWNER: everything, including managing members and deleting the project.
+  - ARCHITECT: edit any project content + run validation + create exports.
+  - DEVELOPER: edit artifacts / relations / docs / API specs / DB models / diagrams.
+    CANNOT run validation, create exports, manage members.
+  - VIEWER: read-only on all resources.
+- Last-OWNER protection: the API refuses to demote or remove the only remaining OWNER
+  of a project (`LAST_OWNER` error).
+- Adding a member needs the user to already have a Minotaurus account (`USER_NOT_FOUND`
+  is returned otherwise). No invitation-email flow yet.
+- Project creator is auto-inserted as an OWNER membership row at creation time
+  (`projects.controller.ts:createProject` does this in a `$transaction`).
+- `project.ownerId` is preserved as the "creator pointer" on the Project row; the
+  access helper falls back to it as an implicit OWNER membership for any project
+  somehow missing its OWNER row, so legacy data keeps working.
+- Member changes write VersionEvents: "Maya joined project as DEVELOPER",
+  "Maya role changed: DEVELOPER → ARCHITECT", "Maya removed from project". Entity
+  type is `PROJECT`; action is `LINKED` / `UPDATED` / `UNLINKED`.
 
 ## Graph
 - `/api/projects/:id/graph` only emits artifact nodes. API specs, database models, and diagrams are **not** native graph nodes by design (to keep the graph contract stable). Navigation between them goes via the artifact detail page's **Linked resources** card.

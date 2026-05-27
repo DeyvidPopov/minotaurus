@@ -1,10 +1,11 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { DiagramType, type Diagram } from "@prisma/client";
+import { DiagramType, ProjectRole, type Diagram } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
+import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 
 const DIAGRAM_TYPES = Object.values(DiagramType) as [DiagramType, ...DiagramType[]];
 
@@ -23,17 +24,18 @@ export function serializeDiagram(d: Diagram) {
   };
 }
 
-async function projectAccess(projectId: string, userId: string): Promise<"ok" | "not_found" | "forbidden"> {
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return "not_found";
-  return project.ownerId === userId ? "ok" : "forbidden";
+async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
+  const a = await getProjectAccess(projectId, userId);
+  if (a.status !== "ok") return a.status;
+  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
 }
 
-async function findDiagramForUser(diagramId: string, userId: string) {
+async function findDiagramForUser(diagramId: string, userId: string, minRole: ProjectRole = "VIEWER") {
   const row = await prisma.diagram.findUnique({ where: { id: diagramId } });
   if (!row) return { error: "not_found" as const };
-  const project = await prisma.project.findUnique({ where: { id: row.projectId } });
-  if (!project || project.ownerId !== userId) return { error: "forbidden" as const };
+  const a = await getProjectAccess(row.projectId, userId);
+  if (a.status === "not_found") return { error: "not_found" as const };
+  if (a.status !== "ok" || !hasAtLeast(a.role!, minRole)) return { error: "forbidden" as const };
   return { row };
 }
 
@@ -81,7 +83,7 @@ export async function listDiagrams(req: AuthedRequest, res: Response) {
 
 export async function createDiagram(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId);
+  const access = await projectAccess(projectId, req.user!.userId, "DEVELOPER");
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -135,7 +137,7 @@ export async function patchDiagram(req: AuthedRequest, res: Response) {
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const result = await findDiagramForUser(req.params.diagramId, req.user!.userId);
+  const result = await findDiagramForUser(req.params.diagramId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Diagram not found")
@@ -178,7 +180,7 @@ export async function patchDiagram(req: AuthedRequest, res: Response) {
 }
 
 export async function deleteDiagram(req: AuthedRequest, res: Response) {
-  const result = await findDiagramForUser(req.params.diagramId, req.user!.userId);
+  const result = await findDiagramForUser(req.params.diagramId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Diagram not found")

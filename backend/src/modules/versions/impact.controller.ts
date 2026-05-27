@@ -1,12 +1,14 @@
 import type { Response } from "express";
+import { ProjectRole } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 
-async function projectAccess(projectId: string, userId: string): Promise<"ok" | "not_found" | "forbidden"> {
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return "not_found";
-  return project.ownerId === userId ? "ok" : "forbidden";
+async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
+  const a = await getProjectAccess(projectId, userId);
+  if (a.status !== "ok") return a.status;
+  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
 }
 
 interface SummarizedArtifact {
@@ -141,18 +143,38 @@ export async function analyzeImpact(req: AuthedRequest, res: Response) {
       databaseModels: databaseModelsOut,
       diagrams: diagramsOut,
       documentation,
-      recentEvents: recentEvents.map((e) => ({
-        id: e.id,
-        projectId: e.projectId,
-        entityType: e.entityType,
-        entityId: e.entityId,
-        action: e.action,
-        title: e.title,
-        description: e.description,
-        triggeredBy: e.triggeredById,
-        metadata: e.metadata,
-        createdAt: e.createdAt,
-      })),
+      recentEvents: await (async () => {
+        const ids = Array.from(new Set(recentEvents.map((e) => e.triggeredById).filter(Boolean)));
+        const users = ids.length
+          ? await prisma.user.findMany({
+              where: { id: { in: ids } },
+              select: { id: true, firstName: true, lastName: true },
+            })
+          : [];
+        const nameById = new Map(
+          users.map((u) => [
+            u.id,
+            {
+              name: [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || null,
+              initials: `${u.firstName.charAt(0)}${u.lastName.charAt(0)}`.toUpperCase() || null,
+            },
+          ]),
+        );
+        return recentEvents.map((e) => ({
+          id: e.id,
+          projectId: e.projectId,
+          entityType: e.entityType,
+          entityId: e.entityId,
+          action: e.action,
+          title: e.title,
+          description: e.description,
+          triggeredBy: e.triggeredById,
+          triggeredByName: nameById.get(e.triggeredById)?.name ?? null,
+          triggeredByInitials: nameById.get(e.triggeredById)?.initials ?? null,
+          metadata: e.metadata,
+          createdAt: e.createdAt,
+        }));
+      })(),
       impactSummary: {
         affectedArtifacts: incoming.length + outgoing.length,
         affectedApis: apiSpecsOut.length,

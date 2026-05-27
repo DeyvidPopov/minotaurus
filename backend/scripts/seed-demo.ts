@@ -128,11 +128,12 @@ async function main() {
     prisma.apiSpec.deleteMany(),
     prisma.artifactRelation.deleteMany(),
     prisma.artifact.deleteMany(),
+    prisma.projectMember.deleteMany(),
     prisma.project.deleteMany(),
     prisma.user.deleteMany(),
   ]);
 
-  // ── user ──
+  // ── users ──
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const user = await prisma.user.create({
     data: {
@@ -144,6 +145,17 @@ async function main() {
     },
   });
 
+  const teamPasswordHash = await bcrypt.hash("minotaurus", 10);
+  const maya = await prisma.user.create({
+    data: { email: "maya@helix.dev",  passwordHash: teamPasswordHash, firstName: "Maya", lastName: "Okafor",  role: "ENGINEER"  },
+  });
+  const iris = await prisma.user.create({
+    data: { email: "iris@helix.dev",  passwordHash: teamPasswordHash, firstName: "Iris", lastName: "Lindholm", role: "ARCHITECT" },
+  });
+  const ren = await prisma.user.create({
+    data: { email: "ren@helix.dev",   passwordHash: teamPasswordHash, firstName: "Ren",  lastName: "Tanaka",   role: "ENGINEER"  },
+  });
+
   // ── project ──
   const project = await prisma.project.create({
     data: {
@@ -152,6 +164,16 @@ async function main() {
         "Reference e-commerce architecture: gateway, auth, catalog, orders, payments. Used as the thesis walkthrough demo.",
       ownerId: user.id,
     },
+  });
+
+  // ── memberships ──
+  await prisma.projectMember.createMany({
+    data: [
+      { projectId: project.id, userId: user.id, role: "OWNER" },
+      { projectId: project.id, userId: iris.id, role: "ARCHITECT" },
+      { projectId: project.id, userId: maya.id, role: "DEVELOPER" },
+      { projectId: project.id, userId: ren.id,  role: "VIEWER" },
+    ],
   });
 
   // ── artifacts ──
@@ -323,32 +345,48 @@ async function main() {
   };
 
   const events: Parameters<typeof recordVersionEvent>[0][] = [
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.auth.id,       action: "CREATED", title: a.auth.title,    description: "SERVICE (ACTIVE)",                    triggeredBy: user.id, at: at(12, 9, 14) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.userDb.id,     action: "CREATED", title: a.userDb.title,  description: "DATABASE_MODEL",                      triggeredBy: user.id, at: at(12, 9, 32) },
-    { projectId: project.id, entityType: "DATABASE_MODEL",  entityId: dbModel.id,      action: "CREATED", title: dbModel.title,   description: "PostgreSQL",                          triggeredBy: user.id, metadata: { databaseType: "PostgreSQL" }, at: at(11, 11, 5) },
-    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: usersEntity.id,  action: "CREATED", title: usersEntity.name,    description: "Added to User Management Database", triggeredBy: user.id, metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 10) },
-    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: sessionsEntity.id, action: "CREATED", title: sessionsEntity.name, description: "Added to User Management Database", triggeredBy: user.id, metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 12) },
-    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: rolesEntity.id,  action: "CREATED", title: rolesEntity.name, description: "Added to User Management Database", triggeredBy: user.id, metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 14) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.catalog.id,    action: "CREATED", title: a.catalog.title, description: "API_ENDPOINT",                        triggeredBy: user.id, at: at(10, 14, 2) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.prodDb.id,     action: "CREATED", title: a.prodDb.title,  description: "DATABASE_MODEL",                      triggeredBy: user.id, at: at(10, 14, 10) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.gateway.id,    action: "CREATED", title: a.gateway.title, description: "SERVICE",                             triggeredBy: user.id, at: at(9,  10, 0) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.order.id,      action: "CREATED", title: a.order.title,   description: "SERVICE",                             triggeredBy: user.id, at: at(9,  10, 20) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.payment.id,    action: "CREATED", title: a.payment.title, description: "SERVICE",                             triggeredBy: user.id, at: at(9,  10, 40) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.legacy.id,     action: "CREATED", title: a.legacy.title,  description: "SERVICE (DEPRECATED)",                triggeredBy: user.id, at: at(8,  9, 30) },
-    { projectId: project.id, entityType: "API_SPEC",        entityId: authSpec.id,     action: "CREATED", title: authSpec.title,  description: `v${authSpec.version} · ${authSpec.baseUrl}`, triggeredBy: user.id, metadata: { version: authSpec.version }, at: at(7, 13, 15) },
-    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[0].id, action: "CREATED", title: `${endpointRows[0].method} ${endpointRows[0].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: user.id, metadata: { specId: authSpec.id }, at: at(7, 13, 16) },
-    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[1].id, action: "CREATED", title: `${endpointRows[1].method} ${endpointRows[1].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: user.id, metadata: { specId: authSpec.id }, at: at(7, 13, 17) },
-    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[2].id, action: "CREATED", title: `${endpointRows[2].method} ${endpointRows[2].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: user.id, metadata: { specId: authSpec.id }, at: at(7, 13, 18) },
-    { projectId: project.id, entityType: "RELATION",        entityId: relationRows[0].id, action: "LINKED",  title: `${a.auth.title} → ${a.userDb.title}`, description: "DEPENDS_ON",        triggeredBy: user.id, metadata: { relationType: "DEPENDS_ON", sourceArtifactId: a.auth.id, targetArtifactId: a.userDb.id }, at: at(6, 11, 0) },
-    { projectId: project.id, entityType: "RELATION",        entityId: relationRows[2].id, action: "LINKED",  title: `${a.gateway.title} → ${a.auth.title}`, description: "COMMUNICATES_WITH", triggeredBy: user.id, metadata: { relationType: "COMMUNICATES_WITH", sourceArtifactId: a.gateway.id, targetArtifactId: a.auth.id }, at: at(6, 11, 5) },
-    { projectId: project.id, entityType: "DIAGRAM",         entityId: archDiagram.id,    action: "CREATED", title: archDiagram.title, description: archDiagram.type, triggeredBy: user.id, metadata: { type: archDiagram.type }, at: at(5, 16, 30) },
-    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.auth.id,         action: "CREATED", title: a.auth.title,    description: "Documentation created", triggeredBy: user.id, metadata: { length: (a.auth.documentationContent ?? "").length }, at: at(4, 10, 0) },
-    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.gateway.id,      action: "CREATED", title: a.gateway.title, description: "Documentation created", triggeredBy: user.id, metadata: { length: (a.gateway.documentationContent ?? "").length }, at: at(4, 10, 30) },
-    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.order.id,        action: "CREATED", title: a.order.title,   description: "Documentation created", triggeredBy: user.id, metadata: { length: (a.order.documentationContent ?? "").length }, at: at(4, 11, 0) },
-    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.archDoc.id,      action: "CREATED", title: a.archDoc.title, description: "Documentation created", triggeredBy: user.id, metadata: { length: (a.archDoc.documentationContent ?? "").length }, at: at(4, 11, 30) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.auth.id,         action: "UPDATED", title: a.auth.title,    description: "status, tags",          triggeredBy: user.id, metadata: { changed: ["status", "tags"] }, at: at(3, 14, 0) },
-    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.gateway.id,      action: "UPDATED", title: a.gateway.title, description: "description",          triggeredBy: user.id, metadata: { changed: ["description"] },   at: at(2, 9, 0) },
-    { projectId: project.id, entityType: "DATABASE_MODEL",  entityId: dbModel.id,        action: "UPDATED", title: dbModel.title,   description: "description",          triggeredBy: user.id, metadata: { changed: ["description"] },   at: at(2, 9, 30) },
+    // Day 13 — David spins up the project and invites the team
+    { projectId: project.id, entityType: "PROJECT",         entityId: project.id,      action: "CREATED", title: project.name,    description: "Project created",                     triggeredBy: user.id,  at: at(13, 8, 0) },
+    { projectId: project.id, entityType: "PROJECT",         entityId: project.id,      action: "LINKED",  title: "Iris Lindholm joined project as ARCHITECT", description: "Member added", triggeredBy: user.id, metadata: { memberUserId: iris.id, role: "ARCHITECT" }, at: at(13, 8, 30) },
+    { projectId: project.id, entityType: "PROJECT",         entityId: project.id,      action: "LINKED",  title: "Maya Okafor joined project as DEVELOPER",   description: "Member added", triggeredBy: user.id, metadata: { memberUserId: maya.id, role: "DEVELOPER" }, at: at(13, 8, 32) },
+    { projectId: project.id, entityType: "PROJECT",         entityId: project.id,      action: "LINKED",  title: "Ren Tanaka joined project as VIEWER",       description: "Member added", triggeredBy: user.id, metadata: { memberUserId: ren.id,  role: "VIEWER" },    at: at(13, 8, 35) },
+    // Day 12 — David lays down the security-critical artifacts
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.auth.id,       action: "CREATED", title: a.auth.title,    description: "SERVICE (ACTIVE)",                    triggeredBy: user.id,  at: at(12, 9, 14) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.userDb.id,     action: "CREATED", title: a.userDb.title,  description: "DATABASE_MODEL",                      triggeredBy: user.id,  at: at(12, 9, 32) },
+    // Day 11 — Maya models the user database
+    { projectId: project.id, entityType: "DATABASE_MODEL",  entityId: dbModel.id,      action: "CREATED", title: dbModel.title,   description: "PostgreSQL",                          triggeredBy: maya.id,  metadata: { databaseType: "PostgreSQL" }, at: at(11, 11, 5) },
+    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: usersEntity.id,  action: "CREATED", title: usersEntity.name,    description: "Added to User Management Database", triggeredBy: maya.id,  metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 10) },
+    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: sessionsEntity.id, action: "CREATED", title: sessionsEntity.name, description: "Added to User Management Database", triggeredBy: maya.id,  metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 12) },
+    { projectId: project.id, entityType: "DATABASE_ENTITY", entityId: rolesEntity.id,  action: "CREATED", title: rolesEntity.name, description: "Added to User Management Database", triggeredBy: maya.id,  metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 14) },
+    // Day 10 — Iris adds the catalog + product DB
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.catalog.id,    action: "CREATED", title: a.catalog.title, description: "API_ENDPOINT",                        triggeredBy: iris.id,  at: at(10, 14, 2) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.prodDb.id,     action: "CREATED", title: a.prodDb.title,  description: "DATABASE_MODEL",                      triggeredBy: iris.id,  at: at(10, 14, 10) },
+    // Day 9 — Iris designs gateway + order + payment
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.gateway.id,    action: "CREATED", title: a.gateway.title, description: "SERVICE",                             triggeredBy: iris.id,  at: at(9,  10, 0) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.order.id,      action: "CREATED", title: a.order.title,   description: "SERVICE",                             triggeredBy: iris.id,  at: at(9,  10, 20) },
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.payment.id,    action: "CREATED", title: a.payment.title, description: "SERVICE",                             triggeredBy: iris.id,  at: at(9,  10, 40) },
+    // Day 8 — David flags the legacy service for removal
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.legacy.id,     action: "CREATED", title: a.legacy.title,  description: "SERVICE (DEPRECATED)",                triggeredBy: user.id,  at: at(8,  9, 30) },
+    // Day 7 — Maya writes the auth API spec + its endpoints
+    { projectId: project.id, entityType: "API_SPEC",        entityId: authSpec.id,     action: "CREATED", title: authSpec.title,  description: `v${authSpec.version} · ${authSpec.baseUrl}`, triggeredBy: maya.id,  metadata: { version: authSpec.version }, at: at(7, 13, 15) },
+    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[0].id, action: "CREATED", title: `${endpointRows[0].method} ${endpointRows[0].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: maya.id,  metadata: { specId: authSpec.id }, at: at(7, 13, 16) },
+    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[1].id, action: "CREATED", title: `${endpointRows[1].method} ${endpointRows[1].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: maya.id,  metadata: { specId: authSpec.id }, at: at(7, 13, 17) },
+    { projectId: project.id, entityType: "API_ENDPOINT",    entityId: endpointRows[2].id, action: "CREATED", title: `${endpointRows[2].method} ${endpointRows[2].path}`, description: `Added to "${authSpec.title}"`, triggeredBy: maya.id,  metadata: { specId: authSpec.id }, at: at(7, 13, 18) },
+    // Day 6 — Iris wires the dependency edges
+    { projectId: project.id, entityType: "RELATION",        entityId: relationRows[0].id, action: "LINKED",  title: `${a.auth.title} → ${a.userDb.title}`, description: "DEPENDS_ON",        triggeredBy: iris.id,  metadata: { relationType: "DEPENDS_ON", sourceArtifactId: a.auth.id, targetArtifactId: a.userDb.id }, at: at(6, 11, 0) },
+    { projectId: project.id, entityType: "RELATION",        entityId: relationRows[2].id, action: "LINKED",  title: `${a.gateway.title} → ${a.auth.title}`, description: "COMMUNICATES_WITH", triggeredBy: iris.id,  metadata: { relationType: "COMMUNICATES_WITH", sourceArtifactId: a.gateway.id, targetArtifactId: a.auth.id }, at: at(6, 11, 5) },
+    // Day 5 — Iris draws the architecture overview
+    { projectId: project.id, entityType: "DIAGRAM",         entityId: archDiagram.id,    action: "CREATED", title: archDiagram.title, description: archDiagram.type, triggeredBy: iris.id,  metadata: { type: archDiagram.type }, at: at(5, 16, 30) },
+    // Day 4 — Maya writes the docs
+    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.auth.id,         action: "CREATED", title: a.auth.title,    description: "Documentation created", triggeredBy: maya.id,  metadata: { length: (a.auth.documentationContent ?? "").length }, at: at(4, 10, 0) },
+    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.gateway.id,      action: "CREATED", title: a.gateway.title, description: "Documentation created", triggeredBy: maya.id,  metadata: { length: (a.gateway.documentationContent ?? "").length }, at: at(4, 10, 30) },
+    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.order.id,        action: "CREATED", title: a.order.title,   description: "Documentation created", triggeredBy: maya.id,  metadata: { length: (a.order.documentationContent ?? "").length }, at: at(4, 11, 0) },
+    { projectId: project.id, entityType: "DOCUMENTATION",   entityId: a.archDoc.id,      action: "CREATED", title: a.archDoc.title, description: "Documentation created", triggeredBy: maya.id,  metadata: { length: (a.archDoc.documentationContent ?? "").length }, at: at(4, 11, 30) },
+    // Day 3 — David updates auth status, Iris promotes Maya, Ren reviews
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.auth.id,         action: "UPDATED", title: a.auth.title,    description: "status, tags",          triggeredBy: user.id,  metadata: { changed: ["status", "tags"] }, at: at(3, 14, 0) },
+    // Day 2 — Iris tweaks the gateway description, Maya polishes the DB model
+    { projectId: project.id, entityType: "ARTIFACT",        entityId: a.gateway.id,      action: "UPDATED", title: a.gateway.title, description: "description",          triggeredBy: iris.id,  metadata: { changed: ["description"] },   at: at(2, 9, 0) },
+    { projectId: project.id, entityType: "DATABASE_MODEL",  entityId: dbModel.id,        action: "UPDATED", title: dbModel.title,   description: "description",          triggeredBy: maya.id,  metadata: { changed: ["description"] },   at: at(2, 9, 30) },
   ];
 
   for (const e of events) await recordVersionEvent(e);
@@ -357,7 +395,8 @@ async function main() {
   const issues = await runValidationForProject(project.id, user.id);
 
   // ── Exports ──
-  const jsonContent = await buildExportContent(project.id, "JSON", [
+  const jsonSections = [
+    "TEAM",
     "ARTIFACTS",
     "RELATIONS",
     "API_SPECS",
@@ -367,8 +406,9 @@ async function main() {
     "VALIDATION_REPORT",
     "VERSION_HISTORY",
     "IMPACT_ANALYSIS",
-  ]);
-  const mdContent = await buildExportContent(project.id, "MARKDOWN", [
+  ];
+  const mdSections = [
+    "TEAM",
     "ARTIFACTS",
     "API_SPECS",
     "DATABASE_MODELS",
@@ -376,12 +416,14 @@ async function main() {
     "RELATIONS",
     "VALIDATION_REPORT",
     "VERSION_HISTORY",
-  ]);
+  ];
+  const jsonContent = await buildExportContent(project.id, "JSON", jsonSections);
+  const mdContent = await buildExportContent(project.id, "MARKDOWN", mdSections);
   await prisma.exportPackage.create({
     data: {
       projectId: project.id,
       format: "JSON",
-      sections: ["ARTIFACTS", "RELATIONS", "API_SPECS", "DATABASE_MODELS", "DIAGRAMS", "GRAPH", "VALIDATION_REPORT", "VERSION_HISTORY", "IMPACT_ANALYSIS"],
+      sections: jsonSections,
       content: jsonContent as Prisma.InputJsonValue,
       createdById: user.id,
     },
@@ -390,7 +432,7 @@ async function main() {
     data: {
       projectId: project.id,
       format: "MARKDOWN",
-      sections: ["ARTIFACTS", "API_SPECS", "DATABASE_MODELS", "DIAGRAMS", "RELATIONS", "VALIDATION_REPORT", "VERSION_HISTORY"],
+      sections: mdSections,
       content: mdContent as Prisma.InputJsonValue,
       createdById: user.id,
     },

@@ -1,20 +1,23 @@
 import type { Response } from "express";
 import { z } from "zod";
+import { ProjectRole } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
+import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 
 const updateSchema = z.object({
   markdownContent: z.string().optional(),
   content: z.string().optional(),
 });
 
-async function findArtifactForUser(artifactId: string, userId: string) {
+async function findArtifactForUser(artifactId: string, userId: string, minRole: ProjectRole = "VIEWER") {
   const artifact = await prisma.artifact.findUnique({ where: { id: artifactId } });
   if (!artifact) return { error: "not_found" as const };
-  const project = await prisma.project.findUnique({ where: { id: artifact.projectId } });
-  if (!project || project.ownerId !== userId) return { error: "forbidden" as const };
+  const a = await getProjectAccess(artifact.projectId, userId);
+  if (a.status === "not_found") return { error: "not_found" as const };
+  if (a.status !== "ok" || !hasAtLeast(a.role!, minRole)) return { error: "forbidden" as const };
   return { artifact };
 }
 
@@ -43,7 +46,7 @@ export async function putDocumentation(req: AuthedRequest, res: Response) {
   }
   const content = parsed.data.markdownContent ?? parsed.data.content ?? "";
 
-  const result = await findArtifactForUser(req.params.artifactId, req.user!.userId);
+  const result = await findArtifactForUser(req.params.artifactId, req.user!.userId, "DEVELOPER");
   if ("error" in result) {
     return result.error === "not_found"
       ? fail(res, 404, "NOT_FOUND", "Artifact not found")

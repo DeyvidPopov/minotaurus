@@ -4,6 +4,7 @@ import type { Project } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { getProjectAccess } from "../../lib/project-access.js";
 
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#a855f7"];
 
@@ -23,9 +24,10 @@ function colorFromId(id: string): string {
 }
 
 export async function serializeProject(p: Project) {
-  const [artifactCount, validationIssueCount] = await Promise.all([
+  const [artifactCount, validationIssueCount, memberCount] = await Promise.all([
     prisma.artifact.count({ where: { projectId: p.id } }),
     prisma.validationIssue.count({ where: { projectId: p.id, status: "OPEN" } }),
+    prisma.projectMember.count({ where: { projectId: p.id } }),
   ]);
   return {
     id: p.id,
@@ -35,7 +37,7 @@ export async function serializeProject(p: Project) {
     ownerId: p.ownerId,
     artifactCount,
     validationIssueCount,
-    members: 1,
+    members: memberCount || 1,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     starred: false,
@@ -56,7 +58,12 @@ const patchSchema = z.object({
 export async function listProjects(req: AuthedRequest, res: Response) {
   const userId = req.user!.userId;
   const projects = await prisma.project.findMany({
-    where: { ownerId: userId },
+    where: {
+      OR: [
+        { ownerId: userId },
+        { members: { some: { userId } } },
+      ],
+    },
     orderBy: { updatedAt: "desc" },
   });
   const serialized = await Promise.all(projects.map((p) => serializeProject(p)));
@@ -66,35 +73,41 @@ export async function listProjects(req: AuthedRequest, res: Response) {
 export async function createProject(req: AuthedRequest, res: Response) {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
-  const project = await prisma.project.create({
-    data: {
-      name: parsed.data.name,
-      description: parsed.data.description ?? "",
-      ownerId: req.user!.userId,
-    },
+  const project = await prisma.$transaction(async (tx) => {
+    const p = await tx.project.create({
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description ?? "",
+        ownerId: req.user!.userId,
+      },
+    });
+    await tx.projectMember.create({
+      data: { projectId: p.id, userId: req.user!.userId, role: "OWNER" },
+    });
+    return p;
   });
   return created(res, await serializeProject(project), "Project created");
 }
 
 export async function getProject(req: AuthedRequest, res: Response) {
+  const access = await getProjectAccess(req.params.projectId, req.user!.userId);
+  if (access.status === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
+  if (access.status !== "ok") return fail(res, 403, "FORBIDDEN", "Not a member of this project");
   const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
-  if (!project) return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (project.ownerId !== req.user!.userId) {
-    return fail(res, 403, "FORBIDDEN", "Not a member of this project");
-  }
-  return ok(res, await serializeProject(project), "OK");
+  return ok(res, await serializeProject(project!), "OK");
 }
 
 export async function updateProject(req: AuthedRequest, res: Response) {
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
-  const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
-  if (!project) return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (project.ownerId !== req.user!.userId) {
-    return fail(res, 403, "FORBIDDEN", "Not a member of this project");
+  const access = await getProjectAccess(req.params.projectId, req.user!.userId);
+  if (access.status === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
+  if (access.status !== "ok") return fail(res, 403, "FORBIDDEN", "Not a member of this project");
+  if (access.role !== "OWNER" && access.role !== "ARCHITECT") {
+    return fail(res, 403, "INSUFFICIENT_ROLE", "Requires OWNER or ARCHITECT");
   }
   const updated = await prisma.project.update({
-    where: { id: project.id },
+    where: { id: req.params.projectId },
     data: {
       ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
@@ -104,11 +117,10 @@ export async function updateProject(req: AuthedRequest, res: Response) {
 }
 
 export async function deleteProject(req: AuthedRequest, res: Response) {
-  const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
-  if (!project) return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (project.ownerId !== req.user!.userId) {
-    return fail(res, 403, "FORBIDDEN", "Not a member of this project");
-  }
-  await prisma.project.delete({ where: { id: project.id } });
+  const access = await getProjectAccess(req.params.projectId, req.user!.userId);
+  if (access.status === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
+  if (access.status !== "ok") return fail(res, 403, "FORBIDDEN", "Not a member of this project");
+  if (access.role !== "OWNER") return fail(res, 403, "INSUFFICIENT_ROLE", "Only OWNER can delete the project");
+  await prisma.project.delete({ where: { id: req.params.projectId } });
   return ok(res, null, "Project deleted");
 }

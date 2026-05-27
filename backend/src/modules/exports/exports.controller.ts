@@ -1,26 +1,27 @@
 import type { Response } from "express";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+import { ProjectRole, type Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { EXPORT_FORMATS, buildExportContent } from "./exports.engine.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
+import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 
 const createSchema = z.object({
   format: z.enum(EXPORT_FORMATS as [(typeof EXPORT_FORMATS)[number], ...(typeof EXPORT_FORMATS)[number][]]),
   sections: z.array(z.string()).optional().default(["ARTIFACTS", "RELATIONS"]),
 });
 
-async function projectAccess(projectId: string, userId: string): Promise<"ok" | "not_found" | "forbidden"> {
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return "not_found";
-  return project.ownerId === userId ? "ok" : "forbidden";
+async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
+  const a = await getProjectAccess(projectId, userId);
+  if (a.status !== "ok") return a.status;
+  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
 }
 
 export async function createExport(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId);
+  const access = await projectAccess(projectId, req.user!.userId, "ARCHITECT");
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 

@@ -2,13 +2,44 @@
 
 ## Last Completed Feature
 
-Dashboard widgets polish:
+**Phase 7 — Project Team Management + Roles** (multi-user collaboration):
+- New Prisma model `ProjectMember` + enum `ProjectRole` (OWNER / ARCHITECT / DEVELOPER /
+  VIEWER). Migration `20260527220334_add_project_members` applied to the live Postgres.
+- Shared membership helpers in `backend/src/lib/project-access.ts`. Every controller
+  that used to call `project.ownerId === userId` now goes through `getProjectAccess` +
+  `hasAtLeast`, with `minRole` per handler (mutations → DEVELOPER+; validation runs +
+  exports → ARCHITECT+; member management → OWNER; delete project → OWNER).
+- `GET / POST / PATCH / DELETE /api/projects/:projectId/members` — full CRUD with
+  duplicate / unknown-user / last-OWNER guardrails. Member changes emit VersionEvents
+  ("Maya joined project as DEVELOPER", "role changed", "removed from project").
+- Project create transactionally inserts an OWNER membership for the creator. Project
+  list now returns every project where the user is a member (not just owner).
+- Validation rule (INFO, ARCHITECTURE): "Single-user project may reduce collaboration
+  visibility."
+- Export engine: new TEAM section. JSON gets `team[]`; MARKDOWN gets a `## Team` table.
+  Seed exports include TEAM.
+- Frontend: `/projects/[projectId]/team` page (member list with role chips, OWNER-only
+  role selects + remove buttons, "You" marker, invite form). New sidebar entry "Team"
+  between Version History and Export SSOT, badged with member count. Members API
+  client at `lib/api/members.ts`. Export page picker now includes "Team & roles".
+- Seed: creates Maya Okafor / Iris Lindholm / Ren Tanaka. Demo memberships:
+  Deyvid=OWNER, Iris=ARCHITECT, Maya=DEVELOPER, Ren=VIEWER. All four share password
+  `minotaurus`. 31 backdated VersionEvents now realistically spread across all four
+  authors.
+- Verification: 11/11 backend smoke tests pass; manual role-enforcement curl checks
+  confirm VIEWER (Ren) blocked from artifact create (403), DEVELOPER (Maya) blocked
+  from adding members (403), OWNER (David) can manage everything, last-OWNER demotion
+  refused (400 LAST_OWNER), duplicate add refused (409 ALREADY_MEMBER), unknown email
+  refused (404 USER_NOT_FOUND).
+
+## Dashboard widgets polish (previous pass)
 - Project workspace overview's "Recent changes" card now pulls live `VersionEvent` data
   from Postgres via the existing `/version-history?limit=10` endpoint. Newest-first,
   color-coded action chips, entity-type badges, relative timestamps. Empty state copy:
   "No recent changes yet." Open button navigates to `/projects/<id>/versions`.
-- The placeholder "Updated · Last updated …" card is gone; the new card refreshes via
-  the same `refresh()` hook the "Run validation" button uses.
+- Timeline-style redesign for Recent changes row: dot + vertical rail, format
+  `<bold author> <verb> <entity-type> · <relative time>`. Author name pulled from
+  `triggeredByName` (added to serializer in `versions.controller.ts`).
 - Impact page runtime bug fixed: `RelLink` had a prop named `ref` which React
   intercepts as a forwarded-ref. Renamed to `artifact`; clicking "Analyze impact" no
   longer throws.
@@ -77,28 +108,33 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-cf2611f — *Finalize PostgreSQL runtime integration*
+_(updated by the Phase 7 commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 
-- frontend works
-- backend works
-- exports work (artifacts, relations, API specs, DB models, diagrams, validation report, graph)
-- validation works (rules across artifacts, relations, API specs, DB models, diagrams)
+- frontend works (Team page live)
+- backend works (members API live, role enforcement live)
+- exports work (TEAM, artifacts, relations, API specs, DB models, diagrams, validation report, graph, version history, impact analysis)
+- validation works (artifact/relation/doc/security/API/DB/diagram/churn/deprecated/single-member rules)
 - Mermaid rendering works (lazy-loaded, `securityLevel: strict`, surfaces syntax errors as UI state)
-- Demo project ("Online Shop Platform") seeded with 10 artifacts, 10 relations, 4 docs, 1 API spec with 3 endpoints, 1 DB model with 3 entities + FK, 1 architecture diagram
+- Demo project ("Online Shop Platform") seeded with 4 team members
+  (Deyvid OWNER · Iris ARCHITECT · Maya DEVELOPER · Ren VIEWER), 10 artifacts,
+  10 relations, 4 docs, 1 API spec with 3 endpoints, 1 DB model with 3 entities + FK,
+  1 architecture diagram, 31 version events spread across all four authors
 
 ## Current Goal
 
-Phase 5 — Version History (proposed; see NEXT_STEPS.md)
+AI architecture analysis — see NEXT_STEPS.md. Now that membership + roles are in
+place, AI summaries can attribute changes to specific contributors.
 
 ## Important Constraints
 
-- no PostgreSQL yet
 - do not break graph contract
-- keep JSON persistence
 - do not redesign frontend shell
-- do not regress existing flows (auth, projects, artifacts, relations, docs, API specs, DB models, diagrams, validation, export)
+- do not regress existing flows (auth, projects, artifacts, relations, docs, API specs,
+  DB models, diagrams, validation, export, version history, impact analysis, **team**)
+- preserve seeded demo login (`deyvid@minotaurus.dev` / `minotaurus`) — confirmed
+  unaffected by Phase 7 changes
 
 ## Known Risks
 

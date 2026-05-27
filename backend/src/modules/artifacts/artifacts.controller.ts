@@ -1,11 +1,12 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { ArtifactStatus, ArtifactType, type Artifact, type User } from "@prisma/client";
+import { ArtifactStatus, ArtifactType, ProjectRole, type Artifact, type User } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { toPublicUser } from "../auth/auth.controller.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
+import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 
 const ARTIFACT_TYPES = Object.values(ArtifactType) as [ArtifactType, ...ArtifactType[]];
 const ARTIFACT_STATUSES = Object.values(ArtifactStatus) as [ArtifactStatus, ...ArtifactStatus[]];
@@ -77,11 +78,11 @@ const patchSchema = z.object({
 async function ensureProjectAccess(
   projectId: string,
   userId: string,
+  minRole: ProjectRole = "VIEWER",
 ): Promise<"ok" | "not_found" | "forbidden"> {
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return "not_found";
-  if (project.ownerId !== userId) return "forbidden";
-  return "ok";
+  const a = await getProjectAccess(projectId, userId);
+  if (a.status !== "ok") return a.status;
+  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
 }
 
 export async function listArtifacts(req: AuthedRequest, res: Response) {
@@ -115,7 +116,7 @@ export async function listArtifacts(req: AuthedRequest, res: Response) {
 
 export async function createArtifact(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await ensureProjectAccess(projectId, req.user!.userId);
+  const access = await ensureProjectAccess(projectId, req.user!.userId, "DEVELOPER");
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -170,7 +171,7 @@ export async function updateArtifact(req: AuthedRequest, res: Response) {
 
   const existing = await prisma.artifact.findUnique({ where: { id: req.params.artifactId } });
   if (!existing) return fail(res, 404, "NOT_FOUND", "Artifact not found");
-  const access = await ensureProjectAccess(existing.projectId, req.user!.userId);
+  const access = await ensureProjectAccess(existing.projectId, req.user!.userId, "DEVELOPER");
   if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const updated = await prisma.artifact.update({
@@ -208,7 +209,7 @@ export async function updateArtifact(req: AuthedRequest, res: Response) {
 export async function deleteArtifact(req: AuthedRequest, res: Response) {
   const existing = await prisma.artifact.findUnique({ where: { id: req.params.artifactId } });
   if (!existing) return fail(res, 404, "NOT_FOUND", "Artifact not found");
-  const access = await ensureProjectAccess(existing.projectId, req.user!.userId);
+  const access = await ensureProjectAccess(existing.projectId, req.user!.userId, "DEVELOPER");
   if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   await prisma.artifact.delete({ where: { id: existing.id } });

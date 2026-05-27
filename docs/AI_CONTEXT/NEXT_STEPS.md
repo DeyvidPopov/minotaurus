@@ -1,5 +1,11 @@
 # Next Steps
 
+Phase 7 (Project Team Management + Roles) is shipped and verified end-to-end against
+the live Postgres database. ProjectMember table + four roles (OWNER/ARCHITECT/
+DEVELOPER/VIEWER) replace the per-controller `ownerId === userId` checks. Members API,
+team page, validation rule, export Team section and seeded multi-user demo are all
+live. 11/11 backend smoke tests still pass.
+
 Phase 6 (PostgreSQL migration) is shipped and **live-verified**. Local Postgres on
 :5433, healthcheck `GET /api/health/db` reports connected, seed populates the demo,
 all 11 backend smoke tests + the per-page E2E check pass through Postgres. The
@@ -42,8 +48,10 @@ curl http://localhost:4000/api/health/db
 
 ## After AI analysis
 1. WebSocket live updates (re-render the timeline / dashboard counters on event)
-2. Project members + RBAC (Prisma schema can be extended cleanly)
+2. Email invitations for non-existent users (today the user must already have an account
+   for an invite to succeed)
 3. PDF / ZIP export rendering on the server
+4. Per-resource ownership transfer (createdById is recorded but there's no UI)
 
 ## Constraints (unchanged)
 - Do not redesign UI shell

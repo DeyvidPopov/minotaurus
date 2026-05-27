@@ -9,6 +9,7 @@ export * from "./api-specs";
 export * from "./database-models";
 export * from "./diagrams";
 export * from "./versions";
+export * from "./members";
 
 import { apiClient } from "./client";
 import type {

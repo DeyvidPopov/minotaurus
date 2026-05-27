@@ -135,7 +135,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-5">
+      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-5 items-start">
         <Card
           title="Knowledge graph"
           subtitle={`${artifacts.length} nodes · ${relations.length} relations`}
@@ -210,8 +210,8 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
               <div className="px-3.5 py-6 text-fg-muted text-[13px]">No recent changes yet.</div>
             ) : (
               <ul className="divide-y divide-border">
-                {recentEvents.map((e) => (
-                  <RecentChangeRow key={e.id} event={e} />
+                {recentEvents.map((e, i, arr) => (
+                  <RecentChangeRow key={e.id} event={e} isFirst={i === 0} isLast={i === arr.length - 1} />
                 ))}
               </ul>
             )}
@@ -232,66 +232,74 @@ const ACTION_COLOR: Record<VersionAction, string> = {
   EXPORTED: "#a78bfa",
 };
 
-const ENTITY_ICON: Record<VersionEntityType, React.ReactNode> = {
-  PROJECT: <Box size={12} />,
-  ARTIFACT: <Box size={12} />,
-  RELATION: <Network size={12} />,
-  DOCUMENTATION: <ExternalLink size={12} />,
-  API_SPEC: <Plug size={12} />,
-  API_ENDPOINT: <Plug size={12} />,
-  DATABASE_MODEL: <Database size={12} />,
-  DATABASE_ENTITY: <Database size={12} />,
-  DATABASE_FIELD: <Database size={12} />,
-  DIAGRAM: <GitMerge size={12} />,
-  EXPORT: <Package size={12} />,
-  VALIDATION: <Shield size={12} />,
+const ACTION_VERB: Record<VersionAction, string> = {
+  CREATED: "created",
+  UPDATED: "updated",
+  DELETED: "deleted",
+  LINKED: "linked",
+  UNLINKED: "unlinked",
+  VALIDATED: "validated",
+  EXPORTED: "exported",
 };
 
-const ACTION_ICON: Record<VersionAction, React.ReactNode> = {
-  CREATED: <Plus size={10} />,
-  UPDATED: <Pencil size={10} />,
-  DELETED: <Trash2 size={10} />,
-  LINKED: <Link2 size={10} />,
-  UNLINKED: <Unlink size={10} />,
-  VALIDATED: <Shield size={10} />,
-  EXPORTED: <Package size={10} />,
-};
+// Entities whose stored `title` is already self-describing through the verb +
+// entity-type line (e.g. relations render "source → target" which duplicates
+// information). Hide the second line for those to match the timeline mockup.
+const HIDE_SECONDARY_TITLE = new Set<VersionEntityType>(["RELATION"]);
 
-function RecentChangeRow({ event }: { event: VersionEvent }) {
+function entityTypeLabel(t: VersionEntityType): string {
+  return t.toLowerCase().replace(/_/g, " ");
+}
+
+function authorName(event: VersionEvent): string {
+  return event.triggeredByName?.trim() || "Someone";
+}
+
+function RecentChangeRow({ event, isFirst, isLast }: { event: VersionEvent; isFirst: boolean; isLast: boolean }) {
   const c = ACTION_COLOR[event.action];
+  const showTitle = !HIDE_SECONDARY_TITLE.has(event.entityType) && !!event.title.trim();
   return (
-    <li className="flex items-start gap-2.5 px-3.5 py-2.5">
-      <div
-        className="w-6 h-6 rounded-md grid place-items-center shrink-0"
+    <li className="relative flex items-start gap-3 pl-4 pr-3.5 py-3">
+      {/* rail above the dot (omit on first row) */}
+      {!isFirst && (
+        <span
+          aria-hidden="true"
+          className="absolute left-[20.5px] top-0 h-[17px] w-px"
+          style={{ background: "var(--border)" }}
+        />
+      )}
+      {/* rail below the dot (omit on last row) */}
+      {!isLast && (
+        <span
+          aria-hidden="true"
+          className="absolute left-[20.5px] top-[26px] bottom-0 w-px"
+          style={{ background: "var(--border)" }}
+        />
+      )}
+      {/* timeline dot */}
+      <span
+        aria-hidden="true"
+        className="relative z-[1] mt-1 w-2.5 h-2.5 rounded-full shrink-0"
         style={{
-          color: c,
-          background: `color-mix(in srgb, ${c} 14%, transparent)`,
-          border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`,
+          borderWidth: 2,
+          borderStyle: "solid",
+          borderColor: c,
+          background: "var(--panel)",
         }}
         title={event.entityType}
-      >
-        {ENTITY_ICON[event.entityType]}
-      </div>
+      />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span
-            className="inline-flex items-center gap-1 text-[10px] px-1 py-0.5 rounded font-mono font-bold leading-none"
-            style={{
-              color: c,
-              background: `color-mix(in srgb, ${c} 12%, transparent)`,
-              border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`,
-            }}
-          >
-            {ACTION_ICON[event.action]} {event.action}
-          </span>
-          <Badge mono>{event.entityType}</Badge>
+        <div className="text-[13px] leading-tight truncate">
+          <strong className="text-fg font-semibold">{authorName(event)}</strong>{" "}
+          <span className="text-fg-muted">{ACTION_VERB[event.action]}</span>{" "}
+          <span className="font-mono text-fg-muted">{entityTypeLabel(event.entityType)}</span>
+          <span className="text-fg-subtle"> · </span>
+          <span className="text-fg-subtle">{timeAgo(event.createdAt)}</span>
         </div>
-        <div className="text-[13px] font-medium truncate mt-0.5">{event.title}</div>
-        {event.description && (
-          <div className="text-[11.5px] text-fg-muted truncate">{event.description}</div>
+        {showTitle && (
+          <div className="text-[13px] text-fg font-normal truncate mt-1">{event.title}</div>
         )}
       </div>
-      <span className="text-[11px] text-fg-subtle font-mono shrink-0">{timeAgo(event.createdAt)}</span>
     </li>
   );
 }

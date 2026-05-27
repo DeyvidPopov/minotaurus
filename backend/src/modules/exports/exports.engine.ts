@@ -23,7 +23,7 @@ export async function buildExportContent(
   format: ExportFormat,
   sections: string[],
 ): Promise<unknown> {
-  const [project, artifacts, allRelations, issues, apiSpecs, apiEndpoints, databaseModels, databaseEntities, databaseFields, diagrams, versionEvents] =
+  const [project, artifacts, allRelations, issues, apiSpecs, apiEndpoints, databaseModels, databaseEntities, databaseFields, diagrams, versionEvents, members] =
     await Promise.all([
       prisma.project.findUnique({ where: { id: projectId } }),
       prisma.artifact.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
@@ -41,6 +41,11 @@ export async function buildExportContent(
       prisma.versionEvent.findMany({
         where: { projectId },
         orderBy: { createdAt: "desc" },
+      }),
+      prisma.projectMember.findMany({
+        where: { projectId },
+        orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
+        include: { user: { select: { id: true, email: true, firstName: true, lastName: true } } },
       }),
     ]);
 
@@ -61,11 +66,23 @@ export async function buildExportContent(
   const wantsDiagrams = wanted.has("DIAGRAMS");
   const wantsVersionHistory = wanted.has("VERSION_HISTORY") || wanted.has("RECENT_CHANGES");
   const wantsImpact = wanted.has("IMPACT_ANALYSIS") || wanted.has("IMPACT");
+  const wantsTeam = wanted.has("TEAM") || wanted.has("MEMBERS");
 
   const payload: Record<string, unknown> = {
     project,
     generatedAt: new Date().toISOString(),
   };
+
+  if (wantsTeam) {
+    payload.team = members.map((m) => ({
+      id: m.id,
+      userId: m.userId,
+      role: m.role,
+      joinedAt: m.joinedAt,
+      email: m.user.email,
+      name: [m.user.firstName, m.user.lastName].filter(Boolean).join(" ").trim() || null,
+    }));
+  }
 
   if (wantsArtifacts) payload.artifacts = artifacts.map(serializeArtifactForExport);
   if (wanted.has("RELATIONS")) {
@@ -250,6 +267,17 @@ export async function buildExportContent(
     const lines: string[] = [];
     lines.push(`# ${project?.name ?? "Project"}\n`);
     if (project?.description) lines.push(project.description + "\n");
+    if (wantsTeam && members.length > 0) {
+      lines.push("## Team\n");
+      lines.push("| Name | Email | Role | Joined |");
+      lines.push("|------|-------|------|--------|");
+      for (const m of members) {
+        const name = [m.user.firstName, m.user.lastName].filter(Boolean).join(" ").trim() || "—";
+        const joined = m.joinedAt.toISOString().slice(0, 10);
+        lines.push(`| ${name} | ${m.user.email} | ${m.role} | ${joined} |`);
+      }
+      lines.push("");
+    }
     if (wantsArtifacts) {
       lines.push("## Artifacts\n");
       for (const a of artifacts) {
