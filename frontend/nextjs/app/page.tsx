@@ -6,7 +6,7 @@ import { useMemo } from "react"
 import {
   ArrowRight,
   Check,
-  Upload,
+  Edit3,
   Link as LinkIcon,
   Shield,
   Package,
@@ -15,9 +15,10 @@ import {
   Plug,
   Database,
   Command,
-  Sparkles,
+  GitMerge,
   BookOpen,
   History,
+  Activity,
 } from "lucide-react"
 import { ARTIFACTS, RELATIONS } from "@/lib/mock-data"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
@@ -82,9 +83,6 @@ export default function LandingPage() {
           <a href="#features" className="hover:text-fg">
             Features
           </a>
-          <a href="/docs" className="hover:text-fg">
-            Docs
-          </a>
         </div>
         <div className="flex-1" />
         <Link
@@ -115,10 +113,10 @@ export default function LandingPage() {
             One source of truth.
           </h1>
           <p className="text-[18px] leading-relaxed text-fg-muted max-w-[540px] m-0 mb-7">
-            Minotaurus maps every service, API, database, document and diagram
-            in your platform into a living knowledge graph. Validate
-            consistency, trace changes, and export the whole stack as a single
-            SSOT bundle.
+            Minotaurus is a workspace for modelling your platform&apos;s services,
+            APIs, databases, documentation and diagrams as connected artifacts.
+            Validate consistency, trace every change, and export the whole thing
+            as a single SSOT bundle.
           </p>
           <div className="flex gap-2.5 flex-wrap mb-7">
             <Link
@@ -128,22 +126,21 @@ export default function LandingPage() {
               <Box size={14} /> Open workspace <ArrowRight size={14} />
             </Link>
             <Link
-              href="/projects/p_helix/graph"
+              href="/login"
               className="h-10 px-4 inline-flex items-center gap-1.5 bg-panel border border-border rounded-sm text-[14px] hover:bg-panel-hover"
             >
-              <Network size={14} /> Tour the graph
+              <Network size={14} /> Sign in to the demo
             </Link>
           </div>
           <div className="flex items-center gap-5 flex-wrap text-[12px] text-fg-muted">
             <span className="flex items-center gap-1.5">
-              <Check size={13} className="text-success" /> OpenAPI · GraphQL ·
-              Mermaid · ERD
+              <Check size={13} className="text-success" /> Markdown · Mermaid
             </span>
             <span className="flex items-center gap-1.5">
               <Check size={13} className="text-success" /> Self-hosted
             </span>
             <span className="flex items-center gap-1.5">
-              <Check size={13} className="text-success" /> SSO ready
+              <Check size={13} className="text-success" /> PostgreSQL-backed
             </span>
           </div>
         </div>
@@ -161,11 +158,8 @@ export default function LandingPage() {
               <i className="w-2 h-2 rounded-full bg-border-strong" />
               <i className="w-2 h-2 rounded-full bg-border-strong" />
             </div>
-            <span className="font-mono">helix-commerce / knowledge-graph</span>
+            <span className="font-mono">example / knowledge-graph</span>
             <span className="flex-1" />
-            <span className="flex items-center gap-1.5 text-[11px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-success" /> live
-            </span>
             <span className="text-[11px]">
               {heroNodes.length} nodes · {heroRels.length} edges
             </span>
@@ -186,37 +180,37 @@ export default function LandingPage() {
         <div className="max-w-[1280px] mx-auto px-8">
           <div className="text-center mb-11">
             <h2 className="text-[36px] tracking-tight font-semibold m-0 mb-3">
-              From scattered docs to a single graph
+              From scattered notes to a single graph
             </h2>
-            <p className="text-[16px] text-fg-muted m-0 max-w-[600px] mx-auto">
-              Minotaurus pulls everything you already write into one connected
-              workspace. No new format to learn — bring your OpenAPI, your
-              Markdown, your Mermaid.
+            <p className="text-[16px] text-fg-muted m-0 max-w-[640px] mx-auto">
+              You model your architecture as typed artifacts and link them by
+              hand. Minotaurus keeps everything in one place and runs the
+              consistency checks for you.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border rounded-lg overflow-hidden">
             <Step
-              n="01 · INGEST"
-              t="Import what you have"
-              d="Drop in OpenAPI specs, Markdown docs, Mermaid diagrams, and database schemas. Minotaurus parses and turns them into typed artifacts."
-              icon={<Upload size={16} />}
+              n="01 · MODEL"
+              t="Add typed artifacts"
+              d="Services, API specs, databases, diagrams, security policies, environments — eleven artifact types out of the box, each with its own editor."
+              icon={<Edit3 size={16} />}
             />
             <Step
               n="02 · CONNECT"
               t="Link your architecture"
-              d="Draw relations between services, endpoints, databases, requirements and policies — or let validation suggest the obvious ones."
+              d="Draw DEPENDS_ON, USES, EXPOSES, SECURES and other relations between artifacts. Documentation, API specs and DB models can also be linked to the artifact they describe."
               icon={<LinkIcon size={16} />}
             />
             <Step
               n="03 · VALIDATE"
               t="Catch drift before it bites"
-              d="Missing docs, undocumented endpoints, deprecated services still in production. Issues open inline next to the artifact that caused them."
+              d="Rule-based checks: orphaned artifacts, missing docs, active services depending on deprecated ones, security specs with public endpoints, FK targets that don't exist."
               icon={<Shield size={16} />}
             />
             <Step
               n="04 · EXPORT"
               t="Ship the SSOT"
-              d="Generate a JSON, Markdown, PDF or ZIP bundle that documents the whole system — versioned, reproducible, ready for handoff."
+              d="Generate a JSON or Markdown bundle covering artifacts, relations, API specs, databases, diagrams, validation report, version history and per-artifact impact."
               icon={<Package size={16} />}
             />
           </div>
@@ -232,14 +226,14 @@ export default function LandingPage() {
             </h2>
             <p className="text-[16px] text-fg-muted m-0 max-w-[600px] mx-auto">
               An engineering workspace, not a wiki. Typed artifacts, traceable
-              relations, real keyboard shortcuts.
+              relations, full change history.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Feat
               icon={<Network size={16} />}
               title="Knowledge graph"
-              body="A first-class graph view of every artifact, typed by shape and color. Pan, zoom, filter, and open detail from any node."
+              body="A first-class graph view of every artifact, typed by shape and color. Pan, zoom, filter, drag nodes, open detail from any selection."
             />
             <Feat
               icon={<Box size={16} />}
@@ -248,38 +242,48 @@ export default function LandingPage() {
             />
             <Feat
               icon={<Plug size={16} />}
-              title="OpenAPI ingest"
-              body="Paste or upload an OpenAPI / GraphQL spec; endpoints appear as linked artifacts you can validate and document."
+              title="API specs & endpoints"
+              body="Define API specs by hand, add endpoints with method, path, summary, request/response schema and auth flag. OpenAPI-style JSON preview."
             />
             <Feat
               icon={<Database size={16} />}
               title="Database model"
-              body="Tables, fields, primary and foreign keys, normalization warnings — all linked to the services that own them."
+              body="Entities and fields with PK/FK markers, including FK references between entities. Auto-generates a Mermaid ERD you can preview live."
             />
             <Feat
               icon={<Shield size={16} />}
               title="Validation engine"
-              body="Consistency rules across documentation, APIs, databases, security and relationships. Severity-tiered."
+              body="Deterministic, rule-based consistency checks across relationships, documentation, APIs, databases, diagrams and architecture-level heuristics."
             />
             <Feat
               icon={<History size={16} />}
-              title="Versioned everything"
-              body="Every artifact, relation, doc edit and validation run is recorded — a full audit trail with diffs."
+              title="Version history"
+              body="Every create / update / delete on any artifact, relation, doc, API spec, DB row, diagram, export or validation run is recorded to a project-scoped timeline."
+            />
+            <Feat
+              icon={<Activity size={16} />}
+              title="Impact analysis"
+              body="One click from any artifact: direct dependencies, dependents, linked APIs, linked DB models, linked diagrams, documentation references."
+            />
+            <Feat
+              icon={<GitMerge size={16} />}
+              title="Mermaid diagrams"
+              body="Split-view editor with live SVG preview, template picker, fullscreen view, and a syntax-status pill that lights up green/yellow as you type."
             />
             <Feat
               icon={<BookOpen size={16} />}
-              title="Markdown + Mermaid"
-              body="Editor with live preview. Sequence diagrams, flowcharts and ERDs render inline next to the code they describe."
+              title="Markdown documentation"
+              body="One Markdown page per artifact. Split editor, live preview, GFM-flavored rendering (tables, code blocks, task lists)."
             />
             <Feat
               icon={<Package size={16} />}
-              title="One-click SSOT export"
-              body="Bundle the whole project — artifacts, graph, validation report, version history — as ZIP, JSON, Markdown or PDF."
+              title="SSOT export"
+              body="JSON and Markdown formats. Pick which sections to include (artifacts, relations, API specs, DB models, diagrams, validation, version history, impact). Copy or download."
             />
             <Feat
               icon={<Command size={16} />}
-              title="Keyboard-first"
-              body="⌘K palette indexes everything. Open any artifact, endpoint or doc from one keystroke."
+              title="⌘K palette"
+              body="Quick-jump between dashboard, projects list, and project pages. Type-to-filter."
             />
           </div>
         </div>
@@ -296,15 +300,16 @@ export default function LandingPage() {
           Bring your architecture together.
         </h2>
         <p className="text-[16px] text-fg-muted m-0 mb-7 max-w-[520px] mx-auto">
-          Open the workspace and explore Helix Commerce — a fully-loaded
-          reference project with 32 artifacts and a live graph.
+          Open the workspace and tour the seeded <em className="not-italic text-fg">Online Shop Platform</em>{" "}
+          — 10 artifacts, an Authentication API, a database model with an ERD, and a full
+          12-day version history.
         </p>
         <div className="flex gap-2.5 justify-center flex-wrap">
           <Link
             href="/dashboard"
             className="h-10 px-4 inline-flex items-center gap-1.5 bg-accent text-accent-fg rounded-sm text-[14px] font-medium hover:brightness-95"
           >
-            <Sparkles size={14} /> Open workspace <ArrowRight size={14} />
+            <Box size={14} /> Open workspace <ArrowRight size={14} />
           </Link>
           <Link
             href="/login"
@@ -313,6 +318,10 @@ export default function LandingPage() {
             Sign in
           </Link>
         </div>
+        <p className="text-[12px] text-fg-subtle mt-5">
+          Demo credentials: <span className="font-mono text-fg-muted">deyvid@minotaurus.dev</span>{" "}
+          / <span className="font-mono text-fg-muted">minotaurus</span>
+        </p>
       </section>
 
       <footer className="max-w-[1280px] mx-auto px-8 py-7 flex items-center gap-4 text-[12px] text-fg-muted border-t border-border flex-wrap">
@@ -369,13 +378,11 @@ function Feat({
   body: string
 }) {
   return (
-    <div className="p-5 border border-border rounded-lg bg-panel">
-      <div className="w-[30px] h-[30px] rounded-md grid place-items-center bg-accent-soft text-accent mb-3.5">
+    <div className="bg-panel border border-border rounded-lg p-5 flex flex-col gap-2">
+      <div className="w-8 h-8 rounded-md grid place-items-center bg-accent-soft text-accent">
         {icon}
       </div>
-      <h3 className="m-0 mb-1.5 text-[15px] font-semibold tracking-tight">
-        {title}
-      </h3>
+      <div className="font-semibold tracking-tight text-[15px]">{title}</div>
       <p className="m-0 text-[13.5px] text-fg-muted leading-relaxed">{body}</p>
     </div>
   )

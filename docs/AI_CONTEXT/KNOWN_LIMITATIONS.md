@@ -59,6 +59,13 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - No avatar upload. The "Upload photo" button on Settings is wired to nothing.
 - No notifications backend. The Notifications tab on Settings is disabled stubs.
 - No API tokens module yet. The API tokens tab is a "coming next" placeholder.
+- **Documentation route stubs.** `/projects/[id]/docs` and `…/docs/[id]` are intentionally
+  stub pages explaining that documentation lives on each artifact's detail page (the real
+  Markdown editor is on the artifact's Documentation tab). No project-wide docs index.
+- **No file / OpenAPI / repo import.** All modelling is manual. The UI no longer claims
+  otherwise (UX honesty pass).
+- **No AI assistant.** The "Ask Minotaurus" button and sparkly topbar icons are removed.
+  Validation is rule-based and deterministic; no LLM is involved anywhere.
 
 ## Phase 6 runtime (now finalized)
 - Database is **live** on `localhost:5433` (PostgreSQL 18). Credentials: `postgres /

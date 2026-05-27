@@ -2,7 +2,20 @@
 
 ## Last Completed Feature
 
-Phase 6 finalization — Postgres runtime live and verified:
+UX honesty + consistency pass:
+- Landing page rewritten — every claim now matches a real shipped feature. No more
+  "Minotaurus parses your OpenAPI", no "let validation suggest relations", no "PDF/ZIP"
+  export, no "SSO ready". Workflow steps and feature grid replaced with the modules
+  that actually exist (API specs, DB models with auto ERD, validation, version history,
+  impact analysis, Mermaid editor, Markdown docs, SSOT export, ⌘K).
+- Dashboard "Ask Minotaurus" button + topbar Bell/Sparkles icon buttons removed.
+  Dashboard subtitle adapts to first-run vs returning. A "What does Minotaurus do?"
+  card explains capabilities for empty workspaces.
+- `/docs` link in public nav (404) removed. `/projects/[id]/docs` stub re-worded to
+  redirect users to the per-artifact Documentation tab.
+- Frontend README rewritten to reflect the actual current state.
+
+## Phase 6 finalization (previous pass) — Postgres runtime live and verified:
 - Detected Postgres on **:5433** (the local install uses 5433, not the spec's 5432).
 - Credentials `postgres / postgres123!` confirmed working.
 - Created `minotaurus` database; applied `20260527120000_init` migration; verified 13

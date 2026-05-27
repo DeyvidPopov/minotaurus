@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, Sun, Moon, Sparkles, Search, Menu } from "lucide-react";
+import { Sun, Moon, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTweaks } from "@/components/providers";
 import { projectsApi } from "@/lib/api/projects";
@@ -113,10 +113,13 @@ export function Topbar({ onOpenSearch, onOpenMobileNav }: { onOpenSearch: () => 
       </button>
 
       <div className="flex items-center gap-1.5 ml-auto flex-none">
-        <Button variant="ghost" size="sm" icon={theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-          onClick={() => set("theme", theme === "dark" ? "light" : "dark")} />
-        <Button variant="ghost" size="sm" icon={<Bell size={15} />} />
-        <Button variant="ghost" size="sm" icon={<Sparkles size={15} />} />
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+          title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          onClick={() => set("theme", theme === "dark" ? "light" : "dark")}
+        />
       </div>
     </div>
   );

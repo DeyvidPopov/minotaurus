@@ -1,153 +1,120 @@
-# Minotaurus — Next.js scaffold
+# Minotaurus — Frontend
 
-The production frontend for the **Minotaurus SSOT Architecture Platform**, built per the implementation contract.
+Next.js App Router · React 18 · TypeScript · Tailwind · React Flow · Mermaid · Zustand · Zod
 
-```
-Next.js App Router · React 18 · TypeScript · Tailwind · React Flow · zustand · zod
-```
-
-> Sibling to the React design prototype in `../index.html` + `../src/`.
-> The prototype is the **visual spec**; this directory is the **real codebase** to evolve.
+The frontend talks to the Express backend in `../../backend` over HTTP through the typed wrappers in `lib/api/`. All persistence is in PostgreSQL on the backend; the frontend stores nothing except theme preferences and the JWT.
 
 ---
 
 ## Quick start
 
 ```bash
-cd nextjs
+cd frontend/nextjs
 npm install
-cp .env.example .env.local        # point NEXT_PUBLIC_API_URL at your backend
+# Optional: override the API base URL in .env.local
+echo 'NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api' > .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open <http://localhost:3000>. Login with the seeded demo user:
+
+```
+Email:    deyvid@minotaurus.dev
+Password: minotaurus
+```
+
+(Make sure the backend is running and seeded — see `../../backend/README` or `../../docs/AI_CONTEXT/CURRENT_STATE.md`.)
 
 ---
 
-## What's wired
+## What's implemented
 
-### Pages (all routed)
+Every route below is functional and backed by real Postgres data:
 
-| Route | Status |
+| Route | Purpose |
 |---|---|
-| `/` | ✅ Landing page (hero + live graph preview + workflow + features) |
-| `/login`, `/register` | ✅ Auth (form validation via Zod + react-hook-form) |
-| `/dashboard` | ✅ Stats, project cards, activity feed |
-| `/projects` | ✅ Filter, sort, card grid |
-| `/projects/new` | ✅ Form (template chooser) |
-| `/projects/[projectId]` | ✅ Workspace overview + quick actions + embedded graph |
-| `/projects/[projectId]/artifacts` | ✅ Filterable artifact table |
-| `/projects/[projectId]/artifacts/new` | ✅ Create form |
-| `/projects/[projectId]/artifacts/[artifactId]` | ✅ 5-tab detail view (overview, relations, doc, validation, history) |
-| `/projects/[projectId]/graph` | ✅ Full React Flow knowledge graph with type filter + selection drawer |
-| `/projects/[projectId]/validation` | ✅ Severity tiles + filterable issue table |
-| `/projects/[projectId]/docs`, `…/api`, `…/database`, `…/diagrams`, `…/versions`, `…/export` | 🟡 Stub (placeholder pages — see prototype for full UI) |
-| `/settings` | 🟡 Stub |
+| `/` | Public landing page |
+| `/login`, `/register` | Auth (Zod + react-hook-form) |
+| `/dashboard` | Stats + demo callout + project cards + first-run "what does this do?" card |
+| `/projects` | Filterable / sortable project grid |
+| `/projects/new` | Create form |
+| `/projects/[id]` | Workspace overview: mini-graph, validation snapshot, quick actions |
+| `/projects/[id]/artifacts` | Filterable artifact table |
+| `/projects/[id]/artifacts/new` | Create form |
+| `/projects/[id]/artifacts/[id]` | Tabs: Overview / Relations / Documentation / Validation, plus Linked resources panel |
+| `/projects/[id]/api` | API specs list |
+| `/projects/[id]/api/[specId]` | Spec detail with endpoint table + OpenAPI-like preview |
+| `/projects/[id]/database` | Database models list |
+| `/projects/[id]/database/[modelId]` | Tabs: Entities (CRUD) / ERD view (visual Mermaid) / Mermaid source |
+| `/projects/[id]/diagrams` | Diagrams list |
+| `/projects/[id]/diagrams/[id]` | Split editor + live Mermaid preview, template picker, fullscreen |
+| `/projects/[id]/graph` | React Flow knowledge graph with type filter + selection drawer |
+| `/projects/[id]/validation` | Severity tiles + filterable issue table |
+| `/projects/[id]/versions` | Version-event timeline grouped by day |
+| `/projects/[id]/impact/[artifactId]` | Per-artifact blast radius |
+| `/projects/[id]/export` | Create / preview / download SSOT export |
+| `/settings` | Profile + password (live), Workspace (local prefs), Notifications / API tokens / Delete account (clearly marked Coming next) |
 
-### Cross-cutting
+### Not implemented (and labelled honestly in the UI)
 
-- **Theme** (light / dark) + **density** + **font pair** + **sidebar mode** + **accent color** all via Zustand store, persisted to `localStorage`, applied as `<html>` data-attributes
-- **Sidebar** with global + project sub-nav, **off-canvas mobile drawer**
-- **Topbar** with breadcrumbs, ⌘K search trigger, theme toggle
-- **Command palette** (⌘K / Ctrl+K) indexing pages, projects, artifacts
-- **Knowledge graph** powered by **React Flow** with custom node types, position drag persistence per project, minimap, type filter
-- **Toast notifications** via `sonner`
-- **Tailwind** with the same design tokens as the prototype (CSS variables for theme switching)
+- File / OpenAPI / repo import — manual modelling only
+- AI suggestions / assistants
+- WebSocket live updates / notifications
+- Project members + RBAC
+- Avatar upload
+- PDF / ZIP export rendering on the server (formats are accepted; payload is the same JSON content)
+
+Standalone routes `/projects/[id]/docs` and `/projects/[id]/docs/[id]` are intentionally stubbed — Markdown documentation lives **inside** each artifact's detail page (Documentation tab), so there is no project-wide docs index.
 
 ---
 
 ## Architecture
 
 ```
-nextjs/
-├── app/                              # App Router
-│   ├── layout.tsx                    # root HTML + fonts + providers
-│   ├── globals.css                   # design tokens + Tailwind
-│   ├── page.tsx                      # public landing
-│   ├── not-found.tsx
-│   ├── (auth)/                       # auth route group — no shell
-│   │   ├── layout.tsx
-│   │   ├── login/page.tsx
-│   │   └── register/page.tsx
-│   └── (app)/                        # authenticated route group — has sidebar+topbar
-│       ├── layout.tsx                # wraps with <AppShell>
-│       ├── dashboard/page.tsx
-│       ├── projects/                 # …list, new, [projectId]/…
-│       └── settings/page.tsx
+frontend/nextjs/
+├── app/
+│   ├── layout.tsx                  # root HTML + providers + Toaster
+│   ├── globals.css                 # design tokens, Mermaid host styles, prose-markdown
+│   ├── page.tsx                    # public landing
+│   ├── (auth)/login,register       # forms
+│   └── (app)/                      # AuthProvider-wrapped workspace
+│       ├── layout.tsx              # <AppShell> = Sidebar + Topbar + body
+│       ├── dashboard/
+│       ├── settings/
+│       └── projects/...            # every workspace route
 ├── components/
-│   ├── providers.tsx                 # theme/tweaks store + sonner toaster
-│   ├── shell/                        # Sidebar, Topbar, CmdK, AppShell
-│   ├── graph/                        # GraphCanvas (React Flow), GraphLegend
-│   └── ui/                           # Button, Card, Stat, Badge, Tabs, Drawer, …
+│   ├── providers.tsx               # Zustand "tweaks" store (theme/density/sidebar/font/graph-node-style) + Sonner
+│   ├── shell/                      # AppShell, Sidebar, Topbar, CmdK
+│   ├── graph/                      # GraphCanvas (React Flow), GraphLegend
+│   ├── documentation-editor.tsx    # Markdown editor with live preview
+│   ├── mermaid-preview.tsx         # Lazy-loaded Mermaid renderer with theme + label scan
+│   ├── export-preview.tsx          # Structured SSOT export preview
+│   └── ui/                         # Button, Card, Stat, Badge, Tabs, Drawer, …
 ├── lib/
-│   ├── types.ts                      # shared DTOs (mirror the API contract)
-│   ├── utils.ts                      # cn(), timeAgo(), truncate()
-│   ├── api/
-│   │   ├── client.ts                 # central fetch wrapper (Bearer token, envelope)
-│   │   ├── projects.ts
-│   │   ├── artifacts.ts              # + relations
-│   │   └── index.ts                  # graph, validation, versions, export
-│   ├── ws.ts                         # WebSocket client stub
-│   ├── mock-data.ts                  # placeholder data (swap for API calls)
-│   └── mock-data-extra.ts
-├── tailwind.config.ts
-├── postcss.config.mjs
-├── tsconfig.json
-├── next.config.mjs
-└── package.json
+│   ├── auth-context.tsx            # useAuth() + AuthProvider
+│   ├── types.ts                    # shared DTO types
+│   ├── utils.ts
+│   └── api/                        # typed wrappers per resource
+│       ├── client.ts               # central fetch + Bearer token + envelope unwrapping
+│       ├── auth, projects, artifacts, documentation,
+│       │   api-specs, database-models, diagrams, versions
+└── lib/mock-data.ts                # design-token tables (TYPE_INFO, EDGE_COLOR) only —
+                                    # no mock business data is rendered to users
 ```
 
----
-
-## Replacing mock data with real API
-
-Mock data lives in `lib/mock-data.ts`. Every page currently imports from it directly. To switch to live API calls:
-
-1. Build the backend per `../FRONTEND_UI_IMPLEMENTATION_CONTRACT.md`
-2. Set `NEXT_PUBLIC_API_URL` in `.env.local`
-3. In each page, replace `import { PROJECTS } from "@/lib/mock-data"` with a `useSWR`/`useQuery` hook calling `projectsApi.list()` etc. from `@/lib/api`
-4. Wire the WebSocket client (`@/lib/ws`) in a top-level effect to subscribe to project updates
-
-The API client (`lib/api/client.ts`) already handles:
-- Bearer token attachment (call `setAccessToken(jwt)` after login)
-- The standard `{ success, data, message }` response envelope
-- Typed methods per resource (`projectsApi`, `artifactsApi`, `relationsApi`, `graphApi`, `validationApi`, `versionsApi`, `exportApi`)
+The API client (`lib/api/client.ts`) handles JWT attachment, the `{ success, data, message }` envelope, and surfaces backend error messages as `ApiError`. Pages import the typed wrappers (`projectsApi`, `artifactsApi`, `diagramsApi`, `versionsApi`, etc.) rather than calling fetch directly.
 
 ---
 
-## Frontend-only TODOs (port from the prototype)
+## Cross-cutting features
 
-Items that exist in `../src/pages-tools.jsx` and `../src/pages-artifact.jsx` but aren't in this scaffold yet:
-
-- [ ] Documentation list + markdown editor with live preview (port `DocsListPage` + `DocDetailPage`)
-- [ ] API specs grid + spec detail with endpoint table + drawer
-- [ ] Database model viewer (entities, fields, PKs/FKs)
-- [ ] Diagrams list + editor with Mermaid preview
-- [ ] Version history timeline
-- [ ] Export SSOT wizard (format + sections + preview)
-- [ ] Settings page tabs (profile, workspace, notifications, tokens, danger zone)
-- [ ] Tweaks panel UI inside the app shell (the store + persistence are wired; only the panel UI needs porting)
-- [ ] Real Mermaid via the `mermaid` npm package
-- [ ] Pinch-to-zoom on touch devices for the graph (React Flow handles touch but verify on iOS)
-
----
-
-## Design tokens
-
-All tokens are CSS variables on `<html>` so theme switching is instant:
-
-```css
---bg / --bg-2 / --panel / --panel-2 / --panel-hover     /* surfaces */
---border / --border-strong                              /* dividers */
---fg / --fg-muted / --fg-subtle                         /* text */
---accent / --accent-soft / --accent-fg / --accent-ring  /* brand */
---c-success / --c-warning / --c-danger / --c-info       /* semantic */
---font-sans / --font-mono                               /* type */
---d-pad / --d-gap / --d-fs                              /* density */
---r-sm / --r-md / --r-lg                                /* radius */
-```
-
-Tailwind classes that reference these (`bg-panel`, `border-border`, `text-fg-muted`, `rounded-lg`, etc.) are defined in `tailwind.config.ts`.
+- **Theme** (dark default; light supported), density, sidebar mode, accent color and graph node style live in Zustand and persist to localStorage.
+- **Sidebar** dynamically loads project name + per-project sub-nav (Artifacts / Graph / API Specs / Database / Diagrams / Validation / Version History / Export).
+- **Topbar** breadcrumbs lookup real artifact / project / API spec / DB model / diagram titles by id. Theme toggle in the right corner.
+- **Command palette** (⌘K / Ctrl+K) — quick-jump to dashboard, projects list, and any project. (Not a full artifact index.)
+- **Knowledge graph** — React Flow with custom node types, drag-to-reposition (persisted per project in localStorage), minimap, type filter, selection drawer.
+- **Mermaid** — lazy-loaded, dark-themed, with a syntax-status pill that turns green / yellow as you type. Used by the Diagrams editor, the Database Model ERD view, and the Export preview.
+- **Toasts** via `sonner`.
 
 ---
 
@@ -160,6 +127,23 @@ npm run start      # serve production build
 npm run lint       # next lint
 npm run typecheck  # tsc --noEmit
 ```
+
+---
+
+## Design tokens
+
+All tokens are CSS variables on `<html>` so theme switching is instant:
+
+```
+--bg / --bg-2 / --panel / --panel-2 / --panel-hover    surfaces
+--border / --border-strong                             dividers
+--fg / --fg-muted / --fg-subtle                        text
+--accent / --accent-soft / --accent-fg / --accent-ring brand
+--c-success / --c-warning / --c-danger / --c-info      semantic
+--font-sans / --font-mono                              type
+```
+
+Tailwind classes (`bg-panel`, `border-border`, `text-fg-muted`, …) are defined in `tailwind.config.ts`.
 
 ---
 

@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Sparkles, Folder, Box, Shield, ChevronRight, Star, Sprout, Terminal, ArrowRight } from "lucide-react";
+import { Plus, Folder, Box, Shield, ChevronRight, Star, Sprout, Terminal, ArrowRight, Network } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -40,12 +40,14 @@ export default function DashboardPage() {
         subtitle={
           projects === null ? (
             <>Loading your workspace…</>
+          ) : projects.length === 0 ? (
+            <>Start by creating a project, or load the demo dataset to explore an example architecture.</>
           ) : (
-            <>You have <strong className="text-fg">{totalIssues} open validation issues</strong> across {projects.length} projects.</>
+            <>You have <strong className="text-fg">{totalIssues} open validation issue{totalIssues === 1 ? "" : "s"}</strong> across {projects.length} project{projects.length === 1 ? "" : "s"}.</>
           )
         }
         actions={<>
-          <Button icon={<Sparkles size={14} />}>Ask Minotaurus</Button>
+          <Link href="/projects"><Button icon={<Network size={14} />}>All projects</Button></Link>
           <Link href="/projects/new"><Button variant="primary" icon={<Plus size={14} />}>New project</Button></Link>
         </>}
       />
@@ -58,6 +60,23 @@ export default function DashboardPage() {
 
       {projects !== null && (
         <DemoCallout demoProject={demoProject} />
+      )}
+
+      {projects !== null && projects.length === 0 && (
+        <Card title="What does Minotaurus do?" subtitle="A quick map of the workspace before you create your first project.">
+          <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-2 text-[13.5px] text-fg-muted list-disc list-inside">
+            <li><strong className="text-fg">Artifacts</strong> — services, APIs, databases, docs, diagrams (11 typed kinds)</li>
+            <li><strong className="text-fg">Relations</strong> — DEPENDS_ON, USES, EXPOSES, SECURES, DOCUMENTS, …</li>
+            <li><strong className="text-fg">Documentation</strong> — Markdown per artifact with live preview</li>
+            <li><strong className="text-fg">API specs &amp; endpoints</strong> — title, version, base URL, methods, schemas</li>
+            <li><strong className="text-fg">Database models</strong> — entities, fields, PK/FK, auto-generated Mermaid ERD</li>
+            <li><strong className="text-fg">Diagrams</strong> — Mermaid editor with live preview and templates</li>
+            <li><strong className="text-fg">Validation</strong> — rule-based checks across the above</li>
+            <li><strong className="text-fg">Version history &amp; impact</strong> — every CUD is recorded; per-artifact blast radius</li>
+            <li><strong className="text-fg">SSOT export</strong> — JSON or Markdown bundle of the whole project</li>
+            <li><strong className="text-fg">Manual modelling only</strong> — no auto-import from repos or files (yet)</li>
+          </ul>
+        </Card>
       )}
 
       <div className="flex items-center mb-3">

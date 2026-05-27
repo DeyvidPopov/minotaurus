@@ -69,7 +69,43 @@
 - Seed: 26 backdated version events spanning 12 days so the timeline is populated
   out of the box; seeded exports include VERSION_HISTORY and IMPACT_ANALYSIS
 
-## PHASE 6 FINALIZED — live Postgres runtime (current pass)
+## UX HONESTY PASS — current pass
+- **Landing page** (`app/page.tsx`) rewritten to remove every claim the product can't deliver:
+  - Hero blurb no longer says it "pulls everything you already write" — replaced with "a
+    workspace for modelling … as connected artifacts."
+  - "Tour the graph" CTA (was linking to non-existent `/projects/p_helix/graph`) replaced
+    with "Sign in to the demo."
+  - Trust strip pruned: removed "OpenAPI · GraphQL · Mermaid · ERD" (we don't import any
+    of those) and "SSO ready" (not implemented). Now: "Markdown · Mermaid", "Self-hosted",
+    "PostgreSQL-backed."
+  - Workflow Step 1 retitled "Add typed artifacts" — no more "Drop in OpenAPI specs …
+    Minotaurus parses and turns them into typed artifacts."
+  - Workflow Step 2 dropped the false "let validation suggest the obvious ones" claim.
+  - Workflow Step 4 trimmed "PDF or ZIP" to "JSON or Markdown" (matching real export
+    rendering) and listed every section the bundle actually covers.
+  - Features grid: dropped the false "OpenAPI ingest" card; added honest cards for the
+    real modules (API specs & endpoints, Database model with auto ERD, Validation engine,
+    Version history, Impact analysis, Mermaid diagrams editor, Markdown documentation,
+    SSOT export, ⌘K palette). "Versioned everything … with diffs" → "Version history" (no
+    diff/restore yet).
+  - Footer + final CTA refer to the real seeded project ("Online Shop Platform") and
+    surface the demo credentials so first-time users can sign in directly.
+- **Public nav**: removed the dead `/docs` link.
+- **Dashboard** (`app/(app)/dashboard/page.tsx`):
+  - "Ask Minotaurus" sparkly button (no handler, no AI behind it) replaced with "All
+    projects" linking to the projects list.
+  - Subtitle now adapts to first-run vs returning user; pluralization fixed.
+  - New first-run "What does Minotaurus do?" card listing the real capabilities — visible
+    only when the user has zero projects, so it doesn't add noise to returning sessions.
+- **Topbar** (`components/shell/topbar.tsx`): dropped the bell and sparkles icon buttons
+  (no notifications backend, no AI). Only the working theme toggle remains.
+- **Docs route stubs** (`/projects/[id]/docs` and `…/docs/[id]`): re-worded to clearly
+  redirect the user mentally to the per-artifact Documentation tab (which is where the
+  real editor lives). No more "Coming next" promises about a separate doc editor.
+- **Frontend README** rewritten to match the current shipped state — replaced the
+  multi-phase-old mock-data narrative with an accurate route-by-route status table.
+
+## PHASE 6 FINALIZED — live Postgres runtime (previous pass)
 - Postgres detected on **:5433** (the local install uses 5433, not the spec's :5432).
 - Working credentials: `postgres / postgres123!`.
 - Created `minotaurus` database; applied `20260527120000_init` migration.
