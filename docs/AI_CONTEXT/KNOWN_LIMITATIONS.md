@@ -54,8 +54,32 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - No notifications backend. The Notifications tab on Settings is disabled stubs.
 - No API tokens module yet. The API tokens tab is a "coming next" placeholder.
 
-## Versioning / History
-- Not implemented. The frontend `/versions` route is a stub. The `VERSIONING` validation category is declared but unused. Proposed as the next module.
+## Versioning / History (Phase 5 — shipped)
+- Implemented in `backend/src/modules/versions/`. Every CUD action on artifacts,
+  relations, documentation, API specs/endpoints, DB models/entities/fields,
+  diagrams, exports and validation runs writes a `VersionEvent`.
+- **No diff or before/after snapshots.** Events carry `metadata` (changed field list,
+  status, severity histogram for validations) but the previous values are not stored.
+  Restoring an older state of an artifact is not possible.
+- **No retention policy.** Events accumulate indefinitely in `data.json`. For a long-running
+  demo this is fine; for a real deployment, add archival.
+- **`VERSIONING` validation category remains unused.** The three new architecture-intelligence
+  rules (excessive deps, recent churn, deprecated-but-referenced) live under the existing
+  `ARCHITECTURE` category. Reserved for a future "stale version" rule.
+- **Seed events are backdated** with synthetic timestamps. Real runtime events get the
+  actual current time.
+
+## Impact Analysis (Phase 5 — shipped)
+- Endpoint: `GET /api/projects/:projectId/impact/:artifactId`. Page:
+  `/projects/<id>/impact/<artifactId>`. Available via "Analyze impact" on the artifact
+  detail page.
+- **Direct traversal only (depth = 1).** Transitive impact ("what depends on X, plus
+  what depends on those, …") is not computed. Brief explicitly forbade this.
+- **No scoring or ranking.** Returned lists are raw — no severity weighting, no
+  blast-radius metric beyond count tiles.
+- **Documentation surface** = the target's own `documentationContent` plus any
+  DOCUMENTATION-typed artifact that has a `DOCUMENTS` relation to the target. Free-text
+  references to the artifact inside other docs are not detected.
 
 ## Misc
 - The "Ask Minotaurus" dashboard button is a static label — no AI integration.

@@ -36,7 +36,7 @@ export function runValidation(req: AuthedRequest, res: Response) {
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
-  const issues = runValidationForProject(projectId);
+  const issues = runValidationForProject(projectId, req.user!.userId);
 
   return created(
     res,

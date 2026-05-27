@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, persist } from "../../db/json-db.js";
 import { fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { recordVersionEvent } from "../versions/versions.engine.js";
 
 const updateSchema = z.object({
   markdownContent: z.string().optional(),
@@ -49,8 +50,29 @@ export function putDocumentation(req: AuthedRequest, res: Response) {
       : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
   const artifact = result.artifact;
+  const hadContent = !!artifact.documentationContent?.trim();
+  const willHaveContent = !!content.trim();
   artifact.documentationContent = content;
   artifact.updatedAt = new Date().toISOString();
+
+  // Treat empty-after-clear as DELETED; first non-empty save as CREATED; else UPDATED.
+  const action =
+    !hadContent && willHaveContent
+      ? "CREATED"
+      : hadContent && !willHaveContent
+        ? "DELETED"
+        : "UPDATED";
+  recordVersionEvent({
+    projectId: artifact.projectId,
+    entityType: "DOCUMENTATION",
+    entityId: artifact.id,
+    action,
+    title: artifact.title,
+    description: `Documentation ${action.toLowerCase()}`,
+    triggeredBy: req.user!.userId,
+    metadata: { length: content.length },
+  });
+
   persist();
 
   return ok(

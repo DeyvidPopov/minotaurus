@@ -43,6 +43,10 @@ export function buildExportContent(
   const dbEntityIds = new Set(databaseEntities.map((e) => e.id));
   const databaseFields = state.databaseFields.filter((f) => dbEntityIds.has(f.entityId));
   const diagrams = state.diagrams.filter((d) => d.projectId === projectId);
+  const versionEvents = state.versionEvents
+    .filter((e) => e.projectId === projectId)
+    .slice()
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const wanted = new Set(sections.map((s) => s.toUpperCase()));
   // DOCUMENTATION implies ARTIFACTS — docs live inside artifact objects.
@@ -56,6 +60,9 @@ export function buildExportContent(
   const wantsDatabaseModels =
     wanted.has("DATABASE_MODELS") || wanted.has("DATABASE_ENTITIES");
   const wantsDiagrams = wanted.has("DIAGRAMS");
+  const wantsVersionHistory =
+    wanted.has("VERSION_HISTORY") || wanted.has("RECENT_CHANGES");
+  const wantsImpact = wanted.has("IMPACT_ANALYSIS") || wanted.has("IMPACT");
 
   const payload: Record<string, unknown> = {
     project,
@@ -64,6 +71,51 @@ export function buildExportContent(
   if (wantsArtifacts) payload.artifacts = artifacts.map(serializeArtifactForExport);
   if (wanted.has("RELATIONS")) payload.relations = relations;
   if (wantsValidation) payload.validationIssues = issues;
+  if (wantsVersionHistory) {
+    payload.versionHistory = versionEvents.slice(0, 100).map((e) => ({
+      id: e.id,
+      entityType: e.entityType,
+      entityId: e.entityId,
+      action: e.action,
+      title: e.title,
+      description: e.description,
+      triggeredBy: e.triggeredBy,
+      metadata: e.metadata,
+      createdAt: e.createdAt,
+    }));
+    payload.recentChanges = payload.versionHistory;
+  }
+  if (wantsImpact) {
+    const artifactsById = new Map(artifacts.map((a) => [a.id, a]));
+    payload.impactAnalysis = artifacts.map((a) => {
+      const outgoing = relations.filter((r) => r.sourceArtifactId === a.id);
+      const incoming = relations.filter((r) => r.targetArtifactId === a.id);
+      const linkedSpecs = apiSpecs.filter((s) => s.artifactId === a.id).length;
+      const linkedDbs = databaseModels.filter((m) => m.artifactId === a.id).length;
+      const linkedDiagrams = diagrams.filter((d) => d.artifactId === a.id).length;
+      return {
+        artifact: { id: a.id, title: a.title, type: a.type, status: a.status },
+        directDependencies: outgoing.map((r) => ({
+          id: r.id,
+          targetArtifactId: r.targetArtifactId,
+          targetTitle: artifactsById.get(r.targetArtifactId)?.title ?? null,
+          relationType: r.relationType,
+        })),
+        dependentArtifacts: incoming.map((r) => ({
+          id: r.id,
+          sourceArtifactId: r.sourceArtifactId,
+          sourceTitle: artifactsById.get(r.sourceArtifactId)?.title ?? null,
+          relationType: r.relationType,
+        })),
+        impactSummary: {
+          affectedArtifacts: outgoing.length + incoming.length,
+          affectedApis: linkedSpecs,
+          affectedDatabases: linkedDbs,
+          affectedDiagrams: linkedDiagrams,
+        },
+      };
+    });
+  }
   if (wantsDiagrams) {
     payload.diagrams = diagrams.map((d) => ({
       id: d.id,
@@ -276,6 +328,13 @@ export function buildExportContent(
         lines.push(
           `- ${titleById.get(r.sourceArtifactId) ?? r.sourceArtifactId} —[${r.relationType}]→ ${titleById.get(r.targetArtifactId) ?? r.targetArtifactId}`,
         );
+      }
+    }
+    if (wantsVersionHistory && versionEvents.length > 0) {
+      lines.push("\n## Version history\n");
+      for (const e of versionEvents.slice(0, 100)) {
+        const day = e.createdAt.slice(0, 10);
+        lines.push(`- [${day}] **${e.action}** ${e.entityType} — ${e.title}${e.description ? "  _" + e.description + "_" : ""}`);
       }
     }
     if (wantsValidation && issues.length > 0) {

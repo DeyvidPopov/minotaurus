@@ -2,19 +2,27 @@
 
 ## Last Completed Feature
 
-Mermaid label-rendering fix on top of Phase 4 polish:
-- Concrete font stack + explicit `themeVariables` so labels are visible in dark theme
-- Templates and seeded sources now use quoted node labels (`Client["Client"]`)
-- ERD generator pads empty entities and always emits non-empty relationship labels
-- Post-render label scan warns when an SVG comes back with no visible text
+Phase 5 — Version History + Impact Analysis:
+- New `versionEvents[]` collection; pure `recordVersionEvent()` helper used by every CUD path
+- Every artifact / relation / documentation / API spec / API endpoint / DB model / DB entity /
+  DB field / diagram / export / validation run now writes a `VersionEvent`
+- New endpoints:
+  - `GET /api/projects/:projectId/version-history` (entityType / action / search / limit filters)
+  - `GET /api/version-events/:eventId`
+  - `GET /api/projects/:projectId/impact/:artifactId`
+- Three new validation heuristics: excessive deps (>6 relations), recent churn (>5 events / 7d),
+  deprecated artifact still heavily referenced
+- Export engine: `VERSION_HISTORY` and `IMPACT_ANALYSIS` sections; MARKDOWN gets a
+  `## Version history` block
+- Frontend: real `/projects/<id>/versions` timeline (color-coded, day-grouped) replaces stub;
+  new `/projects/<id>/impact/<artifactId>` page; "Analyze impact" button on artifact detail
+- Seed: 26 backdated events + the auto-recorded validation event spanning 12 days
 
-Earlier in this session:
-- Diagram editor: template-picker modal, live syntax status, save-state badge, centered preview
-- Database Model detail: visual Mermaid ERD preview with Preview/Source toggle, polished entity cards with FK target shown as `name type FK → users.id`, "Generate diagram" shortcut
+Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template picker, ERD view).
 
 ## Current Commit
 
-80515ed — *Fix Mermaid diagram label rendering*
+254b85b — *Add version history and impact analysis*
 
 ## Current Working State
 

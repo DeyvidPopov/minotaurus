@@ -21,8 +21,10 @@ Backend:
 - API Specs
 - Database Models (with visual Mermaid ERD)
 - Diagrams (Mermaid editor + live preview, polished, readable labels in dark theme)
-- Validation
-- Export (artifacts, relations, API specs, DB models, diagrams, validation report, graph)
+- Validation (artifact relation, doc, security, API, DB, diagram, churn, deprecated-still-used rules)
+- Version History (every CUD records a VersionEvent; timeline + filters)
+- Impact Analysis (per-artifact blast radius: deps, dependents, APIs, DBs, diagrams, docs, recent events)
+- Export (artifacts, relations, API specs, DB models, diagrams, validation report, graph, version history, impact analysis)
 - Graph
 - Settings
 
@@ -48,12 +50,15 @@ validation.engine.ts
 - diagrams
 - exports
 - validation
+- versions (version history + impact analysis)
 
 ## Current Commit
-80515ed
+254b85b
 
 ## Current Goal
-Phase 4 polish complete. Diagrams + visual ERD are stable; ready for the next phase.
+Phase 5 shipped: Version History + Impact Analysis. The platform now records every CUD
+action as a VersionEvent and exposes a per-artifact blast-radius view. Recommended next
+phase: AI architecture analysis (NEXT_STEPS.md).
 
 ## Important Constraints
 - Do not migrate PostgreSQL yet

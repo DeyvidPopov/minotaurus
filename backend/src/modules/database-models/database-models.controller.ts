@@ -11,6 +11,7 @@ import {
 import { newId } from "../../utils/ids.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { recordVersionEvent } from "../versions/versions.engine.js";
 
 const DATABASE_TYPES: DatabaseType[] = [
   "PostgreSQL",
@@ -216,6 +217,16 @@ export function createModel(req: AuthedRequest, res: Response) {
     updatedAt: now,
   };
   db().databaseModels.push(row);
+  recordVersionEvent({
+    projectId,
+    entityType: "DATABASE_MODEL",
+    entityId: row.id,
+    action: "CREATED",
+    title: row.title,
+    description: row.databaseType,
+    triggeredBy: req.user!.userId,
+    metadata: { databaseType: row.databaseType },
+  });
   persist();
   return created(res, serializeModel(row), "Database model created");
 }
@@ -254,6 +265,16 @@ export function patchModel(req: AuthedRequest, res: Response) {
   if (parsed.data.description !== undefined) row.description = parsed.data.description;
   if (parsed.data.artifactId !== undefined) row.artifactId = parsed.data.artifactId;
   row.updatedAt = new Date().toISOString();
+  recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "DATABASE_MODEL",
+    entityId: row.id,
+    action: "UPDATED",
+    title: row.title,
+    description: Object.keys(parsed.data).join(", "),
+    triggeredBy: req.user!.userId,
+    metadata: { changed: Object.keys(parsed.data) },
+  });
   persist();
   return ok(res, serializeModel(row), "Database model updated");
 }
@@ -280,6 +301,15 @@ export function deleteModel(req: AuthedRequest, res: Response) {
       f.isForeignKey = false;
     }
   }
+  recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "DATABASE_MODEL",
+    entityId: row.id,
+    action: "DELETED",
+    title: row.title,
+    description: "Database model removed",
+    triggeredBy: req.user!.userId,
+  });
   persist();
   return ok(res, null, "Database model deleted");
 }
@@ -319,6 +349,16 @@ export function createEntity(req: AuthedRequest, res: Response) {
   };
   db().databaseEntities.push(row);
   modelResult.row.updatedAt = now;
+  recordVersionEvent({
+    projectId: modelResult.row.projectId,
+    entityType: "DATABASE_ENTITY",
+    entityId: row.id,
+    action: "CREATED",
+    title: row.name,
+    description: `Added to "${modelResult.row.title}"`,
+    triggeredBy: req.user!.userId,
+    metadata: { databaseModelId: modelResult.row.id },
+  });
   persist();
   return created(res, serializeEntity(row), "Entity created");
 }
@@ -338,6 +378,16 @@ export function patchEntity(req: AuthedRequest, res: Response) {
   if (parsed.data.description !== undefined) row.description = parsed.data.description;
   row.updatedAt = new Date().toISOString();
   result.model.updatedAt = row.updatedAt;
+  recordVersionEvent({
+    projectId: result.model.projectId,
+    entityType: "DATABASE_ENTITY",
+    entityId: row.id,
+    action: "UPDATED",
+    title: row.name,
+    description: Object.keys(parsed.data).join(", "),
+    triggeredBy: req.user!.userId,
+    metadata: { databaseModelId: result.model.id, changed: Object.keys(parsed.data) },
+  });
   persist();
   return ok(res, serializeEntity(row), "Entity updated");
 }
@@ -363,6 +413,16 @@ export function deleteEntity(req: AuthedRequest, res: Response) {
     }
   }
   model.updatedAt = new Date().toISOString();
+  recordVersionEvent({
+    projectId: model.projectId,
+    entityType: "DATABASE_ENTITY",
+    entityId: row.id,
+    action: "DELETED",
+    title: row.name,
+    description: `Removed from "${model.title}"`,
+    triggeredBy: req.user!.userId,
+    metadata: { databaseModelId: model.id },
+  });
   persist();
   return ok(res, null, "Entity deleted");
 }
@@ -400,6 +460,16 @@ export function createField(req: AuthedRequest, res: Response) {
   db().databaseFields.push(row);
   entityResult.row.updatedAt = new Date().toISOString();
   entityResult.model.updatedAt = entityResult.row.updatedAt;
+  recordVersionEvent({
+    projectId: entityResult.model.projectId,
+    entityType: "DATABASE_FIELD",
+    entityId: row.id,
+    action: "CREATED",
+    title: `${entityResult.row.name}.${row.name}`,
+    description: `${row.type}${row.isPrimaryKey ? " · PK" : ""}${row.isForeignKey ? " · FK" : ""}`,
+    triggeredBy: req.user!.userId,
+    metadata: { entityId: entityResult.row.id, databaseModelId: entityResult.model.id },
+  });
   persist();
   return created(res, serializeField(row), "Field created");
 }
@@ -436,6 +506,20 @@ export function patchField(req: AuthedRequest, res: Response) {
 
   result.entity.updatedAt = new Date().toISOString();
   result.model.updatedAt = result.entity.updatedAt;
+  recordVersionEvent({
+    projectId: result.model.projectId,
+    entityType: "DATABASE_FIELD",
+    entityId: row.id,
+    action: "UPDATED",
+    title: `${result.entity.name}.${row.name}`,
+    description: Object.keys(parsed.data).join(", "),
+    triggeredBy: req.user!.userId,
+    metadata: {
+      entityId: result.entity.id,
+      databaseModelId: result.model.id,
+      changed: Object.keys(parsed.data),
+    },
+  });
   persist();
   return ok(res, serializeField(row), "Field updated");
 }
@@ -456,6 +540,16 @@ export function deleteField(req: AuthedRequest, res: Response) {
   state.databaseFields.splice(idx, 1);
   entity.updatedAt = new Date().toISOString();
   model.updatedAt = entity.updatedAt;
+  recordVersionEvent({
+    projectId: model.projectId,
+    entityType: "DATABASE_FIELD",
+    entityId: row.id,
+    action: "DELETED",
+    title: `${entity.name}.${row.name}`,
+    description: `Removed from "${model.title}"`,
+    triggeredBy: req.user!.userId,
+    metadata: { entityId: entity.id, databaseModelId: model.id },
+  });
   persist();
   return ok(res, null, "Field deleted");
 }

@@ -46,8 +46,30 @@
   `<text>` / `<foreignObject>` node is empty, the preview shows a yellow
   "Diagram rendered, but labels may be missing" warning with a collapsible source view.
 
+## PHASE 5 (current pass) — Version History + Impact Analysis
+- New `versionEvents[]` collection in the JSON store; new `VersionEvent` type
+- `recordVersionEvent()` shared helper used by every CUD path
+- Instrumented controllers: artifacts (CRUD), relations (LINKED/UNLINKED), documentation
+  (CREATED/UPDATED/DELETED inferred from before/after content), API specs + endpoints
+  (CRUD), DB models + entities + fields (CRUD), diagrams (CRUD), exports (EXPORTED),
+  validation (VALIDATED with bySeverity metadata)
+- `GET /api/projects/:projectId/version-history` with filters: entityType, action, search, limit
+- `GET /api/version-events/:eventId`
+- `GET /api/projects/:projectId/impact/:artifactId` — direct/dependent artifacts, linked
+  APIs, DBs, diagrams, documentation, recent events, impactSummary
+- New validation heuristics: excessive-dependencies, recent-churn (>5 events / 7 days),
+  deprecated-but-heavily-referenced
+- Export engine: new `VERSION_HISTORY` and `IMPACT_ANALYSIS` sections, plus MARKDOWN
+  `## Version history` block
+- Frontend: `/projects/<id>/versions` timeline (color-coded, day-grouped, filtered) and
+  `/projects/<id>/impact/<artifactId>` page with summary tiles + 6 sections
+- Sidebar: restored "Version History" entry; artifact detail page gained an
+  "Analyze impact" button
+- Export preview: new Events count tile, Recent changes card, Impact analysis card
+- Seed: 26 backdated version events spanning 12 days so the timeline is populated
+  out of the box; seeded exports include VERSION_HISTORY and IMPACT_ANALYSIS
+
 ## TODO (next phases)
-- Version History
-- Impact Analysis
-- PostgreSQL migration
-- AI architecture insights
+- AI architecture analysis (uses version history + impact + relations as feature inputs)
+- PostgreSQL migration (data model is stable enough now)
+- WebSocket live updates

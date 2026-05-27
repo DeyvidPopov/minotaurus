@@ -21,6 +21,7 @@ import {
 } from "../src/db/json-db.js";
 import { newId } from "../src/utils/ids.js";
 import { runValidationForProject } from "../src/modules/validation/validation.engine.js";
+import { recordVersionEvent } from "../src/modules/versions/versions.engine.js";
 import {
   buildExportContent,
   type ExportFormat,
@@ -413,8 +414,70 @@ async function main() {
 
   persist();
 
+  // ── version history: backfill realistic events so the timeline is populated
+  // out of the box. Days are spaced so they group naturally on the timeline.
+  const dayMs = 24 * 60 * 60 * 1000;
+  const at = (daysAgo: number, hour = 12, minute = 0) => {
+    const d = new Date(Date.parse(now) - daysAgo * dayMs);
+    d.setUTCHours(hour, minute, 0, 0);
+    return d.toISOString();
+  };
+
+  const seedEvents: {
+    entityType: Parameters<typeof recordVersionEvent>[0]["entityType"];
+    entityId: string;
+    action: Parameters<typeof recordVersionEvent>[0]["action"];
+    title: string;
+    description: string;
+    metadata?: Record<string, unknown>;
+    at: string;
+  }[] = [
+    { entityType: "ARTIFACT",       entityId: auth.id,       action: "CREATED", title: auth.title,    description: "SERVICE (ACTIVE)",    at: at(12, 9, 14) },
+    { entityType: "ARTIFACT",       entityId: userDb.id,     action: "CREATED", title: userDb.title,  description: "DATABASE_MODEL",      at: at(12, 9, 32) },
+    { entityType: "DATABASE_MODEL", entityId: dbModel.id,    action: "CREATED", title: dbModel.title, description: "PostgreSQL",          metadata: { databaseType: "PostgreSQL" }, at: at(11, 11, 5) },
+    { entityType: "DATABASE_ENTITY", entityId: usersEntity.id, action: "CREATED", title: usersEntity.name,    description: "Added to User Management Database", metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 10) },
+    { entityType: "DATABASE_ENTITY", entityId: sessionsEntity.id, action: "CREATED", title: sessionsEntity.name, description: "Added to User Management Database", metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 12) },
+    { entityType: "DATABASE_ENTITY", entityId: rolesEntity.id, action: "CREATED", title: rolesEntity.name, description: "Added to User Management Database", metadata: { databaseModelId: dbModel.id }, at: at(11, 11, 14) },
+    { entityType: "ARTIFACT",       entityId: catalog.id,    action: "CREATED", title: catalog.title, description: "API_ENDPOINT",        at: at(10, 14, 2) },
+    { entityType: "ARTIFACT",       entityId: prodDb.id,     action: "CREATED", title: prodDb.title,  description: "DATABASE_MODEL",      at: at(10, 14, 10) },
+    { entityType: "ARTIFACT",       entityId: gateway.id,    action: "CREATED", title: gateway.title, description: "SERVICE",             at: at(9,  10, 0) },
+    { entityType: "ARTIFACT",       entityId: order.id,      action: "CREATED", title: order.title,   description: "SERVICE",             at: at(9,  10, 20) },
+    { entityType: "ARTIFACT",       entityId: payment.id,    action: "CREATED", title: payment.title, description: "SERVICE",             at: at(9,  10, 40) },
+    { entityType: "ARTIFACT",       entityId: legacy.id,     action: "CREATED", title: legacy.title,  description: "SERVICE (DEPRECATED)", at: at(8, 9, 30) },
+    { entityType: "API_SPEC",       entityId: authSpec.id,   action: "CREATED", title: authSpec.title, description: `v${authSpec.version} · ${authSpec.baseUrl}`, metadata: { version: authSpec.version }, at: at(7, 13, 15) },
+    { entityType: "API_ENDPOINT",   entityId: state.apiEndpoints[0].id, action: "CREATED", title: `${state.apiEndpoints[0].method} ${state.apiEndpoints[0].path}`, description: `Added to "${authSpec.title}"`, metadata: { specId: authSpec.id }, at: at(7, 13, 16) },
+    { entityType: "API_ENDPOINT",   entityId: state.apiEndpoints[1].id, action: "CREATED", title: `${state.apiEndpoints[1].method} ${state.apiEndpoints[1].path}`, description: `Added to "${authSpec.title}"`, metadata: { specId: authSpec.id }, at: at(7, 13, 17) },
+    { entityType: "API_ENDPOINT",   entityId: state.apiEndpoints[2].id, action: "CREATED", title: `${state.apiEndpoints[2].method} ${state.apiEndpoints[2].path}`, description: `Added to "${authSpec.title}"`, metadata: { specId: authSpec.id }, at: at(7, 13, 18) },
+    { entityType: "RELATION",       entityId: state.relations[0].id, action: "LINKED",  title: `${auth.title} → ${userDb.title}`, description: "DEPENDS_ON", metadata: { relationType: "DEPENDS_ON", sourceArtifactId: auth.id, targetArtifactId: userDb.id }, at: at(6, 11, 0) },
+    { entityType: "RELATION",       entityId: state.relations[2].id, action: "LINKED",  title: `${gateway.title} → ${auth.title}`, description: "COMMUNICATES_WITH", metadata: { relationType: "COMMUNICATES_WITH", sourceArtifactId: gateway.id, targetArtifactId: auth.id }, at: at(6, 11, 5) },
+    { entityType: "DIAGRAM",        entityId: archDiagram.id, action: "CREATED", title: archDiagram.title, description: archDiagram.type, metadata: { type: archDiagram.type }, at: at(5, 16, 30) },
+    { entityType: "DOCUMENTATION",  entityId: auth.id,        action: "CREATED", title: auth.title,    description: "Documentation created", metadata: { length: (auth.documentationContent ?? "").length }, at: at(4, 10, 0) },
+    { entityType: "DOCUMENTATION",  entityId: gateway.id,     action: "CREATED", title: gateway.title, description: "Documentation created", metadata: { length: (gateway.documentationContent ?? "").length }, at: at(4, 10, 30) },
+    { entityType: "DOCUMENTATION",  entityId: order.id,       action: "CREATED", title: order.title,   description: "Documentation created", metadata: { length: (order.documentationContent ?? "").length }, at: at(4, 11, 0) },
+    { entityType: "DOCUMENTATION",  entityId: archDoc.id,     action: "CREATED", title: archDoc.title, description: "Documentation created", metadata: { length: (archDoc.documentationContent ?? "").length }, at: at(4, 11, 30) },
+    { entityType: "ARTIFACT",       entityId: auth.id,        action: "UPDATED", title: auth.title,    description: "status, tags",          metadata: { changed: ["status", "tags"] }, at: at(3, 14, 0) },
+    { entityType: "ARTIFACT",       entityId: gateway.id,     action: "UPDATED", title: gateway.title, description: "description",            metadata: { changed: ["description"] },   at: at(2, 9, 0) },
+    { entityType: "DATABASE_MODEL", entityId: dbModel.id,     action: "UPDATED", title: dbModel.title, description: "description",            metadata: { changed: ["description"] },   at: at(2, 9, 30) },
+  ];
+
+  for (const ev of seedEvents) {
+    recordVersionEvent({
+      projectId: project.id,
+      entityType: ev.entityType,
+      entityId: ev.entityId,
+      action: ev.action,
+      title: ev.title,
+      description: ev.description,
+      triggeredBy: user.id,
+      metadata: ev.metadata,
+      at: ev.at,
+    });
+  }
+  persist();
+
   // validation — runs against the artifacts/relations we just persisted
-  const issues = runValidationForProject(project.id);
+  // (records its own VALIDATED event via the engine)
+  const issues = runValidationForProject(project.id, user.id);
 
   // exports (one rich JSON, one Markdown for human reading)
   const jsonExport = makeExport(user, project, "JSON", [
@@ -425,6 +488,8 @@ async function main() {
     "DIAGRAMS",
     "GRAPH",
     "VALIDATION_REPORT",
+    "VERSION_HISTORY",
+    "IMPACT_ANALYSIS",
   ]);
   const markdownExport = makeExport(user, project, "MARKDOWN", [
     "ARTIFACTS",
@@ -433,6 +498,7 @@ async function main() {
     "DIAGRAMS",
     "RELATIONS",
     "VALIDATION_REPORT",
+    "VERSION_HISTORY",
   ]);
   state.exports.push(jsonExport, markdownExport);
 
@@ -453,6 +519,7 @@ async function main() {
           entityCount: state.databaseEntities.filter((e) => e.databaseModelId === m.id).length,
         })),
         diagrams: state.diagrams.map((d) => ({ id: d.id, title: d.title, type: d.type })),
+        versionEvents: state.versionEvents.length,
         validation: {
           issueCount: issues.length,
           severities: issues.reduce<Record<string, number>>((acc, v) => {

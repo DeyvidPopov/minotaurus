@@ -9,6 +9,7 @@ import {
 import { newId } from "../../utils/ids.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { recordVersionEvent } from "../versions/versions.engine.js";
 
 const DIAGRAM_TYPES: DiagramType[] = [
   "FLOWCHART",
@@ -119,6 +120,16 @@ export function createDiagram(req: AuthedRequest, res: Response) {
     updatedAt: now,
   };
   db().diagrams.push(row);
+  recordVersionEvent({
+    projectId,
+    entityType: "DIAGRAM",
+    entityId: row.id,
+    action: "CREATED",
+    title: row.title,
+    description: row.type,
+    triggeredBy: req.user!.userId,
+    metadata: { type: row.type },
+  });
   persist();
   return created(res, serializeDiagram(row), "Diagram created");
 }
@@ -158,6 +169,16 @@ export function patchDiagram(req: AuthedRequest, res: Response) {
   if (parsed.data.description !== undefined) row.description = parsed.data.description;
   if (parsed.data.artifactId !== undefined) row.artifactId = parsed.data.artifactId;
   row.updatedAt = new Date().toISOString();
+  recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "DIAGRAM",
+    entityId: row.id,
+    action: "UPDATED",
+    title: row.title,
+    description: Object.keys(parsed.data).join(", "),
+    triggeredBy: req.user!.userId,
+    metadata: { changed: Object.keys(parsed.data) },
+  });
   persist();
   return ok(res, serializeDiagram(row), "Diagram updated");
 }
@@ -172,6 +193,15 @@ export function deleteDiagram(req: AuthedRequest, res: Response) {
     return fail(res, 403, "FORBIDDEN", "Forbidden");
   }
   state.diagrams.splice(idx, 1);
+  recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "DIAGRAM",
+    entityId: row.id,
+    action: "DELETED",
+    title: row.title,
+    description: "Diagram removed",
+    triggeredBy: req.user!.userId,
+  });
   persist();
   return ok(res, null, "Diagram deleted");
 }

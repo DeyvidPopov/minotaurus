@@ -10,6 +10,7 @@ import {
 import { newId } from "../../utils/ids.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { recordVersionEvent } from "../versions/versions.engine.js";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
@@ -169,6 +170,16 @@ export function createSpec(req: AuthedRequest, res: Response) {
     updatedAt: now,
   };
   db().apiSpecs.push(spec);
+  recordVersionEvent({
+    projectId,
+    entityType: "API_SPEC",
+    entityId: spec.id,
+    action: "CREATED",
+    title: spec.title,
+    description: `v${spec.version}${spec.baseUrl ? " · " + spec.baseUrl : ""}`,
+    triggeredBy: req.user!.userId,
+    metadata: { version: spec.version, baseUrl: spec.baseUrl },
+  });
   persist();
   return created(res, serializeSpec(spec), "API spec created");
 }
@@ -208,6 +219,16 @@ export function patchSpec(req: AuthedRequest, res: Response) {
   if (parsed.data.description !== undefined) row.description = parsed.data.description;
   if (parsed.data.artifactId !== undefined) row.artifactId = parsed.data.artifactId;
   row.updatedAt = new Date().toISOString();
+  recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "API_SPEC",
+    entityId: row.id,
+    action: "UPDATED",
+    title: row.title,
+    description: Object.keys(parsed.data).join(", "),
+    triggeredBy: req.user!.userId,
+    metadata: { changed: Object.keys(parsed.data) },
+  });
   persist();
   return ok(res, serializeSpec(row), "API spec updated");
 }
@@ -223,6 +244,15 @@ export function deleteSpec(req: AuthedRequest, res: Response) {
   }
   state.apiSpecs.splice(idx, 1);
   state.apiEndpoints = state.apiEndpoints.filter((e) => e.apiSpecId !== row.id);
+  recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "API_SPEC",
+    entityId: row.id,
+    action: "DELETED",
+    title: row.title,
+    description: "API spec removed",
+    triggeredBy: req.user!.userId,
+  });
   persist();
   return ok(res, null, "API spec deleted");
 }
@@ -266,6 +296,16 @@ export function createEndpoint(req: AuthedRequest, res: Response) {
   };
   db().apiEndpoints.push(ep);
   specResult.row.updatedAt = now;
+  recordVersionEvent({
+    projectId: specResult.row.projectId,
+    entityType: "API_ENDPOINT",
+    entityId: ep.id,
+    action: "CREATED",
+    title: `${ep.method} ${ep.path}`,
+    description: `Added to "${specResult.row.title}"`,
+    triggeredBy: req.user!.userId,
+    metadata: { specId: specResult.row.id, method: ep.method, path: ep.path },
+  });
   persist();
   return created(res, serializeEndpoint(ep), "Endpoint created");
 }
@@ -290,6 +330,16 @@ export function patchEndpoint(req: AuthedRequest, res: Response) {
   if (parsed.data.requiresAuth !== undefined) row.requiresAuth = parsed.data.requiresAuth;
   row.updatedAt = new Date().toISOString();
   result.spec.updatedAt = row.updatedAt;
+  recordVersionEvent({
+    projectId: result.spec.projectId,
+    entityType: "API_ENDPOINT",
+    entityId: row.id,
+    action: "UPDATED",
+    title: `${row.method} ${row.path}`,
+    description: Object.keys(parsed.data).join(", "),
+    triggeredBy: req.user!.userId,
+    metadata: { specId: result.spec.id, changed: Object.keys(parsed.data) },
+  });
   persist();
   return ok(res, serializeEndpoint(row), "Endpoint updated");
 }
@@ -307,6 +357,16 @@ export function deleteEndpoint(req: AuthedRequest, res: Response) {
   }
   state.apiEndpoints.splice(idx, 1);
   spec.updatedAt = new Date().toISOString();
+  recordVersionEvent({
+    projectId: spec.projectId,
+    entityType: "API_ENDPOINT",
+    entityId: row.id,
+    action: "DELETED",
+    title: `${row.method} ${row.path}`,
+    description: `Removed from "${spec.title}"`,
+    triggeredBy: req.user!.userId,
+    metadata: { specId: spec.id, method: row.method, path: row.path },
+  });
   persist();
   return ok(res, null, "Endpoint deleted");
 }

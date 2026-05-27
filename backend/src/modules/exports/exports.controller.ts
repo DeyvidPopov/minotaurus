@@ -5,6 +5,7 @@ import { newId } from "../../utils/ids.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { EXPORT_FORMATS, buildExportContent } from "./exports.engine.js";
+import { recordVersionEvent } from "../versions/versions.engine.js";
 
 const createSchema = z.object({
   format: z.enum(EXPORT_FORMATS),
@@ -36,6 +37,16 @@ export function createExport(req: AuthedRequest, res: Response) {
     createdAt: new Date().toISOString(),
   };
   db().exports.push(exportRow);
+  recordVersionEvent({
+    projectId: exportRow.projectId,
+    entityType: "EXPORT",
+    entityId: exportRow.id,
+    action: "EXPORTED",
+    title: `${exportRow.format} export`,
+    description: exportRow.sections.join(", "),
+    triggeredBy: req.user!.userId,
+    metadata: { format: exportRow.format, sections: exportRow.sections },
+  });
   persist();
   return created(
     res,

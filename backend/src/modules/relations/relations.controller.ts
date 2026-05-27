@@ -9,6 +9,7 @@ import {
 import { newId } from "../../utils/ids.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
+import { recordVersionEvent } from "../versions/versions.engine.js";
 
 const RELATION_TYPES: RelationType[] = [
   "DEPENDS_ON",
@@ -89,6 +90,20 @@ export function createRelation(req: AuthedRequest, res: Response) {
     createdAt: new Date().toISOString(),
   };
   db().relations.push(relation);
+  recordVersionEvent({
+    projectId: source.projectId,
+    entityType: "RELATION",
+    entityId: relation.id,
+    action: "LINKED",
+    title: `${source.title} → ${target.title}`,
+    description: relation.relationType,
+    triggeredBy: req.user!.userId,
+    metadata: {
+      relationType: relation.relationType,
+      sourceArtifactId: source.id,
+      targetArtifactId: target.id,
+    },
+  });
   persist();
   return created(res, serializeRelation(relation), "Relation created");
 }
@@ -101,6 +116,24 @@ export function deleteRelation(req: AuthedRequest, res: Response) {
   const owner = ownerForArtifact(rel.sourceArtifactId);
   if (owner !== req.user!.userId) return fail(res, 403, "FORBIDDEN", "Forbidden");
   state.relations.splice(idx, 1);
+  const source = state.artifacts.find((a) => a.id === rel.sourceArtifactId);
+  const target = state.artifacts.find((a) => a.id === rel.targetArtifactId);
+  if (source) {
+    recordVersionEvent({
+      projectId: source.projectId,
+      entityType: "RELATION",
+      entityId: rel.id,
+      action: "UNLINKED",
+      title: `${source.title} ↮ ${target?.title ?? rel.targetArtifactId}`,
+      description: rel.relationType,
+      triggeredBy: req.user!.userId,
+      metadata: {
+        relationType: rel.relationType,
+        sourceArtifactId: rel.sourceArtifactId,
+        targetArtifactId: rel.targetArtifactId,
+      },
+    });
+  }
   persist();
   return ok(res, null, "Relation deleted");
 }

@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Edit, Link as LinkIcon, Trash2, X, Plug, Database, GitMerge } from "lucide-react";
+import { Edit, Link as LinkIcon, Trash2, X, Plug, Database, GitMerge, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -164,6 +164,9 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
         title={a.title}
         subtitle={a.description || "No description"}
         actions={<>
+          <Link href={`/projects/${projectId}/impact/${a.id}`}>
+            <Button icon={<Activity size={13} />}>Analyze impact</Button>
+          </Link>
           <Button icon={<Edit size={13} />} onClick={() => setEditing(true)}>Edit</Button>
           <Button icon={<LinkIcon size={13} />} onClick={() => setLinking(true)}>Link</Button>
           <Button icon={<Trash2 size={13} />} onClick={onDelete}>Delete</Button>

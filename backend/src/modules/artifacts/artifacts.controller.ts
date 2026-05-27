@@ -11,6 +11,7 @@ import { newId } from "../../utils/ids.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { toPublicUser } from "../auth/auth.controller.js";
+import { recordVersionEvent } from "../versions/versions.engine.js";
 
 const ARTIFACT_TYPES: ArtifactType[] = [
   "DOCUMENTATION",
@@ -146,6 +147,16 @@ export function createArtifact(req: AuthedRequest, res: Response) {
     documentationContent: parsed.data.documentationContent,
   };
   db().artifacts.push(artifact);
+  recordVersionEvent({
+    projectId,
+    entityType: "ARTIFACT",
+    entityId: artifact.id,
+    action: "CREATED",
+    title: artifact.title,
+    description: `${artifact.type} (${artifact.status})`,
+    triggeredBy: req.user!.userId,
+    metadata: { type: artifact.type, status: artifact.status },
+  });
   touchProject(projectId);
   persist();
   return created(res, serializeArtifact(artifact), "Artifact created");
@@ -187,6 +198,16 @@ export function updateArtifact(req: AuthedRequest, res: Response) {
     (row as unknown as Record<string, unknown>)[k] = v;
   }
   row.updatedAt = new Date().toISOString();
+  recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "ARTIFACT",
+    entityId: row.id,
+    action: "UPDATED",
+    title: row.title,
+    description: Object.keys(parsed.data).join(", "),
+    triggeredBy: req.user!.userId,
+    metadata: { changed: Object.keys(parsed.data) },
+  });
   touchProject(row.projectId);
   persist();
   return ok(res, serializeArtifact(row), "Artifact updated");
@@ -206,6 +227,15 @@ export function deleteArtifact(req: AuthedRequest, res: Response) {
     (r) => r.sourceArtifactId !== row.id && r.targetArtifactId !== row.id,
   );
   state.validationIssues = state.validationIssues.filter((v) => v.artifactId !== row.id);
+  recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "ARTIFACT",
+    entityId: row.id,
+    action: "DELETED",
+    title: row.title,
+    description: `${row.type} removed`,
+    triggeredBy: req.user!.userId,
+  });
   touchProject(row.projectId);
   persist();
   return ok(res, null, "Artifact deleted");

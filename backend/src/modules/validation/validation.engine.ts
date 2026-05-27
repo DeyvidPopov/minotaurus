@@ -4,8 +4,12 @@
 
 import { db, persist, type ValidationIssueRow } from "../../db/json-db.js";
 import { newId } from "../../utils/ids.js";
+import { recordVersionEvent } from "../versions/versions.engine.js";
 
-export function runValidationForProject(projectId: string): ValidationIssueRow[] {
+export function runValidationForProject(
+  projectId: string,
+  triggeredBy?: string,
+): ValidationIssueRow[] {
   const state = db();
   const artifacts = state.artifacts.filter((a) => a.projectId === projectId);
   const ids = new Set(artifacts.map((a) => a.id));
@@ -309,7 +313,98 @@ export function runValidationForProject(projectId: string): ValidationIssueRow[]
     }
   }
 
+  // ── Architecture / change-history heuristics ──
+  const DEPENDENCY_LIMIT = 6;
+  const CHURN_LIMIT = 5;
+  const CHURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - CHURN_WINDOW_MS;
+
+  const eventsForArtifact = (artifactId: string) =>
+    state.versionEvents.filter(
+      (e) => e.projectId === projectId && e.entityId === artifactId,
+    );
+
+  for (const a of artifacts) {
+    const dependencyCount = projectRelations.filter(
+      (r) => r.sourceArtifactId === a.id || r.targetArtifactId === a.id,
+    ).length;
+
+    // Rule: artifact with excessive dependency count
+    if (dependencyCount > DEPENDENCY_LIMIT) {
+      issues.push({
+        id: newId(),
+        projectId,
+        artifactId: a.id,
+        severity: "INFO",
+        category: "ARCHITECTURE",
+        message: `Artifact "${a.title}" has ${dependencyCount} relations — consider splitting responsibilities.`,
+        status: "OPEN",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // Rule: artifact changed many times in the last 7 days
+    const recentChanges = eventsForArtifact(a.id).filter((e) => {
+      if (e.action !== "UPDATED" && e.action !== "CREATED") return false;
+      const t = Date.parse(e.createdAt);
+      return Number.isFinite(t) && t >= cutoff;
+    });
+    if (recentChanges.length > CHURN_LIMIT) {
+      issues.push({
+        id: newId(),
+        projectId,
+        artifactId: a.id,
+        severity: "INFO",
+        category: "ARCHITECTURE",
+        message: `Artifact "${a.title}" was changed ${recentChanges.length} times in the last 7 days.`,
+        status: "OPEN",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    // Rule: deprecated artifact still heavily referenced
+    if (a.status === "DEPRECATED") {
+      const incomingRefs = projectRelations.filter(
+        (r) => r.targetArtifactId === a.id,
+      ).length;
+      if (incomingRefs > 2) {
+        issues.push({
+          id: newId(),
+          projectId,
+          artifactId: a.id,
+          severity: "WARNING",
+          category: "ARCHITECTURE",
+          message: `Deprecated artifact "${a.title}" still has ${incomingRefs} incoming references.`,
+          status: "OPEN",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+  }
+
   state.validationIssues.push(...issues);
+
+  const project = state.projects.find((p) => p.id === projectId);
+  recordVersionEvent({
+    projectId,
+    entityType: "VALIDATION",
+    entityId: projectId,
+    action: "VALIDATED",
+    title: `Validation run · ${project?.name ?? "project"}`,
+    description: `${issues.length} issue${issues.length === 1 ? "" : "s"} produced`,
+    triggeredBy: triggeredBy ?? project?.ownerId ?? "system",
+    metadata: {
+      issueCount: issues.length,
+      bySeverity: issues.reduce<Record<string, number>>((acc, v) => {
+        acc[v.severity] = (acc[v.severity] || 0) + 1;
+        return acc;
+      }, {}),
+    },
+  });
+
   persist();
 
   return issues;

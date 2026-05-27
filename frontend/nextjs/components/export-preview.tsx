@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen, Database, Key, Link2, ArrowRight, GitMerge } from "lucide-react";
+import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen, Database, Key, Link2, ArrowRight, GitMerge, History } from "lucide-react";
 import { MermaidPreview } from "@/components/mermaid-preview";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +117,29 @@ interface ExportedDiagram {
   linkedArtifact?: { id: string; title: string; type: ArtifactType } | null;
 }
 
+interface ExportedVersionEvent {
+  id: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  title: string;
+  description?: string;
+  triggeredBy?: string;
+  createdAt: string;
+}
+
+interface ExportedImpactRow {
+  artifact: { id: string; title: string; type: string; status: string };
+  directDependencies: { id: string; targetTitle: string | null; relationType: string }[];
+  dependentArtifacts: { id: string; sourceTitle: string | null; relationType: string }[];
+  impactSummary: {
+    affectedArtifacts: number;
+    affectedApis: number;
+    affectedDatabases: number;
+    affectedDiagrams: number;
+  };
+}
+
 interface ExportContent {
   project?: ExportedProject;
   generatedAt?: string;
@@ -126,6 +149,9 @@ interface ExportContent {
   apiSpecs?: ExportedApiSpec[];
   databaseModels?: ExportedDatabaseModel[];
   diagrams?: ExportedDiagram[];
+  versionHistory?: ExportedVersionEvent[];
+  recentChanges?: ExportedVersionEvent[];
+  impactAnalysis?: ExportedImpactRow[];
 }
 
 export interface ExportPreviewModel {
@@ -166,6 +192,8 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
   const databaseModels = parsed?.databaseModels ?? [];
   const totalEntities = databaseModels.reduce((s, m) => s + (m.entities?.length ?? 0), 0);
   const diagrams = parsed?.diagrams ?? [];
+  const versionHistory = parsed?.versionHistory ?? [];
+  const impactRows = parsed?.impactAnalysis ?? [];
   const docCount = artifacts.filter((a) => a.documentation?.markdownContent?.trim()).length;
 
   return (
@@ -184,13 +212,14 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
           <span className="text-[11.5px] text-fg-subtle">sections: {preview.sections.join(", ") || "—"}</span>
         </div>
         {!isMarkdown && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mt-3">
             <SummaryCount icon={<Box size={13} />} label="Artifacts" value={artifacts.length} />
             <SummaryCount icon={<BookOpen size={13} />} label="With docs" value={docCount} />
             <SummaryCount icon={<Network size={13} />} label="Relations" value={relations.length} />
             <SummaryCount icon={<Plug size={13} />} label="API endpoints" value={totalEndpoints} />
             <SummaryCount icon={<Database size={13} />} label="DB entities" value={totalEntities} />
             <SummaryCount icon={<GitMerge size={13} />} label="Diagrams" value={diagrams.length} />
+            <SummaryCount icon={<History size={13} />} label="Events" value={versionHistory.length} />
             <SummaryCount icon={<Shield size={13} />} label="Issues" value={issues.length} />
           </div>
         )}
@@ -220,6 +249,8 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
               <DatabaseModelsSection databaseModels={databaseModels} />
               <DiagramsSection diagrams={diagrams} />
               <RelationsSection relations={relations} artifactsById={artifactsById} />
+              <RecentChangesSection events={versionHistory} />
+              <ImpactSection rows={impactRows} />
               <IssuesSection issues={issues} artifactsById={artifactsById} />
             </>
           )}
@@ -591,5 +622,70 @@ function DiagramsSection({ diagrams }: { diagrams: ExportedDiagram[] }) {
         ))}
       </div>
     </Card>
+  );
+}
+
+function RecentChangesSection({ events }: { events: ExportedVersionEvent[] }) {
+  if (events.length === 0) {
+    return (
+      <Card title="Recent changes">
+        <div className="text-fg-muted text-[13px]">Not included in this export.</div>
+      </Card>
+    );
+  }
+  const shown = events.slice(0, 15);
+  return (
+    <Card title={`Recent changes (${events.length})`} subtitle={`Showing latest ${shown.length}.`}>
+      <ul className="divide-y divide-border">
+        {shown.map((e) => (
+          <li key={e.id} className="flex items-center gap-2 py-2 text-[13px]">
+            <Badge mono>{e.action}</Badge>
+            <Badge mono>{e.entityType}</Badge>
+            <span className="flex-1 min-w-0 truncate">{e.title}</span>
+            <span className="text-[11.5px] text-fg-subtle font-mono">{new Date(e.createdAt).toLocaleDateString()}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function ImpactSection({ rows }: { rows: ExportedImpactRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <Card title="Impact analysis">
+        <div className="text-fg-muted text-[13px]">Not included in this export.</div>
+      </Card>
+    );
+  }
+  return (
+    <Card title={`Impact analysis (${rows.length} artifacts)`} subtitle="Per-artifact blast radius.">
+      <div className="grid sm:grid-cols-2 gap-2">
+        {rows.map((r) => (
+          <div key={r.artifact.id} className="bg-panel-2 border border-border rounded-md p-3">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <TypeChip type={r.artifact.type as ArtifactType} />
+              <span className="text-[13.5px] font-medium">{r.artifact.title}</span>
+              <Badge mono>{r.artifact.status}</Badge>
+            </div>
+            <div className="grid grid-cols-4 gap-1.5 text-[11.5px]">
+              <Tile label="Artifacts" value={r.impactSummary.affectedArtifacts} />
+              <Tile label="APIs"      value={r.impactSummary.affectedApis} />
+              <Tile label="DBs"       value={r.impactSummary.affectedDatabases} />
+              <Tile label="Diagrams"  value={r.impactSummary.affectedDiagrams} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function Tile({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-panel border border-border rounded px-2 py-1">
+      <div className="text-[10px] text-fg-muted">{label}</div>
+      <div className="text-[14px] font-semibold tabular-nums">{value}</div>
+    </div>
   );
 }

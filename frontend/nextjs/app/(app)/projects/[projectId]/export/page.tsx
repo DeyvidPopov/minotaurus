@@ -32,6 +32,8 @@ const SECTIONS = [
   { id: "DATABASE_MODELS", label: "Database models" },
   { id: "DIAGRAMS", label: "Diagrams" },
   { id: "VALIDATION", label: "Validation issues" },
+  { id: "VERSION_HISTORY", label: "Version history / recent changes" },
+  { id: "IMPACT_ANALYSIS", label: "Impact analysis (per artifact)" },
 ];
 
 export default function ExportPage({ params }: { params: { projectId: string } }) {

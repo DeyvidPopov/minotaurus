@@ -1,24 +1,30 @@
 # Next Steps
 
-Phase 4 (Diagrams) is shipped and polished. Visual ERD wired up.
-Database Models and Diagrams modules are now considered stable for the MVP demo.
+Phase 5 (Version History + Impact Analysis) is shipped. Every CUD path on
+artifacts, relations, docs, API specs, DB models, diagrams, exports and validation
+runs records a `VersionEvent`. Per-artifact impact analysis is available at
+`/projects/<id>/impact/<artifactId>` and as part of SSOT export.
 
 ## Recommended next phase
 
-**Version History** is the highest-leverage next module:
-- Every existing module (artifacts, relations, docs, API specs, DB models, diagrams)
-  already mutates JSON-persisted rows. Version history would attach a change log
-  to the same persistence with no schema migration.
-- Frontend has a stubbed `/versions` route ready to receive the module.
-- Validation engine has a `VERSIONING` category already declared but unused.
+**AI architecture analysis** is the natural follow-up:
+- The platform now has all the inputs an LLM needs to reason about a system:
+  artifacts, relations, documentation, API specs, DB models, diagrams, and
+  full change history with impact summaries.
+- One backend endpoint (`POST /api/projects/:id/ai/analyze`) wrapping a model
+  call would unlock:
+  - "Summarize the architecture of this project"
+  - "What changed in the last week?"
+  - "What would break if I deprecate Authentication Service?"
+- Add a Settings tab "Anthropic API key" so the feature stays opt-in.
 
-## After Version History
-1. Impact Analysis (uses relations + versions to score blast radius)
-2. PostgreSQL migration (with versions in place, the data model is finally stable)
-3. AI architecture analysis
+## After AI analysis
+1. PostgreSQL migration (data model is stable; version history makes diffs auditable)
+2. WebSocket live updates (re-render the timeline / dashboard counters on event)
+3. Project members + RBAC
 
 ## Constraints (unchanged)
 - Do not rebuild backend
 - Do not redesign UI shell
-- Keep JSON persistence
+- Keep JSON persistence for now
 - Do not break graph contract

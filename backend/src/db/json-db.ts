@@ -170,6 +170,42 @@ export interface DatabaseFieldRow {
   description: string;
 }
 
+export type VersionEntityType =
+  | "PROJECT"
+  | "ARTIFACT"
+  | "RELATION"
+  | "DOCUMENTATION"
+  | "API_SPEC"
+  | "API_ENDPOINT"
+  | "DATABASE_MODEL"
+  | "DATABASE_ENTITY"
+  | "DATABASE_FIELD"
+  | "DIAGRAM"
+  | "EXPORT"
+  | "VALIDATION";
+
+export type VersionAction =
+  | "CREATED"
+  | "UPDATED"
+  | "DELETED"
+  | "LINKED"
+  | "UNLINKED"
+  | "VALIDATED"
+  | "EXPORTED";
+
+export interface VersionEventRow {
+  id: string;
+  projectId: string;
+  entityType: VersionEntityType;
+  entityId: string;
+  action: VersionAction;
+  title: string;
+  description: string;
+  triggeredBy: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
 export type DiagramType =
   | "FLOWCHART"
   | "SEQUENCE"
@@ -205,6 +241,7 @@ export interface DbShape {
   databaseEntities: DatabaseEntityRow[];
   databaseFields: DatabaseFieldRow[];
   diagrams: DiagramRow[];
+  versionEvents: VersionEventRow[];
 }
 
 const empty: DbShape = {
@@ -220,6 +257,7 @@ const empty: DbShape = {
   databaseEntities: [],
   databaseFields: [],
   diagrams: [],
+  versionEvents: [],
 };
 
 const DATA_FILE =
