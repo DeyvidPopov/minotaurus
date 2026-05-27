@@ -1,0 +1,424 @@
+// app/(app)/projects/[projectId]/artifacts/[artifactId]/page.tsx — artifact detail
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Edit, Link as LinkIcon, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
+import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Tabs } from "@/components/ui/tabs";
+import { TypeChip } from "@/components/ui/type-chip";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SeverityBadge } from "@/components/ui/severity-badge";
+import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
+import { Empty } from "@/components/ui/empty";
+import { GraphCanvas } from "@/components/graph/graph-canvas";
+import { artifactsApi, relationsApi } from "@/lib/api/artifacts";
+import { validationApi } from "@/lib/api";
+import { ApiError } from "@/lib/api/client";
+import { EDGE_COLOR } from "@/lib/mock-data";
+
+// Backend-supported relation types only (omits GENERATES, DEPLOYED_TO).
+const SUPPORTED_RELATION_TYPES: RelationType[] = [
+  "DEPENDS_ON",
+  "DOCUMENTS",
+  "IMPLEMENTS",
+  "USES",
+  "EXPOSES",
+  "BELONGS_TO",
+  "SECURES",
+  "VALIDATES",
+  "COMMUNICATES_WITH",
+];
+import type {
+  ArtifactStatus,
+  Artifact,
+  Relation,
+  RelationType,
+  ValidationIssue,
+} from "@/lib/types";
+import { timeAgo } from "@/lib/utils";
+
+interface BackendRelation {
+  id: string;
+  source: string;
+  target: string;
+  type: RelationType;
+  description?: string;
+}
+
+export default function ArtifactDetailPage({ params }: { params: { projectId: string; artifactId: string } }) {
+  const { projectId, artifactId } = params;
+  const router = useRouter();
+
+  const [a, setA] = useState<Artifact | null>(null);
+  const [incoming, setIncoming] = useState<BackendRelation[]>([]);
+  const [outgoing, setOutgoing] = useState<BackendRelation[]>([]);
+  const [issues, setIssues] = useState<ValidationIssue[]>([]);
+  const [siblings, setSiblings] = useState<Artifact[]>([]);
+  const [tab, setTab] = useState("overview");
+
+  const [editing, setEditing] = useState(false);
+  const [linking, setLinking] = useState(false);
+
+  const load = async () => {
+    try {
+      const [art, rels, vi, sibs] = await Promise.all([
+        artifactsApi.get(artifactId),
+        relationsApi.list(artifactId) as Promise<{ incoming: BackendRelation[]; outgoing: BackendRelation[] }>,
+        validationApi.list(projectId),
+        artifactsApi.list(projectId),
+      ]);
+      setA(art);
+      setIncoming(rels.incoming);
+      setOutgoing(rels.outgoing);
+      setIssues(vi.filter((v) => v.artifactId === art.id));
+      setSiblings(sibs);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to load artifact");
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artifactId]);
+
+  const subgraph = useMemo(() => {
+    if (!a) return { nodes: [] as Artifact[], rels: [] as Relation[] };
+    const byId = new Map(siblings.map((s) => [s.id, s]));
+    const ids = Array.from(new Set([
+      ...incoming.map((r) => r.source),
+      ...outgoing.map((r) => r.target),
+    ])).filter((id) => id !== a.id);
+    const radius = 180;
+    const items = ids.map((id, i) => {
+      const n = byId.get(id);
+      if (!n) return null;
+      const ang = (i / Math.max(ids.length, 1)) * Math.PI * 2;
+      return { ...n, gx: Math.cos(ang) * radius, gy: Math.sin(ang) * radius } as Artifact;
+    }).filter(Boolean) as Artifact[];
+    const center: Artifact = { ...a, gx: 0, gy: 0 };
+    const rels: Relation[] = [...incoming, ...outgoing].map((r) => ({
+      id: r.id,
+      source: r.source,
+      target: r.target,
+      type: r.type,
+      description: r.description,
+    }));
+    return { nodes: [center, ...items], rels };
+  }, [a, siblings, incoming, outgoing]);
+
+  if (!a) {
+    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+  }
+
+  const byId = new Map(siblings.map((s) => [s.id, s]));
+
+  const onDelete = async () => {
+    if (!confirm(`Delete artifact "${a.title}"? This cannot be undone.`)) return;
+    try {
+      await artifactsApi.remove(a.id);
+      toast.success("Artifact deleted");
+      router.push(`/projects/${projectId}/artifacts`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not delete");
+    }
+  };
+
+  const onDeleteRelation = async (relId: string) => {
+    try {
+      await relationsApi.remove(relId);
+      toast.success("Relation removed");
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not remove relation");
+    }
+  };
+
+  return (
+    <div className="px-8 py-6">
+      <PageHeader
+        eyebrow={<>
+          <TypeChip type={a.type} />
+          <StatusBadge status={a.status} />
+          {a.tags.map((t) => <Badge key={t} mono>{t}</Badge>)}
+        </>}
+        title={a.title}
+        subtitle={a.description || "No description"}
+        actions={<>
+          <Button icon={<Edit size={13} />} onClick={() => setEditing(true)}>Edit</Button>
+          <Button icon={<LinkIcon size={13} />} onClick={() => setLinking(true)}>Link</Button>
+          <Button icon={<Trash2 size={13} />} onClick={onDelete}>Delete</Button>
+        </>}
+      >
+        <div className="flex items-center gap-4 text-[12px] text-fg-muted mt-2 flex-wrap">
+          <span className="flex items-center gap-1.5"><Avatar user={a.author} size={14} /> {a.author.firstName} {a.author.lastName}</span>
+          <span>Created {timeAgo(a.createdAt)}</span>
+          <span>Updated {timeAgo(a.updatedAt)}</span>
+          <span className="font-mono">{a.id}</span>
+        </div>
+      </PageHeader>
+
+      <Tabs value={tab} onChange={setTab} tabs={[
+        { id: "overview", label: "Overview" },
+        { id: "relations", label: "Relations", count: incoming.length + outgoing.length },
+        { id: "validation", label: "Validation", count: issues.length },
+      ]} />
+
+      {tab === "overview" && (
+        <div className="grid lg:grid-cols-[1.5fr_1fr] gap-5">
+          <div className="flex flex-col gap-5">
+            <Card title="Mini-graph" subtitle="This artifact and its direct neighbors" padded={false}>
+              <div style={{ height: 300, position: "relative" }}>
+                {subgraph.nodes.length <= 1 ? (
+                  <div className="h-full flex items-center justify-center text-fg-muted text-[13px] px-4 text-center">
+                    No relations yet. Use Link to connect this artifact to another.
+                  </div>
+                ) : (
+                  <GraphCanvas artifacts={subgraph.nodes} relations={subgraph.rels} selectedId={a.id} nodeStyle="color" draggable={false} fitView />
+                )}
+              </div>
+            </Card>
+            <Card title="Description"><div className="text-[14px] leading-relaxed">{a.description || <span className="text-fg-muted">No description.</span>}</div></Card>
+          </div>
+          <div className="flex flex-col gap-5">
+            <Card title="Metadata">
+              <Meta k="Type"    v={<TypeChip type={a.type} />} />
+              <Meta k="Status"  v={<StatusBadge status={a.status} />} />
+              <Meta k="Owner"   v={<div className="flex items-center gap-1.5"><Avatar user={a.author} size={18} /><span className="text-[13px]">{a.author.firstName} {a.author.lastName}</span></div>} />
+              <Meta k="Created" v={<span className="text-[13px] text-fg-muted">{new Date(a.createdAt).toLocaleDateString()}</span>} />
+              <Meta k="Updated" v={<span className="text-[13px] text-fg-muted">{timeAgo(a.updatedAt)}</span>} />
+              <Meta k="ID"      v={<span className="font-mono text-[12px] text-fg-muted">{a.id}</span>} last />
+            </Card>
+            <Card title={`Linked (${incoming.length + outgoing.length})`}>
+              {[...outgoing, ...incoming].slice(0, 6).map((r) => {
+                const isOut = r.source === a.id;
+                const otherId = isOut ? r.target : r.source;
+                const other = byId.get(otherId);
+                if (!other) return null;
+                return (
+                  <Link key={r.id} href={`/projects/${projectId}/artifacts/${other.id}`} className="flex items-center gap-2 py-2 border-b border-border last:border-0">
+                    <TypeChip type={other.type} />
+                    <span className="flex-1 min-w-0 text-[13px] truncate">{other.title}</span>
+                    <span className="font-mono text-[10.5px] px-1.5 py-px rounded" style={{ color: EDGE_COLOR[r.type], border: `1px solid ${EDGE_COLOR[r.type]}33` }}>
+                      {isOut ? "→ " : "← "}{r.type}
+                    </span>
+                  </Link>
+                );
+              })}
+              {(incoming.length + outgoing.length) === 0 && (
+                <div className="text-fg-muted text-[13px]">No links yet.</div>
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {tab === "relations" && (
+        <div className="grid grid-cols-2 gap-5">
+          <Card title={`Outgoing (${outgoing.length})`} action={
+            <Button size="sm" icon={<LinkIcon size={12} />} onClick={() => setLinking(true)}>Add</Button>
+          }>
+            {outgoing.length === 0 ? <div className="text-fg-muted text-[13px]">No outgoing relations.</div> :
+              outgoing.map((r) => (
+                <div key={r.id} className="flex items-center gap-2.5 py-2.5 border-b border-border last:border-0">
+                  <span className="font-mono text-[10.5px] px-1.5 py-px rounded" style={{ color: EDGE_COLOR[r.type], border: `1px solid ${EDGE_COLOR[r.type]}33` }}>{r.type}</span>
+                  <Link href={`/projects/${projectId}/artifacts/${r.target}`} className="flex items-center gap-2 min-w-0 flex-1">
+                    <TypeChip type={byId.get(r.target)?.type ?? "SERVICE"} />
+                    <span className="text-[13px] font-medium truncate">{byId.get(r.target)?.title ?? r.target}</span>
+                  </Link>
+                  <button className="text-fg-muted hover:text-danger" onClick={() => onDeleteRelation(r.id)} title="Remove">
+                    <X size={14} />
+                  </button>
+                </div>
+              ))
+            }
+          </Card>
+          <Card title={`Incoming (${incoming.length})`}>
+            {incoming.length === 0 ? <div className="text-fg-muted text-[13px]">No incoming relations.</div> :
+              incoming.map((r) => (
+                <div key={r.id} className="flex items-center gap-2.5 py-2.5 border-b border-border last:border-0">
+                  <span className="font-mono text-[10.5px] px-1.5 py-px rounded" style={{ color: EDGE_COLOR[r.type], border: `1px solid ${EDGE_COLOR[r.type]}33` }}>{r.type}</span>
+                  <Link href={`/projects/${projectId}/artifacts/${r.source}`} className="flex items-center gap-2 min-w-0 flex-1">
+                    <TypeChip type={byId.get(r.source)?.type ?? "SERVICE"} />
+                    <span className="text-[13px] font-medium truncate">{byId.get(r.source)?.title ?? r.source}</span>
+                  </Link>
+                </div>
+              ))
+            }
+          </Card>
+        </div>
+      )}
+
+      {tab === "validation" && (
+        issues.length === 0 ? <Empty title="No issues for this artifact" message="Run validation from the project overview to refresh." /> : (
+          <Card padded={false}>
+            <table className="w-full text-[13px]">
+              <thead className="bg-panel"><tr className="text-fg-muted text-[11.5px] uppercase tracking-wider">
+                <th className="text-left px-3.5 py-2.5 border-b border-border">Severity</th>
+                <th className="text-left px-3.5 py-2.5 border-b border-border">Category</th>
+                <th className="text-left px-3.5 py-2.5 border-b border-border">Message</th>
+                <th className="text-left px-3.5 py-2.5 border-b border-border">Status</th>
+              </tr></thead>
+              <tbody>{issues.map((i) => (
+                <tr key={i.id} className="border-b border-border last:border-0">
+                  <td className="px-3.5 py-3"><SeverityBadge severity={i.severity} /></td>
+                  <td className="px-3.5 py-3"><Badge mono>{i.category}</Badge></td>
+                  <td className="px-3.5 py-3">{i.message}</td>
+                  <td className="px-3.5 py-3"><StatusBadge status={i.status} /></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </Card>
+        )
+      )}
+
+      {editing && (
+        <EditArtifactDialog
+          artifact={a}
+          onClose={() => setEditing(false)}
+          onSaved={() => { setEditing(false); load(); }}
+        />
+      )}
+
+      {linking && (
+        <LinkArtifactDialog
+          artifact={a}
+          siblings={siblings.filter((s) => s.id !== a.id)}
+          onClose={() => setLinking(false)}
+          onCreated={() => { setLinking(false); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Meta({ k, v, last }: { k: string; v: React.ReactNode; last?: boolean }) {
+  return (
+    <div className={`flex items-center py-2 ${last ? "" : "border-b border-border"}`}>
+      <span className="w-[84px] text-[12px] text-fg-muted">{k}</span>
+      <span>{v}</span>
+    </div>
+  );
+}
+
+function EditArtifactDialog({ artifact, onClose, onSaved }: { artifact: Artifact; onClose: () => void; onSaved: () => void }) {
+  const [title, setTitle] = useState(artifact.title);
+  const [status, setStatus] = useState<ArtifactStatus>(artifact.status);
+  const [description, setDescription] = useState(artifact.description);
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      await artifactsApi.update(artifact.id, { title: title.trim(), status, description });
+      toast.success("Artifact updated");
+      onSaved();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not update");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title="Edit artifact" onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <label className="text-[12.5px] text-fg-muted font-medium">Title</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)}
+          className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent" />
+        <label className="text-[12.5px] text-fg-muted font-medium">Status</label>
+        <select value={status} onChange={(e) => setStatus(e.target.value as ArtifactStatus)}
+          className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px]">
+          <option value="DRAFT">Draft</option>
+          <option value="ACTIVE">Active</option>
+          <option value="DEPRECATED">Deprecated</option>
+        </select>
+        <label className="text-[12.5px] text-fg-muted font-medium">Description</label>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+          className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent min-h-[96px]" />
+        <div className="flex justify-end gap-2 mt-1">
+          <Button onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function LinkArtifactDialog({ artifact, siblings, onClose, onCreated }: {
+  artifact: Artifact;
+  siblings: Artifact[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [target, setTarget] = useState<string>(siblings[0]?.id ?? "");
+  const [type, setType] = useState<RelationType>("DEPENDS_ON");
+  const [desc, setDesc] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const create = async () => {
+    if (!target) {
+      toast.error("Pick a target artifact");
+      return;
+    }
+    setBusy(true);
+    try {
+      await relationsApi.create(artifact.id, { targetArtifactId: target, relationType: type, description: desc });
+      toast.success("Relation created");
+      onCreated();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not create relation");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title="Link this artifact" onClose={onClose}>
+      <div className="flex flex-col gap-3">
+        <label className="text-[12.5px] text-fg-muted font-medium">Target artifact</label>
+        <select value={target} onChange={(e) => setTarget(e.target.value)}
+          className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px]">
+          {siblings.length === 0 && <option value="">No other artifacts in this project</option>}
+          {siblings.map((s) => (
+            <option key={s.id} value={s.id}>{s.title} — {s.type}</option>
+          ))}
+        </select>
+        <label className="text-[12.5px] text-fg-muted font-medium">Relation type</label>
+        <select value={type} onChange={(e) => setType(e.target.value as RelationType)}
+          className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px]">
+          {SUPPORTED_RELATION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <label className="text-[12.5px] text-fg-muted font-medium">Description (optional)</label>
+        <input value={desc} onChange={(e) => setDesc(e.target.value)}
+          className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent" />
+        <div className="flex justify-end gap-2 mt-1">
+          <Button onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button variant="primary" onClick={create} disabled={busy || siblings.length === 0}>
+            {busy ? "Linking…" : "Create relation"}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-[110] flex items-center justify-center" onClick={onClose}>
+      <div className="w-[460px] max-w-[92vw] bg-panel border border-border rounded-lg shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-border flex items-center">
+          <div className="font-semibold">{title}</div>
+          <button className="ml-auto text-fg-muted hover:text-fg" onClick={onClose} aria-label="Close"><X size={16} /></button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
+}

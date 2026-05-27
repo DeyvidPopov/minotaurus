@@ -1,0 +1,244 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Minotaurus — design tokens
+   Vercel/Geist-inspired, light + dark
+   ============================================================ */
+:root {
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --d-row-h: 40px;
+  --d-pad: 16px;
+  --d-gap: 12px;
+  --d-fs: 14px;
+  --d-fs-sm: 12.5px;
+  --d-fs-xs: 11.5px;
+
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+
+  --accent: #d97757;
+  --accent-fg: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-ring: color-mix(in srgb, var(--accent) 36%, transparent);
+
+  --c-success: #10b981;
+  --c-success-soft: color-mix(in srgb, var(--c-success) 14%, transparent);
+  --c-warning: #f59e0b;
+  --c-warning-soft: color-mix(in srgb, var(--c-warning) 16%, transparent);
+  --c-danger: #ef4444;
+  --c-danger-soft: color-mix(in srgb, var(--c-danger) 14%, transparent);
+  --c-info: #3b82f6;
+  --c-info-soft: color-mix(in srgb, var(--c-info) 14%, transparent);
+  --c-purple: #8b5cf6;
+  --c-purple-soft: color-mix(in srgb, var(--c-purple) 14%, transparent);
+  --c-pink: #ec4899;
+  --c-pink-soft: color-mix(in srgb, var(--c-pink) 14%, transparent);
+}
+
+[data-theme="light"] {
+  --bg: #fafafa;
+  --bg-2: #f4f4f5;
+  --panel: #ffffff;
+  --panel-2: #fafafa;
+  --panel-hover: #f4f4f5;
+  --border: #ededed;
+  --border-strong: #d4d4d8;
+  --fg: #0a0a0a;
+  --fg-muted: #525252;
+  --fg-subtle: #a3a3a3;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --grid-dot: rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --bg-2: #0f0f0f;
+  --panel: #111111;
+  --panel-2: #161616;
+  --panel-hover: #1a1a1a;
+  --border: #202020;
+  --border-strong: #2a2a2a;
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #52525b;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 16px 50px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --grid-dot: rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}
+
+[data-density="compact"] {
+  --d-row-h: 32px;
+  --d-pad: 12px;
+  --d-gap: 8px;
+  --d-fs: 13px;
+  --d-fs-sm: 12px;
+  --d-fs-xs: 11px;
+}
+[data-density="comfy"] {
+  --d-row-h: 48px;
+  --d-pad: 20px;
+  --d-gap: 16px;
+  --d-fs: 15px;
+  --d-fs-sm: 13.5px;
+  --d-fs-xs: 12.5px;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--d-fs);
+  line-height: 1.45;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01", "ss03";
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+
+/* artifact type tokens (used by graph nodes + chips) */
+.t-SERVICE {
+  --t-color: #3b82f6;
+  --t-soft: #3b82f622;
+}
+.t-API_SPEC {
+  --t-color: #8b5cf6;
+  --t-soft: #8b5cf622;
+}
+.t-API_ENDPOINT {
+  --t-color: #a78bfa;
+  --t-soft: #a78bfa22;
+}
+.t-DATABASE_MODEL {
+  --t-color: #10b981;
+  --t-soft: #10b98122;
+}
+.t-DATABASE_ENTITY {
+  --t-color: #34d399;
+  --t-soft: #34d39922;
+}
+.t-DOCUMENTATION {
+  --t-color: #f59e0b;
+  --t-soft: #f59e0b22;
+}
+.t-DIAGRAM {
+  --t-color: #ec4899;
+  --t-soft: #ec489922;
+}
+.t-REQUIREMENT {
+  --t-color: #06b6d4;
+  --t-soft: #06b6d422;
+}
+.t-SECURITY_POLICY {
+  --t-color: #ef4444;
+  --t-soft: #ef444422;
+}
+.t-ENVIRONMENT {
+  --t-color: #64748b;
+  --t-soft: #64748b22;
+}
+.t-EXTERNAL_SYSTEM {
+  --t-color: #94a3b8;
+  --t-soft: #94a3b822;
+}
+
+/* scrollbars */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 6px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-subtle);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* React Flow theming overrides */
+.react-flow__background {
+  background-color: var(--bg) !important;
+}
+.react-flow__edge-path {
+  stroke-width: 1.2;
+}
+.react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__controls {
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-sm) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  color: var(--fg-muted) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.react-flow__controls-button:hover {
+  background: var(--panel-hover) !important;
+  color: var(--fg) !important;
+}
+.react-flow__minimap {
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-sm) !important;
+}
+
+/* small utilities not worth a Tailwind plugin */
+.skel {
+  background: linear-gradient(
+    90deg,
+    var(--panel-2),
+    var(--panel-hover),
+    var(--panel-2)
+  );
+  background-size: 200% 100%;
+  animation: skel 1.4s ease-in-out infinite;
+}
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--fg-muted);
+  background: var(--panel);
+  line-height: 1;
+}
