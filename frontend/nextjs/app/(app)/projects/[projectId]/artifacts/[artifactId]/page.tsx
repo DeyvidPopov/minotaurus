@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Empty } from "@/components/ui/empty";
 import { GraphCanvas } from "@/components/graph/graph-canvas";
+import { DocumentationEditor } from "@/components/documentation-editor";
 import { artifactsApi, relationsApi } from "@/lib/api/artifacts";
 import { validationApi } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
@@ -167,6 +168,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
       <Tabs value={tab} onChange={setTab} tabs={[
         { id: "overview", label: "Overview" },
         { id: "relations", label: "Relations", count: incoming.length + outgoing.length },
+        { id: "documentation", label: "Documentation" },
         { id: "validation", label: "Validation", count: issues.length },
       ]} />
 
@@ -253,6 +255,10 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
             }
           </Card>
         </div>
+      )}
+
+      {tab === "documentation" && (
+        <DocumentationEditor artifactId={a.id} />
       )}
 
       {tab === "validation" && (

@@ -4,6 +4,7 @@ export * from "./client";
 export * from "./auth";
 export * from "./projects";
 export * from "./artifacts";
+export * from "./documentation";
 
 import { apiClient } from "./client";
 import type {

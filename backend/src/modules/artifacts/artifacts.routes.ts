@@ -6,6 +6,10 @@ import {
   listArtifacts,
   updateArtifact,
 } from "./artifacts.controller.js";
+import {
+  getDocumentation,
+  putDocumentation,
+} from "./documentation.controller.js";
 
 export const projectArtifactsRouter = Router({ mergeParams: true });
 projectArtifactsRouter.get("/", listArtifacts);
@@ -15,3 +19,5 @@ export const artifactsRouter = Router();
 artifactsRouter.get("/:artifactId", getArtifact);
 artifactsRouter.patch("/:artifactId", updateArtifact);
 artifactsRouter.delete("/:artifactId", deleteArtifact);
+artifactsRouter.get("/:artifactId/documentation", getDocumentation);
+artifactsRouter.put("/:artifactId/documentation", putDocumentation);
