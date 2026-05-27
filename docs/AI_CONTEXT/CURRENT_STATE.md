@@ -20,7 +20,7 @@ Backend:
 - Documentation
 - API Specs
 - Database Models (with visual Mermaid ERD)
-- Diagrams (Mermaid editor + live preview, polished)
+- Diagrams (Mermaid editor + live preview, polished, readable labels in dark theme)
 - Validation
 - Export (artifacts, relations, API specs, DB models, diagrams, validation report, graph)
 - Graph
@@ -50,7 +50,7 @@ validation.engine.ts
 - validation
 
 ## Current Commit
-3708d80
+80515ed
 
 ## Current Goal
 Phase 4 polish complete. Diagrams + visual ERD are stable; ready for the next phase.

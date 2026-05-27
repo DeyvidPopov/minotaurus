@@ -61,31 +61,35 @@ export const diagramsApi = {
 
 export const MERMAID_TEMPLATES: Record<DiagramType, string> = {
   FLOWCHART: `flowchart TD
-  A[Frontend] --> B[Backend]
-  B --> C[(Database)]`,
+  Frontend["Frontend"] --> Backend["Backend"]
+  Backend --> Database[("Database")]`,
   SEQUENCE: `sequenceDiagram
-  Frontend->>Backend: Login
+  participant Frontend as Frontend
+  participant Backend as Backend
+  participant Database as Database
+  Frontend->>Backend: Login request
   Backend->>Database: Validate user
-  Database-->>Backend: OK
-  Backend-->>Frontend: Token`,
+  Database-->>Backend: User row
+  Backend-->>Frontend: Access token`,
   ERD: `erDiagram
-  USER ||--o{ SESSION : owns
-  USER {
+  USERS {
     uuid id PK
     string email
+    string password_hash
   }
-  SESSION {
+  SESSIONS {
     uuid id PK
     uuid user_id FK
-  }`,
+  }
+  USERS ||--o{ SESSIONS : owns`,
   CLASS: `classDiagram
   class User {
-    +String id
-    +String email
+    +string id
+    +string email
     +login()
   }
   class Session {
-    +String id
+    +string id
     +Date expiresAt
   }
   User "1" --> "*" Session : owns`,
@@ -104,7 +108,7 @@ export const MERMAID_TEMPLATES: Record<DiagramType, string> = {
   section Frontend
   Wire-frames        :         f1, 2026-01-05, 10d`,
   ARCHITECTURE: `flowchart LR
-  Client --> API
-  API --> Services
-  Services --> Database`,
+  Client["Client"] --> API["API Gateway"]
+  API --> Services["Services"]
+  Services --> Database[("Database")]`,
 };

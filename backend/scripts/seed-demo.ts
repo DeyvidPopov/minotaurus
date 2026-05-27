@@ -367,14 +367,14 @@ async function main() {
     title: "Architecture Overview",
     type: "ARCHITECTURE",
     mermaidSource: `flowchart TD
-  Client[Client browser] --> API_Gateway[API Gateway]
-  API_Gateway --> Auth_Service[Authentication Service]
-  API_Gateway --> Product_Service[Product Catalog API]
-  Auth_Service --> User_DB[(User Database)]
-  Product_Service --> Product_DB[(Product Database)]
-  Order_Service[Order Service] --> Product_Service
-  Order_Service --> Payment_Service[Payment Service]
-  Order_Service --> Legacy_Payment_Service[Legacy Payment Service]`,
+  Client["Client browser"] --> API_Gateway["API Gateway"]
+  API_Gateway --> Auth_Service["Authentication Service"]
+  API_Gateway --> Product_Service["Product Catalog API"]
+  Auth_Service --> User_DB[("User Database")]
+  Product_Service --> Product_DB[("Product Database")]
+  Order_Service["Order Service"] --> Product_Service
+  Order_Service --> Payment_Service["Payment Service"]
+  Order_Service --> Legacy_Payment_Service["Legacy Payment Service"]`,
     description: "High-level request flow through the Online Shop Platform.",
     createdBy: user.id,
     createdAt: now,

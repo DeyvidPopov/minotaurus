@@ -35,7 +35,16 @@ import { MermaidPreview } from "@/components/mermaid-preview";
 
 function escapeName(s: string) {
   // Mermaid identifiers don't allow spaces; replace anything non-alphanumeric with _.
-  return s.replace(/[^A-Za-z0-9_]/g, "_");
+  // Empty / pure-symbol names fall back to a safe placeholder so the entity still
+  // gets a visible label instead of rendering as an unnamed box.
+  const cleaned = (s || "").replace(/[^A-Za-z0-9_]/g, "_");
+  return cleaned || "unnamed";
+}
+
+// Strip characters that would terminate or confuse a Mermaid string literal
+// when used inside `: "..."` relationship labels.
+function safeLabel(s: string): string {
+  return (s || "").replace(/["\n\r]/g, " ").trim() || "ref";
 }
 
 function generateMermaidErd(
@@ -46,17 +55,28 @@ function generateMermaidErd(
   const lines: string[] = ["erDiagram"];
   if (entities.length === 0) {
     lines.push(`  %% ${modelTitle} — no entities yet`);
+    // Placeholder entity so Mermaid still renders something.
+    lines.push(`  EMPTY_MODEL {`);
+    lines.push(`    string _empty "No entities defined"`);
+    lines.push(`  }`);
     return lines.join("\n");
   }
   for (const e of entities) {
     lines.push(`  ${escapeName(e.name)} {`);
-    for (const f of e.fields) {
-      const flags: string[] = [];
-      if (f.isPrimaryKey) flags.push("PK");
-      if (f.isForeignKey || f.referencesEntityId) flags.push("FK");
-      lines.push(`    ${escapeName(f.type)} ${escapeName(f.name)}${flags.length ? " " + flags.join(",") : ""}`);
+    if (e.fields.length === 0) {
+      // Required placeholder — Mermaid silently elides entities that have an
+      // empty body in some versions.
+      lines.push(`    string _empty "No fields defined"`);
+    } else {
+      for (const f of e.fields) {
+        const flags: string[] = [];
+        if (f.isPrimaryKey) flags.push("PK");
+        if (f.isForeignKey || f.referencesEntityId) flags.push("FK");
+        lines.push(
+          `    ${escapeName(f.type)} ${escapeName(f.name)}${flags.length ? " " + flags.join(",") : ""}`,
+        );
+      }
     }
-    if (e.fields.length === 0) lines.push("    string placeholder");
     lines.push(`  }`);
   }
   for (const e of entities) {
@@ -64,7 +84,10 @@ function generateMermaidErd(
       if (!f.referencesEntityId) continue;
       const target = entityById.get(f.referencesEntityId);
       if (!target) continue;
-      lines.push(`  ${escapeName(e.name)} }o--|| ${escapeName(target.name)} : "${f.name}"`);
+      // Always emit a non-empty relationship label so Mermaid renders text on the edge.
+      lines.push(
+        `  ${escapeName(e.name)} }o--|| ${escapeName(target.name)} : "${safeLabel(f.name)}"`,
+      );
     }
   }
   return lines.join("\n");

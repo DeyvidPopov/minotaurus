@@ -2,13 +2,19 @@
 
 ## Last Completed Feature
 
-Diagrams module + Phase 4 polish:
+Mermaid label-rendering fix on top of Phase 4 polish:
+- Concrete font stack + explicit `themeVariables` so labels are visible in dark theme
+- Templates and seeded sources now use quoted node labels (`Client["Client"]`)
+- ERD generator pads empty entities and always emits non-empty relationship labels
+- Post-render label scan warns when an SVG comes back with no visible text
+
+Earlier in this session:
 - Diagram editor: template-picker modal, live syntax status, save-state badge, centered preview
 - Database Model detail: visual Mermaid ERD preview with Preview/Source toggle, polished entity cards with FK target shown as `name type FK → users.id`, "Generate diagram" shortcut
 
 ## Current Commit
 
-3708d80 — *Polish diagrams and visual ERD experience*
+80515ed — *Fix Mermaid diagram label rendering*
 
 ## Current Working State
 
