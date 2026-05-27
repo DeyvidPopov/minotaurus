@@ -71,12 +71,12 @@ validation.engine.ts
 cf2611f
 
 ## Current Goal
-Phase 6 finalized: PostgreSQL migration is live. Database reachable on :5433 with the
-working password; migrations applied, seed run, end-to-end verified. Recommended next
-phase: AI architecture analysis.
+Phase 6 finalized; the platform runs on Prisma + PostgreSQL end-to-end. The project
+workspace overview's "Recent changes" widget is wired to live VersionEvent data
+(newest-first, refreshes on validate). Recommended next phase: AI architecture
+analysis.
 
 ## Important Constraints
-- Do not migrate PostgreSQL yet
 - Do not break existing API contracts
 - Do not redesign frontend shell
-- Keep JSON persistence
+- Postgres is the source of truth (was JSON before Phase 6)

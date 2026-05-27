@@ -99,6 +99,16 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - **Seed events are backdated** with synthetic timestamps. Real runtime events get the
   actual current time.
 
+## Dashboard "Recent changes" widget (current pass)
+- Lives on the **project workspace overview** (`/projects/<id>`), not the multi-project
+  dashboard, because version events are project-scoped.
+- Backed by the existing `GET /api/projects/:projectId/version-history?limit=10`
+  endpoint. No new endpoint was added.
+- Refreshes whenever the overview's `refresh()` runs — that's on initial load and after
+  the "Run validation" button. Other in-page mutations (create artifact, edit relation
+  on the artifact detail page, etc.) currently require navigating back to the overview
+  to see the new event, by design. No WebSocket-driven live updates.
+
 ## Impact Analysis (Phase 5 — shipped)
 - Endpoint: `GET /api/projects/:projectId/impact/:artifactId`. Page:
   `/projects/<id>/impact/<artifactId>`. Available via "Analyze impact" on the artifact

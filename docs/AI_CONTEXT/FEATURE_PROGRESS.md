@@ -69,7 +69,21 @@
 - Seed: 26 backdated version events spanning 12 days so the timeline is populated
   out of the box; seeded exports include VERSION_HISTORY and IMPACT_ANALYSIS
 
-## UX HONESTY PASS — current pass
+## DASHBOARD WIDGETS POLISH — current pass
+- **Project workspace overview** (`app/(app)/projects/[projectId]/page.tsx`) — the
+  placeholder "Updated · Last updated …" card has been replaced with a real
+  **Recent changes** card backed by the existing `GET /api/projects/:projectId/version-history?limit=10`
+  endpoint. The card loads on page open, shows newest-first events with color-coded
+  action chips, entity-type badges, relative timestamps and an **Open** button that
+  navigates to `/projects/<id>/versions`. Empty state copy: "No recent changes yet."
+- **Re-fetch on mutation** — the existing `refresh()` flow already runs after a
+  validation run from the overview's "Run validation" button; that same call now also
+  refreshes the version history list, so new events appear without a page reload.
+- **Impact page runtime error fix** — `RelLink` was using `ref` as a prop name, which
+  React intercepts as a forwarded ref. Renamed to `artifact`; impact page no longer
+  throws `TypeError: Cannot read properties of undefined (reading 'id')`.
+
+## UX HONESTY PASS — previous pass
 - **Landing page** (`app/page.tsx`) rewritten to remove every claim the product can't deliver:
   - Hero blurb no longer says it "pulls everything you already write" — replaced with "a
     workspace for modelling … as connected artifacts."

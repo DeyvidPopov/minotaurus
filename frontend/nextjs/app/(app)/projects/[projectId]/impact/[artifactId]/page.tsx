@@ -78,7 +78,7 @@ export default function ImpactPage({ params }: { params: { projectId: string; ar
           ) : (
             <div className="flex flex-col gap-1.5">
               {data.directDependencies.map((r) => (
-                <RelLink key={r.relationId} projectId={projectId} ref={r.artifact} side="out" relationType={r.relationType} />
+                <RelLink key={r.relationId} projectId={projectId} artifact={r.artifact} side="out" relationType={r.relationType} />
               ))}
             </div>
           )}
@@ -90,7 +90,7 @@ export default function ImpactPage({ params }: { params: { projectId: string; ar
           ) : (
             <div className="flex flex-col gap-1.5">
               {data.dependentArtifacts.map((r) => (
-                <RelLink key={r.relationId} projectId={projectId} ref={r.artifact} side="in" relationType={r.relationType} />
+                <RelLink key={r.relationId} projectId={projectId} artifact={r.artifact} side="in" relationType={r.relationType} />
               ))}
             </div>
           )}
@@ -205,20 +205,20 @@ function SummaryTile({ icon, label, value }: { icon: React.ReactNode; label: str
 
 function RelLink({
   projectId,
-  ref,
+  artifact,
   side,
   relationType,
 }: {
   projectId: string;
-  ref: { id: string; title: string; type: string; status: string };
+  artifact: { id: string; title: string; type: string; status: string };
   side: "in" | "out";
   relationType: string;
 }) {
   return (
-    <Link href={`/projects/${projectId}/artifacts/${ref.id}`} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-panel-hover">
+    <Link href={`/projects/${projectId}/artifacts/${artifact.id}`} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-panel-hover">
       <Box size={13} className="text-accent shrink-0" />
-      <span className="flex-1 min-w-0 text-[13px] font-medium truncate">{ref.title}</span>
-      <Badge mono>{ref.type}</Badge>
+      <span className="flex-1 min-w-0 text-[13px] font-medium truncate">{artifact.title}</span>
+      <Badge mono>{artifact.type}</Badge>
       <span className="font-mono text-[10.5px] text-fg-muted inline-flex items-center gap-0.5">
         {side === "out" ? <ArrowRight size={10} /> : <ArrowRight size={10} className="rotate-180" />}
         {relationType}

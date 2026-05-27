@@ -2,7 +2,18 @@
 
 ## Last Completed Feature
 
-UX honesty + consistency pass:
+Dashboard widgets polish:
+- Project workspace overview's "Recent changes" card now pulls live `VersionEvent` data
+  from Postgres via the existing `/version-history?limit=10` endpoint. Newest-first,
+  color-coded action chips, entity-type badges, relative timestamps. Empty state copy:
+  "No recent changes yet." Open button navigates to `/projects/<id>/versions`.
+- The placeholder "Updated · Last updated …" card is gone; the new card refreshes via
+  the same `refresh()` hook the "Run validation" button uses.
+- Impact page runtime bug fixed: `RelLink` had a prop named `ref` which React
+  intercepts as a forwarded-ref. Renamed to `artifact`; clicking "Analyze impact" no
+  longer throws.
+
+## UX honesty + consistency pass (previous pass)
 - Landing page rewritten — every claim now matches a real shipped feature. No more
   "Minotaurus parses your OpenAPI", no "let validation suggest relations", no "PDF/ZIP"
   export, no "SSO ready". Workflow steps and feature grid replaced with the modules
