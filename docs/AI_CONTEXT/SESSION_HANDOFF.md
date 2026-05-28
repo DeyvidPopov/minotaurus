@@ -339,7 +339,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-_(updated by the Mermaid label fix commit — see `git log -1` on `main` for the exact hash)_
+22766fb — *Fix global Mermaid label visibility*
 
 ## Current Working State
 
