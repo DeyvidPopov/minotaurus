@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Download, FileText, Plug, GitMerge, Database, Trash2, ExternalLink, X, Info,
-  Upload as UploadIcon, Search, ArrowLeft, Link as LinkIcon, Plus,
+  Upload as UploadIcon, Search, ArrowLeft, Link as LinkIcon, Plus, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -598,16 +598,7 @@ function MarkdownImportWizard({
         <div className="flex flex-col gap-3 text-[13px]">
           <DetailRow label="Title" value={<strong className="text-fg">{preview.title}</strong>} />
           <DetailRow label="Word count" value={`${preview.wordCount.toLocaleString()} words`} />
-          <DetailRow label="Headings" value={
-            preview.headings.length === 0
-              ? <span className="text-fg-muted">No headings detected.</span>
-              : (
-                <ul className="m-0 pl-4 list-disc text-[12.5px] text-fg-muted">
-                  {preview.headings.slice(0, 12).map((h, i) => <li key={i}>{h}</li>)}
-                  {preview.headings.length > 12 && <li className="text-fg-subtle">+ {preview.headings.length - 12} more</li>}
-                </ul>
-              )
-          } />
+          <DetailRow label="Headings" value={<ParsedHeadingsList headings={preview.headings} />} />
           <DetailRow label="Excerpt" value={
             preview.excerpt
               ? <span className="text-fg-muted leading-relaxed">{preview.excerpt}</span>
@@ -840,6 +831,47 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
     <div className="grid grid-cols-[140px_1fr] gap-2 items-baseline">
       <div className="text-[11.5px] uppercase tracking-wider text-fg-subtle">{label}</div>
       <div>{value}</div>
+    </div>
+  );
+}
+
+const HEADINGS_COLLAPSED_LIMIT = 12;
+
+function ParsedHeadingsList({ headings }: { headings: string[] }) {
+  const [showAll, setShowAll] = useState(false);
+
+  if (headings.length === 0) {
+    return <span className="text-fg-muted">No headings detected.</span>;
+  }
+
+  const overflow = Math.max(0, headings.length - HEADINGS_COLLAPSED_LIMIT);
+  const visible = showAll ? headings : headings.slice(0, HEADINGS_COLLAPSED_LIMIT);
+  const canToggle = overflow > 0;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
+        {visible.map((h, i) => (
+          <span
+            key={`${i}-${h}`}
+            className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-panel-2 border border-border text-[12px] text-fg-muted leading-snug max-w-full truncate"
+            title={h}
+          >
+            {h}
+          </span>
+        ))}
+      </div>
+      {canToggle && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="self-start inline-flex items-center gap-1 px-1.5 py-0.5 -ml-1.5 rounded-sm text-[11.5px] text-fg-muted hover:text-fg hover:bg-panel-hover focus:outline-none focus:ring-1 focus:ring-accent"
+          aria-expanded={showAll}
+        >
+          {showAll ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+          {showAll ? "Show less" : `+ ${overflow} more`}
+        </button>
+      )}
     </div>
   );
 }
