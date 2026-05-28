@@ -1,6 +1,7 @@
 // lib/api/ingestion.ts — typed ingestion endpoints
 
 import { apiClient } from "./client";
+import type { ArtifactType } from "@/lib/types";
 
 export type IngestionSourceType =
   | "MARKDOWN"
@@ -10,6 +11,22 @@ export type IngestionSourceType =
 
 export type IngestionStatus = "DRAFT" | "PARSED" | "CONFIRMED" | "FAILED";
 
+export interface MarkdownParserResult {
+  title: string;
+  excerpt: string;
+  headings: string[];
+  wordCount: number;
+  suggestedArtifactType: ArtifactType;
+  /** The raw markdown body; kept so confirm can run without a separate upload. */
+  markdown?: string;
+}
+
+export interface CreatedRecordRef {
+  type: "ARTIFACT";
+  id: string;
+  mode?: "LINK_EXISTING" | "CREATE_NEW";
+}
+
 export interface IngestionRecord {
   id: string;
   projectId: string;
@@ -17,7 +34,8 @@ export interface IngestionRecord {
   status: IngestionStatus;
   title: string;
   sourceName: string;
-  createdRecords: unknown;
+  createdRecords: CreatedRecordRef[] | unknown;
+  parserResult: MarkdownParserResult | null;
   errorMessage: string;
   createdById: string;
   createdAt: string;
@@ -30,6 +48,20 @@ export interface IngestionRecord {
   } | null;
 }
 
+export interface MarkdownParseResponse {
+  record: IngestionRecord;
+  preview: MarkdownParserResult;
+}
+
+export type ConfirmMarkdownBody =
+  | { mode: "LINK_EXISTING"; artifactId: string }
+  | { mode: "CREATE_NEW"; artifactTitle: string; artifactType?: ArtifactType };
+
+export interface ConfirmMarkdownResponse {
+  record: IngestionRecord;
+  artifact: { id: string; title: string; type: ArtifactType };
+}
+
 export const ingestionApi = {
   list: (projectId: string) =>
     apiClient.get<IngestionRecord[]>(`/projects/${projectId}/ingestion`),
@@ -39,4 +71,8 @@ export const ingestionApi = {
     apiClient.get<IngestionRecord>(`/ingestion/${ingestionId}`),
   remove: (ingestionId: string) =>
     apiClient.delete<void>(`/ingestion/${ingestionId}`),
+  parseMarkdown: (ingestionId: string, markdown: string) =>
+    apiClient.post<MarkdownParseResponse>(`/ingestion/${ingestionId}/parse-markdown`, { markdown }),
+  confirmMarkdown: (ingestionId: string, body: ConfirmMarkdownBody) =>
+    apiClient.post<ConfirmMarkdownResponse>(`/ingestion/${ingestionId}/confirm-markdown`, body),
 };

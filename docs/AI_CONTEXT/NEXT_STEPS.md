@@ -1,17 +1,18 @@
 # Next Steps
 
-Ingestion Phase 1 (Ingestion Hub foundation) is shipped: new `IngestionRecord` table,
-draft CRUD API at `/api/projects/:id/ingestion` + `/api/ingestion/:id`, sidebar
-entry, Ingestion Hub page with four source type cards (Markdown / OpenAPI / Mermaid
-/ SQL Schema), draft form, history table, detail modal, and version-history
-integration. **No parsing yet** — that's deliberately the next phase. 11/11 backend
-smoke tests still pass.
+Ingestion Phase 2 (Markdown parser + documentation import) is shipped:
+deterministic Markdown engine, `POST /api/ingestion/:id/parse-markdown` +
+`POST /api/ingestion/:id/confirm-markdown` endpoints, multi-step wizard in the
+Ingestion Hub with paste/upload/preview/LINK_EXISTING/CREATE_NEW. Imported docs
+flow through `Artifact.documentationContent` into the Documentation Hub and SSOT
+export. 11/11 backend smoke tests still pass.
 
-**Recommended next phase: Markdown ingestion parser** — accept the actual file body
-on a `POST /api/ingestion/:id/parse` endpoint, parse headings into a
-`DOCUMENTATION` artifact tree, populate `createdRecords` with the artifact IDs,
-flip status `DRAFT → PARSED`, and let the user CONFIRM to commit the artifacts.
-After that: OpenAPI JSON parser, Mermaid parser, SQL Schema parser.
+**Recommended next phase: OpenAPI JSON ingestion** — accept an OpenAPI 3.x JSON
+payload, create an `ApiSpec` + `ApiEndpoint` rows (and optionally link to an
+existing artifact), populate `createdRecords` with the spec / endpoint ids, and
+preserve the same DRAFT → PARSED → CONFIRMED flow. After that: Mermaid parser
+(create a `Diagram` and infer relations from arrow targets), then SQL Schema
+parser (create a `DatabaseModel` with entities and fields).
 
 Phase A (Dedicated Documentation Hub) is shipped: new
 `GET /api/projects/:projectId/documentation` overview endpoint, real

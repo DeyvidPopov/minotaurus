@@ -450,6 +450,7 @@ model IngestionRecord {
   title           String
   sourceName      String              @default("")
   createdRecords  Json                @default("[]")
+  parserResult    Json?
   errorMessage    String              @default("")
   createdById     String
   createdAt       DateTime            @default(now())

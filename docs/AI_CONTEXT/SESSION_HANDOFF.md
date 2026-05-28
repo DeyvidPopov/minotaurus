@@ -2,6 +2,45 @@
 
 ## Last Completed Feature
 
+**Ingestion Phase 2 — Markdown parser + documentation import**:
+- New `parserResult Json?` column on `IngestionRecord` (migration
+  `20260528070602_ingestion_parser_result`). `createdRecords` now actually
+  carries the artifacts created / linked by the confirm step.
+- Deterministic Markdown engine at `src/modules/ingestion/markdown.engine.ts`
+  (no AI, pure regex/string ops). Extracts H1-H6 headings, an ~220-char
+  excerpt, word count, and a suggested title via first-H1 / first-line /
+  fallback rules.
+- Two new endpoints — both DEVELOPER+:
+  - `POST /api/ingestion/:id/parse-markdown` — JSON `{ markdown }`. Stores the
+    preview + raw body in `parserResult`, flips status DRAFT → PARSED, writes
+    a `PROJECT/UPDATED` VersionEvent "Markdown parsed · &lt;title&gt;". On
+    failure: status FAILED, errorMessage set, no event.
+  - `POST /api/ingestion/:id/confirm-markdown` — discriminated union
+    `{ mode: "LINK_EXISTING", artifactId }` or `{ mode: "CREATE_NEW",
+    artifactTitle, artifactType? }`. Replaces or creates the artifact's
+    documentation, populates `createdRecords`, flips status PARSED → CONFIRMED.
+    LINK_EXISTING writes a `DOCUMENTATION` VersionEvent "Markdown imported
+    into …"; CREATE_NEW writes both an `ARTIFACT/CREATED` and a
+    `DOCUMENTATION/CREATED` event.
+- Frontend Ingestion Hub now drives the Markdown card through a multi-step
+  wizard: paste-or-upload .md → parse → preview (title / word count / heading
+  list / excerpt / collapsible raw md) → branch to LINK_EXISTING (searchable
+  artifact picker with TypeChip + StatusBadge) or CREATE_NEW (artifact title +
+  type defaulting to DOCUMENTATION). On confirm the user is redirected to the
+  artifact's Documentation tab.
+- History table gained a "Result" column summarizing PARSED (`words ·
+  headings`), CONFIRMED (`N record(s) created`), FAILED (error message).
+- Export engine unchanged — imported markdown ends up on
+  `Artifact.documentationContent` and flows through both JSON and MARKDOWN
+  SSOT exports unchanged.
+- Verification: 11/11 backend smoke tests pass. curl flow: draft → parse
+  (PARSED, 4 headings / 18 words) → CREATE_NEW (coverage 40 → 45%) →
+  LINK_EXISTING on Legacy Payment Service (coverage 45 → 55%); VIEWER (Ren)
+  parse + confirm → 403 INSUFFICIENT_ROLE; JSON + MARKDOWN exports both
+  include the imported markdown content.
+
+## Previous feature pass
+
 **Ingestion Phase 1 — Ingestion Hub foundation**:
 - New Prisma model `IngestionRecord` + enums `IngestionSourceType` (MARKDOWN /
   OPENAPI_JSON / MERMAID / SQL_SCHEMA) and `IngestionStatus` (DRAFT / PARSED /
@@ -160,7 +199,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-01f706e — *Add ingestion hub foundation*
+_(updated by the Ingestion Phase 2 commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 
@@ -176,10 +215,10 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Goal
 
-**Markdown ingestion parser** — wire `POST /api/ingestion/:id/parse` to accept a
-Markdown body, walk the headings, create a `DOCUMENTATION` artifact tree, populate
-`createdRecords`, and flip status `DRAFT → PARSED`. Then add a `CONFIRM` flow that
-commits the artifacts. See NEXT_STEPS.md.
+**OpenAPI JSON ingestion** — accept an OpenAPI 3.x JSON payload, create an
+`ApiSpec` + `ApiEndpoint` rows (and optionally link to an existing artifact),
+populate `createdRecords` with the spec / endpoint ids, and preserve the same
+DRAFT → PARSED → CONFIRMED flow. See NEXT_STEPS.md.
 
 ## Important Constraints
 

@@ -9,14 +9,75 @@
 - Export
 - Documentation (per-artifact Markdown editor)
 - **Documentation Hub (Phase A — project-wide coverage view)**
-- **Ingestion Hub (Ingestion Phase 1 — draft workflow foundation, parsers not yet implemented)**
+- **Ingestion Hub (Ingestion Phase 1 + 2)**
+  - Phase 1: draft workflow + history + sidebar entry.
+  - Phase 2: **Markdown parser + documentation import** — deterministic parser
+    (no AI), preview UI, LINK_EXISTING / CREATE_NEW confirm modes, status flow
+    DRAFT → PARSED → CONFIRMED (or FAILED). OpenAPI / Mermaid / SQL ingestion
+    still not implemented.
 - API Specs
 - Database Models (with auto-generated Mermaid ERD preview)
 - Diagrams (Mermaid editor with live preview, syntax status, template picker)
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## INGESTION PHASE 1 — Ingestion Hub foundation (current pass)
+## INGESTION PHASE 2 — Markdown parser + documentation import (current pass)
+- Schema: added `parserResult Json?` column on `IngestionRecord` (migration
+  `20260528070602_ingestion_parser_result`) to hold the preview payload between
+  parse and confirm. `createdRecords` now stores the actual artifacts created
+  (or linked-to) by the confirm step, e.g.
+  `[{ "type": "ARTIFACT", "id": "...", "mode": "LINK_EXISTING" }]`.
+- New deterministic Markdown engine at `src/modules/ingestion/markdown.engine.ts`.
+  No AI; pure string ops. Strips frontmatter, code fences, link/image markup,
+  collects H1-H6 headings, builds a 220-char excerpt, counts words, and suggests
+  a title using rules: first H1 → first non-empty non-fence line → "Imported
+  Markdown". Suggested artifact type is always DOCUMENTATION.
+- Two new endpoints, both DEVELOPER+ for mutations:
+  - `POST /api/ingestion/:id/parse-markdown` — JSON body `{ markdown }`. Only
+    accepted on MARKDOWN sourceType. Refuses on `CONFIRMED` records. Stores
+    `parserResult` (including the raw `markdown`), promotes the record to
+    `PARSED`, writes a `PROJECT / UPDATED` VersionEvent
+    "Markdown parsed · &lt;title&gt;". On any parser/zod failure the record is
+    flipped to `FAILED` and `errorMessage` is set.
+  - `POST /api/ingestion/:id/confirm-markdown` — discriminated union
+    `{ mode: "LINK_EXISTING", artifactId }` or `{ mode: "CREATE_NEW",
+    artifactTitle, artifactType? }`. Requires the record to be `PARSED`.
+    LINK_EXISTING replaces `documentationContent` on the target artifact and
+    writes a `DOCUMENTATION / UPDATED` (or CREATED if previously empty)
+    VersionEvent "Markdown imported into &lt;title&gt;". CREATE_NEW mints a new
+    artifact (defaults: ACTIVE status, `imported` tag, description = excerpt),
+    attaches the markdown body, and writes TWO VersionEvents: `ARTIFACT/CREATED`
+    and `DOCUMENTATION/CREATED`. Either way, the ingestion record is flipped to
+    `CONFIRMED` and `createdRecords` is populated.
+- Frontend: existing Ingestion Hub now drives the Markdown card with a
+  multi-step wizard modal:
+  - Step 1: title, optional source name, paste-or-upload `.md` file (FileReader
+    on the client; backend accepts plain JSON).
+  - Step 2: preview — detected title, word count, headings list (first 12),
+    excerpt, collapsible raw Markdown.
+  - Step 3: branches into LINK_EXISTING (searchable artifact picker filtered by
+    title/type, shows TypeChip + StatusBadge) or CREATE_NEW (artifact title +
+    artifact type selector defaulting to DOCUMENTATION).
+  - On confirm: success toast → redirects the user to
+    `/projects/:id/artifacts/:newId?tab=documentation` so they land on the live
+    Markdown editor.
+- History table gained a "Result" column: shows `&lt;words&gt; words ·
+  &lt;count&gt; headings` for PARSED records, `&lt;n&gt; record(s) created` for
+  CONFIRMED, and a truncated error message for FAILED.
+- The non-Markdown source cards still use the existing simple "Start draft"
+  form. Their badges read "Coming next".
+- VIEWER role enforcement: parse + confirm both require DEVELOPER+ on the
+  server (`INSUFFICIENT_ROLE`) and the wizard / action buttons are disabled in
+  the UI for VIEWERs.
+- Export engine is **unchanged** — imported Markdown ends up on
+  `Artifact.documentationContent` and so flows naturally into both JSON and
+  MARKDOWN SSOT exports (verified end-to-end).
+- Documentation Hub coverage updates the next time it's fetched. After the
+  smoke flow above, coverage moved 40% → 45% (CREATE_NEW added a doc'd
+  artifact) → 55% (LINK_EXISTING documented a previously-empty artifact).
+- 11/11 backend smoke tests still pass.
+
+## INGESTION PHASE 1 — Ingestion Hub foundation (previous pass)
 - New Prisma model `IngestionRecord` + enums `IngestionSourceType` (MARKDOWN /
   OPENAPI_JSON / MERMAID / SQL_SCHEMA) and `IngestionStatus` (DRAFT / PARSED /
   CONFIRMED / FAILED). Migration `20260528062826_add_ingestion` applied to the

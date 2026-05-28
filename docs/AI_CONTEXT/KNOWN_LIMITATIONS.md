@@ -45,19 +45,39 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - `/api/projects/:id/graph` only emits artifact nodes. API specs, database models, and diagrams are **not** native graph nodes by design (to keep the graph contract stable). Navigation between them goes via the artifact detail page's **Linked resources** card.
 - React Flow node positions are persisted in localStorage per-user, not on the server.
 
-## Ingestion (Phase 1 — foundation only)
-- New `IngestionRecord` table + Ingestion Hub UI ship the workflow shell. **No
-  parsers are implemented yet** — creating a draft only records metadata
-  (title / source name / source type), it does NOT read or store file content.
-- Status field exists but only `DRAFT` is used in practice — `PARSED`, `CONFIRMED`,
-  `FAILED` are reserved for future ingestion phases.
-- `createdRecords` is `Json` and always `[]` in Phase 1. Future parsers will fill
-  it with the IDs of artifacts / API specs / etc. they create.
-- Ingestion records are deliberately **not** included in SSOT export until parsing
-  lands — there's nothing useful to include yet.
-- VIEWERs can read the Ingestion Hub and history but the Start draft / Delete
-  buttons are disabled (UI) and the API returns `INSUFFICIENT_ROLE` (server).
-  Draft creation and deletion require DEVELOPER+.
+## Ingestion (Phases 1 + 2)
+- Phase 1 shipped the IngestionRecord table + workflow shell. Phase 2 shipped a
+  **deterministic Markdown parser** + the LINK_EXISTING / CREATE_NEW confirm
+  flow. OpenAPI, Mermaid and SQL schema parsers are still placeholders.
+- Markdown parser limits:
+  - Only `.md` files or pasted plain Markdown. No `.docx`, `.pdf`, `.txt`,
+    or zip archives — the wizard rejects non-`.md` files client-side and the
+    backend has no multipart upload route.
+  - Deterministic only: no AI, no architecture inference, no relation
+    generation, no auto-linking to existing artifacts.
+  - Heading detection is regex-based and treats H1-H6 equally in the preview
+    list. Code-fence and frontmatter content is stripped before excerpt
+    calculation.
+  - Suggested title rules: first H1 → first non-empty non-fence non-heading
+    line → fallback "Imported Markdown".
+  - LINK_EXISTING **replaces** the target artifact's `documentationContent`
+    entirely; there is no merge / append mode and no diff/undo.
+  - CREATE_NEW always lands the artifact with status `ACTIVE`, tag
+    `["imported"]`, description = excerpt (truncated to 240 chars). The user
+    can edit those on the artifact detail page afterwards.
+- `parserResult` stores the raw Markdown alongside the preview, so the confirm
+  step doesn't need a second upload. There's no size cap right now — practical
+  upper bound is whatever Postgres `jsonb` will accept.
+- A draft created via the simple "Start draft" form (non-Markdown source types)
+  sits in `DRAFT` indefinitely until deleted; the Markdown card is the only
+  one that opens the parse wizard.
+- VIEWERs can read history but cannot parse or confirm — both endpoints return
+  `INSUFFICIENT_ROLE` and the wizard / action buttons are disabled in the UI.
+- Status field uses three of four values in practice: DRAFT → PARSED →
+  CONFIRMED, with FAILED on parser / zod errors. Records that failed are not
+  auto-retried; the user must delete and start over.
+- Ingestion records are still **not** included in SSOT export — the user-visible
+  output of ingestion (the imported docs) is already in the artifact section.
 
 ## Documentation
 - One Markdown page per artifact. No history, no concurrent-edit locking. Last save wins.
