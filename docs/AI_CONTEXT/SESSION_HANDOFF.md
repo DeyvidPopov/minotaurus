@@ -267,7 +267,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-_(updated by the Ingestion Phase 3 commit — see `git log -1` on `main` for the exact hash)_
+f430295 — *Implement OpenAPI JSON ingestion workflow*
 
 ## Current Working State
 
