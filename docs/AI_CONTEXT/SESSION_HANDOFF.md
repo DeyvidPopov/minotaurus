@@ -160,7 +160,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-_(updated by the Ingestion Phase 1 commit — see `git log -1` on `main` for the exact hash)_
+01f706e — *Add ingestion hub foundation*
 
 ## Current Working State
 
