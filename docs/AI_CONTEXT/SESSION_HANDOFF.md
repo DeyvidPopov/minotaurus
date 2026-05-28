@@ -392,7 +392,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-_(updated by the ingestion detail UI polish commit — see `git log -1` on `main` for the exact hash)_
+ee33140 — *Polish ingestion history detail UI*
 
 ## Current Working State
 
