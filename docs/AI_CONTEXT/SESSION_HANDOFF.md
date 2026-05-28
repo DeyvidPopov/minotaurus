@@ -199,7 +199,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-_(updated by the Ingestion Phase 2 commit — see `git log -1` on `main` for the exact hash)_
+e7c5ea8 — *Implement markdown ingestion workflow*
 
 ## Current Working State
 
