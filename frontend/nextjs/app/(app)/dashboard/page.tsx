@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Folder, Box, Shield, ChevronRight, Star, Sprout, Terminal, ArrowRight, Network } from "lucide-react";
+import { Plus, Folder, Box, Shield, Star, Sprout, Terminal, ArrowRight, Network } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Stat } from "@/components/ui/stat";
 import { Badge } from "@/components/ui/badge";
 import { ProjectMark } from "@/components/ui/project-mark";
 import { Empty } from "@/components/ui/empty";
+import { OpenLink } from "@/components/ui/open-link";
 import { projectsApi } from "@/lib/api/projects";
 import { useAuth } from "@/lib/auth-context";
 import { timeAgo } from "@/lib/utils";
@@ -82,7 +83,7 @@ export default function DashboardPage() {
       <div className="flex items-center mb-3">
         <h2 className="m-0 text-base font-semibold tracking-tight">Your projects</h2>
         <div className="flex-1" />
-        <Link href="/projects" className="text-[12.5px] text-fg-muted hover:text-fg flex items-center gap-1">View all <ChevronRight size={12} /></Link>
+        <OpenLink href="/projects" label="View all" />
       </div>
 
       {projects && projects.length === 0 ? (

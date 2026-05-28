@@ -62,6 +62,22 @@ Living list of trade-offs and partial implementations in the current MVP. Update
   shipped deterministic parsers for **Markdown / OpenAPI JSON / Mermaid /
   SQL Schema**. All four source cards are now "Parser ready". No AI is
   involved.
+- **`IngestionRecord` is an audit / import log, NOT the source of truth.**
+  Created project assets (Artifact, ApiSpec, ApiEndpoint, Diagram,
+  DatabaseModel, DatabaseEntity, DatabaseField) live on their own tables
+  with no FK back to IngestionRecord. Deleting an ingestion record (any
+  status) never cascades to those assets — verified end-to-end.
+  - DRAFT / PARSED / FAILED records → "Delete draft" button. Confirmation
+    copy and tooltip say no project assets will be affected.
+  - CONFIRMED records → "Remove log" button. Confirmation copy explicitly
+    states created artifacts / API specs / diagrams / database models
+    remain in the project.
+  - Backend VersionEvent title differs by previous status:
+    `"Removed ingestion log"` for CONFIRMED, `"Ingestion draft deleted"`
+    otherwise. Metadata carries `logRemovalOnly: true` when the record
+    was CONFIRMED.
+  - There is no undo / "rewind ingestion" feature. To actually delete a
+    created asset, use that asset's own delete action on its detail page.
 - Mermaid parser limits:
   - Accepts `.mmd` or `.md` with a `\`\`\`mermaid` fenced block. Detects
     the diagram type from the first non-comment line keyword (flowchart /

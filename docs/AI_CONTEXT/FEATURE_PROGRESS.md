@@ -26,7 +26,61 @@
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## GLOBAL MERMAID LABEL VISIBILITY FIX (current pass)
+## NAVIGATION POLISH + INGESTION LOG SEMANTICS (current pass)
+- Reusable `components/ui/open-link.tsx` is the canonical "Open"
+  navigation link app-wide: muted neutral foreground, `SquareArrowOutUpRight`
+  icon on the left, "Open" label by default, brighter on hover, visible
+  focus ring, no blue text, no arrow suffix. Drop-in for table row-end
+  navigation, card actions, and inline "View all"-style links.
+- Every row-end chevron / `Open →` / blue inline link that meant "navigate
+  to this detail" was replaced with `OpenLink`. Touched pages: Artifacts
+  list, API Specs list, Database Models list, Diagrams list, Projects
+  list (chevron was redundant inside a card-wide `<Link>`, removed),
+  Dashboard "View all", Project overview Card actions (Knowledge graph /
+  Validation snapshot / Recent changes), Documentation Hub (Open
+  documentation + Open artifact), Version History timeline (per-event
+  Open), Impact page (All versions), Graph drawer (Open artifact).
+  Mutation buttons (Edit / Delete / Run validation / Save), the export
+  preview Open/View toggle (in-page state, not navigation), and the
+  ingestion history Open-modal button (opens a modal, not a route) keep
+  their existing Button styling.
+- **Ingestion log semantics clarified.** `IngestionRecord` is now treated
+  as an audit / import log everywhere, not the source of truth. The
+  database confirms this: `createdRecords` is a JSON list of ids, with
+  no foreign keys back to the IngestionRecord, so deleting the log can
+  never cascade-delete a created Artifact / ApiSpec / ApiEndpoint /
+  Diagram / DatabaseModel / DatabaseEntity / DatabaseField.
+  - History table: DRAFT / PARSED / FAILED rows show a destructive
+    "Delete draft" action with a tooltip explaining no project assets
+    will be affected. CONFIRMED rows show a non-destructive "Remove log"
+    action with the tooltip "Removes only the ingestion history entry.
+    Created project assets remain unchanged."
+  - Confirmation dialog copy is now status-aware: removing a CONFIRMED
+    log shows "Remove ingestion log? This only removes the import history
+    record. Created artifacts, API specs, diagrams, or database models
+    will remain in the project.".
+  - Success toast: "Ingestion log removed · created assets unchanged"
+    for CONFIRMED, "Ingestion draft deleted" otherwise.
+  - Detail modal opens with a status-aware sentence at the top (DRAFT
+    "has not created project assets yet", PARSED "parsed but not
+    confirmed", CONFIRMED "Removing the log will not delete those
+    assets", FAILED "Delete this draft and start over").
+  - `createdRecords` rows in the detail modal are now `OpenLink` buttons
+    routing to the correct module (Artifact → artifact detail with
+    documentation tab; ApiSpec / ApiEndpoint → API spec detail;
+    Diagram → diagram detail; DatabaseModel / DatabaseEntity /
+    DatabaseField → database model detail). The raw id is shown next
+    to the link as a small mono caption.
+- Backend `DELETE /api/ingestion/:id` writes a status-aware VersionEvent:
+  `"Removed ingestion log"` when the record was CONFIRMED (with
+  `logRemovalOnly: true` in metadata), `"Ingestion draft deleted"`
+  otherwise. End-to-end curl tests verified: removing a CONFIRMED OpenAPI
+  log leaves the ApiSpec + its 1 endpoint intact (`GET /api/api-specs/:id`
+  → 200; `/endpoints` still lists the path); removing a CONFIRMED Mermaid
+  log leaves the Diagram intact.
+- 11/11 backend smoke tests still pass.
+
+## GLOBAL MERMAID LABEL VISIBILITY FIX (previous pass)
 - Root cause: the shared `components/mermaid-preview.tsx` ran with
   `securityLevel: "strict"` and (in newer Mermaid versions) emitted HTML
   labels via `foreignObject`. Strict mode plus HTML labels meant Mermaid

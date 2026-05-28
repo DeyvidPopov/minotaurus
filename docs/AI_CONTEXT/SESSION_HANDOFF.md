@@ -2,6 +2,36 @@
 
 ## Last Completed Feature
 
+**Navigation polish + ingestion log semantics**:
+- All row-end chevrons and blue `Open →` links replaced with the canonical
+  `components/ui/open-link.tsx` (muted neutral, external icon left, "Open"
+  label, no arrow). Touched lists/cards: Artifacts, API Specs, Database
+  Models, Diagrams, Projects (chevron in card-wide Link removed),
+  Dashboard "View all", Project overview Card actions, Documentation Hub
+  (Open documentation / Open artifact), Version History per-event Open,
+  Impact "All versions", Graph drawer "Open artifact". Mutation buttons,
+  the export Open/View toggle (in-page state), and the ingestion history
+  Open-modal button keep Button styling.
+- **Ingestion is now an audit log, not the source of truth.** Backend
+  already had no FK cascade; UX now says so. CONFIRMED rows in the
+  history table show "Remove log" (non-destructive copy + tooltip);
+  DRAFT/PARSED/FAILED rows show "Delete draft". Confirmation dialog +
+  toast + VersionEvent title all status-aware ("Removed ingestion log"
+  for CONFIRMED with `logRemovalOnly: true` in metadata, "Ingestion
+  draft deleted" otherwise). Detail modal opens with a status-aware
+  sentence and renders `createdRecords` as OpenLink rows that route to
+  the right module page (artifact / API spec / diagram / database
+  model).
+- Verified end-to-end: confirmed OpenAPI ingestion → remove log → ApiSpec
+  + its endpoint still exist; confirmed Mermaid ingestion → remove log →
+  Diagram still exists; DRAFT delete VersionEvent reads "Ingestion draft
+  deleted"; CONFIRMED log-removal VersionEvent reads "Removed ingestion
+  log".
+- `npx tsc --noEmit` clean (backend + frontend). 11/11 backend smoke tests
+  still pass.
+
+## Previous feature pass
+
 **Global Mermaid label visibility fix**:
 - Shared renderer `components/mermaid-preview.tsx` was rendering shapes +
   arrows correctly but text labels were invisible in many diagrams.
@@ -339,7 +369,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-22766fb — *Fix global Mermaid label visibility*
+_(updated by the navigation polish + ingestion log semantics commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 

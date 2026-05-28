@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Plus, ExternalLink, FileText, Info } from "lucide-react";
+import { BookOpen, Plus, FileText, Info } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Stat } from "@/components/ui/stat";
@@ -13,6 +13,7 @@ import { TypeChip } from "@/components/ui/type-chip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Empty } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
+import { OpenLink } from "@/components/ui/open-link";
 import { projectsApi } from "@/lib/api/projects";
 import { documentationApi, type DocumentationOverview } from "@/lib/api/documentation";
 import { ApiError } from "@/lib/api/client";
@@ -179,13 +180,15 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
                   <div className="flex items-center gap-2 text-[11.5px] text-fg-subtle mb-3">
                     Updated {timeAgo(d.updatedAt)}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link href={`/projects/${projectId}/artifacts/${d.artifactId}?tab=documentation`}>
-                      <Button size="sm" variant="primary" icon={<BookOpen size={13} />}>Open documentation</Button>
-                    </Link>
-                    <Link href={`/projects/${projectId}/artifacts/${d.artifactId}`}>
-                      <Button size="sm" variant="ghost" icon={<ExternalLink size={13} />}>Open artifact</Button>
-                    </Link>
+                  <div className="flex items-center gap-3">
+                    <OpenLink
+                      href={`/projects/${projectId}/artifacts/${d.artifactId}?tab=documentation`}
+                      label="Open documentation"
+                    />
+                    <OpenLink
+                      href={`/projects/${projectId}/artifacts/${d.artifactId}`}
+                      label="Open artifact"
+                    />
                   </div>
                 </Card>
               ))}

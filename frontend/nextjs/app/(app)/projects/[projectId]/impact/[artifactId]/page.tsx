@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Empty } from "@/components/ui/empty";
+import { OpenLink } from "@/components/ui/open-link";
 import { versionsApi, type ImpactResponse } from "@/lib/api/versions";
 import { ApiError } from "@/lib/api/client";
 import type { ArtifactType, ArtifactStatus } from "@/lib/types";
@@ -170,9 +171,7 @@ export default function ImpactPage({ params }: { params: { projectId: string; ar
 
       <div className="mt-5">
         <Card title={`Recent events (${data.recentEvents.length})`} subtitle="Latest changes affecting this artifact." action={
-          <Link href={`/projects/${projectId}/versions`} className="text-[12.5px] text-accent hover:underline inline-flex items-center gap-1">
-            All versions <History size={12} />
-          </Link>
+          <OpenLink href={`/projects/${projectId}/versions`} label="All versions" />
         }>
           {data.recentEvents.length === 0 ? (
             <div className="text-fg-muted text-[13px]">No events recorded.</div>

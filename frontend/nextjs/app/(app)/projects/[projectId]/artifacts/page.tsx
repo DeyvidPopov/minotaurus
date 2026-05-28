@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, ChevronRight } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Empty } from "@/components/ui/empty";
+import { OpenLink } from "@/components/ui/open-link";
 import { ARTIFACT_TYPES, TYPE_INFO } from "@/lib/mock-data";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { projectsApi } from "@/lib/api/projects";
@@ -108,7 +109,9 @@ export default function ArtifactsListPage({ params }: { params: { projectId: str
                       <div className="flex items-center gap-2"><Avatar user={a.author} size={20} /><span className="text-[12.5px]">{a.author.firstName}</span></div>
                     </td>
                     <td className="px-3.5 py-3 border-b border-border text-fg-muted text-[12.5px]">{timeAgo(a.updatedAt)}</td>
-                    <td className="px-3.5 py-3 border-b border-border"><ChevronRight size={13} className="text-fg-subtle" /></td>
+                    <td className="px-3.5 py-3 border-b border-border text-right">
+                      <OpenLink href={`/projects/${projectId}/artifacts/${a.id}`} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

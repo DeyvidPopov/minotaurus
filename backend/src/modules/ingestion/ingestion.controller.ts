@@ -171,6 +171,11 @@ export async function deleteIngestionRecord(req: AuthedRequest, res: Response) {
     return fail(res, 403, "INSUFFICIENT_ROLE", "Requires DEVELOPER or higher");
   }
 
+  // IngestionRecord is an audit log; deleting it never cascades to the
+  // artifacts / API specs / diagrams / database models the confirm step
+  // produced (those rows have no FK back to IngestionRecord). The version
+  // event title differs only so the timeline reads honestly.
+  const wasConfirmed = row.status === IngestionStatus.CONFIRMED;
   await prisma.ingestionRecord.delete({ where: { id: row.id } });
 
   await recordVersionEvent({
@@ -178,7 +183,7 @@ export async function deleteIngestionRecord(req: AuthedRequest, res: Response) {
     entityType: "PROJECT",
     entityId: row.projectId,
     action: "DELETED",
-    title: "Ingestion draft deleted",
+    title: wasConfirmed ? "Removed ingestion log" : "Ingestion draft deleted",
     description: `${row.sourceType} · ${row.title}`,
     triggeredBy: req.user!.userId,
     metadata: {
@@ -186,10 +191,17 @@ export async function deleteIngestionRecord(req: AuthedRequest, res: Response) {
       sourceType: row.sourceType,
       sourceName: row.sourceName,
       previousStatus: row.status,
+      logRemovalOnly: wasConfirmed,
     },
   });
 
-  return ok(res, null, "Ingestion record deleted");
+  return ok(
+    res,
+    null,
+    wasConfirmed
+      ? "Ingestion log removed (created assets unchanged)"
+      : "Ingestion record deleted",
+  );
 }
 
 // ────────────────────────────── Markdown parse / confirm ──────────────────────────────

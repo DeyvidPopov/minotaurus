@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Box,
   Network,
@@ -24,6 +23,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/search-input";
 import { Empty } from "@/components/ui/empty";
+import { OpenLink } from "@/components/ui/open-link";
 import {
   VERSION_ACTIONS,
   VERSION_ENTITY_TYPES,
@@ -197,9 +197,7 @@ function EventRow({ event, projectId }: { event: VersionEvent; projectId: string
       </div>
       <div className="text-[11.5px] text-fg-subtle font-mono shrink-0 flex flex-col items-end gap-1">
         <span>{timeAgo(event.createdAt)}</span>
-        <Link href={targetHref} className="text-accent hover:underline">
-          Open →
-        </Link>
+        <OpenLink href={targetHref} />
       </div>
     </li>
   );

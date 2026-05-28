@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Empty } from "@/components/ui/empty";
 import { TypeChip } from "@/components/ui/type-chip";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { OpenLink } from "@/components/ui/open-link";
 import { MermaidPreview } from "@/components/mermaid-preview";
 import { useAuth } from "@/lib/auth-context";
 import { projectsApi } from "@/lib/api/projects";
@@ -162,10 +163,19 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
       toast.error("Your role doesn't allow deleting ingestion drafts.");
       return;
     }
-    if (!window.confirm(`Delete ingestion record "${record.title}"?`)) return;
+    const wasConfirmed = record.status === "CONFIRMED";
+    const confirmMessage = wasConfirmed
+      ? `Remove ingestion log?\n\nThis only removes the import history record. ` +
+        `Created artifacts, API specs, diagrams, or database models will remain in the project.`
+      : `Delete ingestion draft "${record.title}"?\n\nNo project assets will be affected.`;
+    if (!window.confirm(confirmMessage)) return;
     try {
       await ingestionApi.remove(record.id);
-      toast.success("Ingestion record deleted");
+      toast.success(
+        wasConfirmed
+          ? "Ingestion log removed · created assets unchanged"
+          : "Ingestion draft deleted",
+      );
       if (selected?.id === record.id) setSelected(null);
       await refresh();
     } catch (err) {
@@ -345,19 +355,37 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
                           {r.createdBy?.name || r.createdBy?.email || "—"}
                         </td>
                         <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1.5 justify-end">
+                          <div className="flex items-center gap-2 justify-end">
                             <Button size="sm" variant="ghost" icon={<ExternalLink size={13} />} onClick={() => setSelected(r)}>
                               Open
                             </Button>
                             {canMutate && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                icon={<Trash2 size={13} />}
-                                onClick={() => deleteRecord(r)}
-                                title="Delete record"
-                                aria-label={`Delete ${r.title}`}
-                              />
+                              r.status === "CONFIRMED" ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => deleteRecord(r)}
+                                  title="Removes only the ingestion history entry. Created project assets remain unchanged."
+                                  aria-label={`Remove log for ${r.title}`}
+                                >
+                                  Remove log
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  icon={<Trash2 size={13} />}
+                                  onClick={() => deleteRecord(r)}
+                                  title={
+                                    r.status === "PARSED"
+                                      ? "Deletes the parsed draft. No project assets were created yet."
+                                      : "Deletes this unfinished ingestion record."
+                                  }
+                                  aria-label={`Delete draft ${r.title}`}
+                                >
+                                  Delete draft
+                                </Button>
+                              )
                             )}
                           </div>
                         </td>
@@ -1727,6 +1755,26 @@ function LabeledInput({
   );
 }
 
+const STATUS_EXPLANATION: Record<IngestionStatus, string> = {
+  DRAFT: "This draft has not created project assets yet.",
+  PARSED:
+    "This source was parsed but not confirmed. No project assets have been created yet.",
+  CONFIRMED:
+    "This ingestion created project assets. Removing the log will not delete those assets.",
+  FAILED:
+    "Parsing failed. No project assets were created. Delete this draft and start over.",
+};
+
+const CREATED_RECORD_LABEL: Record<string, string> = {
+  ARTIFACT: "Open artifact",
+  API_SPEC: "Open API spec",
+  API_ENDPOINT: "Open API spec",
+  DIAGRAM: "Open diagram",
+  DATABASE_MODEL: "Open database model",
+  DATABASE_ENTITY: "Open database model",
+  DATABASE_FIELD: "Open database model",
+};
+
 function DetailView({ record, projectId }: { record: IngestionRecord; projectId: string }) {
   const meta = sourceMeta(record.sourceType);
   const createdList = createdRecordList(record.createdRecords);
@@ -1735,15 +1783,27 @@ function DetailView({ record, projectId }: { record: IngestionRecord; projectId:
   const isOpenApi = parserSource === "OPENAPI_JSON";
   const isMermaid = parserSource === "MERMAID";
   const isSql = parserSource === "SQL_SCHEMA";
-  const linkHrefFor = (c: CreatedRecordRef) => {
-    if (c.type === "API_SPEC") return `/projects/${projectId}/api/${c.id}`;
+  const linkHrefFor = (c: CreatedRecordRef): string => {
+    if (c.type === "API_SPEC" || c.type === "API_ENDPOINT") return `/projects/${projectId}/api/${c.id}`;
     if (c.type === "ARTIFACT") return `/projects/${projectId}/artifacts/${c.id}?tab=documentation`;
     if (c.type === "DIAGRAM") return `/projects/${projectId}/diagrams/${c.id}`;
-    if (c.type === "DATABASE_MODEL") return `/projects/${projectId}/database/${c.id}`;
+    if (c.type === "DATABASE_MODEL" || c.type === "DATABASE_ENTITY" || c.type === "DATABASE_FIELD") {
+      return `/projects/${projectId}/database/${c.id}`;
+    }
     return `/projects/${projectId}`;
   };
   return (
     <div className="flex flex-col gap-3 text-[13px]">
+      <div
+        className="px-3 py-2 rounded-md border text-[12.5px] leading-relaxed"
+        style={{
+          borderColor: "var(--border)",
+          background: "var(--panel-2)",
+          color: "var(--fg-muted)",
+        }}
+      >
+        {STATUS_EXPLANATION[record.status]}
+      </div>
       <DetailRow label="Source type" value={
         <div className="inline-flex items-center gap-1.5">{meta?.icon}<span>{meta?.label ?? record.sourceType}</span></div>
       } />
@@ -1804,17 +1864,15 @@ function DetailView({ record, projectId }: { record: IngestionRecord; projectId:
         createdList.length === 0
           ? <span className="text-fg-muted">{record.status === "PARSED" ? "Preview only — confirm to commit." : "None"}</span>
           : (
-            <ul className="m-0 pl-0 list-none text-[12.5px]">
+            <ul className="m-0 pl-0 list-none text-[12.5px] flex flex-col gap-1.5">
               {createdList.map((c, i) => (
-                <li key={i} className="flex items-center gap-2">
+                <li key={i} className="flex items-center gap-2 min-w-0">
                   <Badge tone="default" mono>{c.type}</Badge>
-                  <a
+                  <OpenLink
                     href={linkHrefFor(c)}
-                    className="text-accent hover:underline truncate"
-                  >
-                    {c.id}
-                  </a>
-                  {c.mode && <span className="text-fg-subtle">· {c.mode}</span>}
+                    label={CREATED_RECORD_LABEL[c.type] ?? "Open"}
+                  />
+                  <span className="font-mono text-[11.5px] text-fg-subtle truncate" title={c.id}>{c.id}</span>
                 </li>
               ))}
             </ul>

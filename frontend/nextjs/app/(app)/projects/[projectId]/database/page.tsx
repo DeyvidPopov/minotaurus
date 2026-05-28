@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, ChevronRight, X, Database } from "lucide-react";
+import { Plus, X, Database } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Empty } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
+import { OpenLink } from "@/components/ui/open-link";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   DATABASE_TYPES,
@@ -140,8 +141,8 @@ export default function DatabaseModelsListPage({ params }: { params: { projectId
                       {m.entityCount > 0 ? <Badge tone="success">{m.entityCount}</Badge> : <span className="text-fg-subtle">0</span>}
                     </td>
                     <td className="px-3.5 py-3 border-b border-border text-fg-muted text-[12.5px]">{timeAgo(m.updatedAt)}</td>
-                    <td className="px-3.5 py-3 border-b border-border">
-                      <ChevronRight size={13} className="text-fg-subtle" />
+                    <td className="px-3.5 py-3 border-b border-border text-right">
+                      <OpenLink href={`/projects/${projectId}/database/${m.id}`} />
                     </td>
                   </tr>
                 );

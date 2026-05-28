@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { RefreshCw, Upload, Plus, Box, Network, Shield, Package, ExternalLink, Star, History, Plug, Database, GitMerge, Pencil, Trash2, Link2, Unlink } from "lucide-react";
+import { RefreshCw, Upload, Plus, Box, Network, Shield, Package, Star, History, Plug, Database, GitMerge, Pencil, Trash2, Link2, Unlink } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { SeverityBadge } from "@/components/ui/severity-badge";
 import { ProjectMark } from "@/components/ui/project-mark";
 import { Empty } from "@/components/ui/empty";
+import { OpenLink } from "@/components/ui/open-link";
 import { GraphCanvas } from "@/components/graph/graph-canvas";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
@@ -139,7 +140,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
         <Card
           title="Knowledge graph"
           subtitle={`${artifacts.length} nodes · ${relations.length} relations`}
-          action={<Link href={`/projects/${project.id}/graph`} className="text-[12.5px] text-fg-muted hover:text-fg flex items-center gap-1">Open <ExternalLink size={12} /></Link>}
+          action={<OpenLink href={`/projects/${project.id}/graph`} />}
           padded={false}
         >
           <div style={{ height: 360, position: "relative" }}>
@@ -155,7 +156,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
 
         <div className="flex flex-col gap-5">
           <Card title="Validation snapshot" action={
-            <Link href={`/projects/${project.id}/validation`} className="text-[12.5px] text-fg-muted hover:text-fg flex items-center gap-1">Open <ExternalLink size={12} /></Link>
+            <OpenLink href={`/projects/${project.id}/validation`} />
           }>
             <div className="grid grid-cols-4 gap-2 mb-3.5">
               {[
@@ -194,14 +195,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
                 ? "Loading…"
                 : `${recentEvents.length === 0 ? "No events yet" : "Newest first · backed by version history"}`
             }
-            action={
-              <Link
-                href={`/projects/${project.id}/versions`}
-                className="text-[12.5px] text-fg-muted hover:text-fg flex items-center gap-1"
-              >
-                Open <ExternalLink size={12} />
-              </Link>
-            }
+            action={<OpenLink href={`/projects/${project.id}/versions`} />}
             padded={false}
           >
             {recentEvents === null ? (

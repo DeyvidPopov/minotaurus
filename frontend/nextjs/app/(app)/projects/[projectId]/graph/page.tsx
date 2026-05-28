@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Link as LinkIcon, ArrowRight } from "lucide-react";
+import { RefreshCw, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ARTIFACT_TYPES, EDGE_COLOR } from "@/lib/mock-data";
 import type { Artifact, ArtifactType, Project, Relation, RelationType } from "@/lib/types";
@@ -16,6 +16,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { TypeChip } from "@/components/ui/type-chip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
+import { OpenLink } from "@/components/ui/open-link";
 import { useTweaks } from "@/components/providers";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
@@ -167,9 +168,10 @@ export default function GraphPage({ params }: { params: { projectId: string } })
               <RelList title={`Incoming (${incoming.length})`} rels={incoming} artifacts={artifacts} project={projectId} side="in" />
 
               <div className="flex gap-2 mt-2.5">
-                <Link href={`/projects/${projectId}/artifacts/${selected.id}`}>
-                  <Button variant="primary">Open artifact <ArrowRight size={14} /></Button>
-                </Link>
+                <OpenLink
+                  href={`/projects/${projectId}/artifacts/${selected.id}`}
+                  label="Open artifact"
+                />
               </div>
             </>
           )}

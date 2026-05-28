@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Plus, Star, ChevronRight } from "lucide-react";
+import { Plus, Star } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -78,8 +78,7 @@ export default function ProjectsPage() {
                 </div>
               </div>
               <hr className="border-border" />
-              <div className="flex items-center gap-2 mt-3">
-                <ChevronRight size={14} className="ml-auto text-fg-subtle" />
+              <div className="flex items-center justify-end mt-3">
                 <span className="text-[11.5px] text-fg-subtle">updated {timeAgo(p.updatedAt)}</span>
               </div>
             </Link>
