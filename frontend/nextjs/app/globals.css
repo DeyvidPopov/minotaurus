@@ -262,6 +262,36 @@ body {
   margin: 0 auto;
 }
 
+/* Mermaid label visibility — belt-and-suspenders fallback for the post-render
+   inline style sweep in components/mermaid-preview.tsx. These rules cover any
+   diagram variant whose label-bearing elements happen to slip through the
+   sweep (different Mermaid versions emit slightly different DOM trees). */
+.mermaid-host svg text,
+.mermaid-host svg tspan,
+.mermaid-host svg .messageText,
+.mermaid-host svg .actor,
+.mermaid-host svg .labelText {
+  fill: #e6e8ec !important;
+  color: #e6e8ec !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.mermaid-host svg .nodeLabel,
+.mermaid-host svg .edgeLabel,
+.mermaid-host svg .edgeLabel span,
+.mermaid-host svg .label,
+.mermaid-host svg foreignObject,
+.mermaid-host svg foreignObject div,
+.mermaid-host svg foreignObject span {
+  color: #e6e8ec !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.mermaid-host svg .edgeLabel rect,
+.mermaid-host svg .labelBkg {
+  fill: #1a1d24 !important;
+}
+
 /* Rendered Markdown — light styling so docs look right inside cards. */
 .prose-markdown {
   color: var(--fg);

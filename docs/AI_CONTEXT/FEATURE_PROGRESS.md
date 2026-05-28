@@ -9,21 +9,118 @@
 - Export
 - Documentation (per-artifact Markdown editor)
 - **Documentation Hub (Phase A — project-wide coverage view)**
-- **Ingestion Hub (Ingestion Phases 1 + 2 + 3)**
+- **Ingestion Hub (Ingestion Phases 1 + 2 + 3 + 4 + 5)** — every source type
+  card now has a parser.
   - Phase 1: draft workflow + history + sidebar entry.
-  - Phase 2: **Markdown parser + documentation import** — deterministic parser
-    (no AI), preview UI, LINK_EXISTING / CREATE_NEW confirm modes.
-  - Phase 3: **OpenAPI JSON parser + API spec creation** — deterministic parser,
-    preview with endpoints table, CREATE_API_SPEC confirm with optional artifact
-    link. JSON only (YAML not supported). Mermaid / SQL ingestion still
-    placeholders.
+  - Phase 2: **Markdown** → DOCUMENTATION artifact (LINK_EXISTING or CREATE_NEW).
+  - Phase 3: **OpenAPI JSON** → ApiSpec + ApiEndpoints (CREATE_API_SPEC,
+    editable base URL).
+  - Phase 4: **Mermaid** → Diagram (CREATE_DIAGRAM, optional artifact link,
+    live preview).
+  - Phase 5: **SQL Schema** (subset of CREATE TABLE DDL) → DatabaseModel +
+    Entities + Fields with resolved FKs (CREATE_DATABASE_MODEL, generated
+    Mermaid ERD preview).
 - API Specs
 - Database Models (with auto-generated Mermaid ERD preview)
 - Diagrams (Mermaid editor with live preview, syntax status, template picker)
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## INGESTION PHASE 3 — OpenAPI JSON ingestion (current pass)
+## GLOBAL MERMAID LABEL VISIBILITY FIX (current pass)
+- Root cause: the shared `components/mermaid-preview.tsx` ran with
+  `securityLevel: "strict"` and (in newer Mermaid versions) emitted HTML
+  labels via `foreignObject`. Strict mode plus HTML labels meant Mermaid
+  applied an inline color (often near-black or theme default) that ignored
+  our `themeVariables`, and our previous post-render warning fell back to
+  showing "labels may be missing" instead of fixing the underlying CSS.
+- Renderer fix in `components/mermaid-preview.tsx`:
+  - Switched to `securityLevel: "loose"` so post-render style overrides take
+    effect — Mermaid no longer scrubs the inline styles we set.
+  - Forced `flowchart: { htmlLabels: false }`, plus the same on class /
+    state diagrams. Native SVG `<text>` honors our `fill="..."` set from
+    themeVariables and survives the style sweep.
+  - New `forceLabelVisibility(host)` post-render sweep walks every label-
+    bearing selector (`text`, `tspan`, `.nodeLabel`, `.edgeLabel`,
+    `.edgeLabel span`, `.edgeLabel div`, `foreignObject`, `.label`,
+    `.messageText`, `.actor`, `.labelText`, `.loopText`, `.noteText`, ERD
+    attribute rows) and forces `color: #e6e8ec`, `opacity: 1`,
+    `visibility: visible`, and for `<text>`/`<tspan>` sets `fill="#e6e8ec"`
+    **only** when the existing fill is empty / transparent / pure black.
+    Authored colored fills are preserved.
+  - Edge label backgrounds (`.edgeLabel .label-container / rect`,
+    `.labelBkg`, `foreignObject div`) get `background: #1a1d24`.
+  - `detectLabelsMissing` runs AFTER the sweep so the warning only fires
+    when labels are genuinely absent; selector list also widened to
+    `.nodeLabel`, `.edgeLabel`.
+- Scoped CSS fallback in `app/globals.css` under `.mermaid-host` so any
+  selector that slips through the JS sweep is still rendered visibly:
+  `text / tspan / .messageText / .actor / .labelText` get
+  `fill: #e6e8ec !important`; `.nodeLabel / .edgeLabel / .label /
+  foreignObject` get `color: #e6e8ec !important`; `.edgeLabel rect /
+  .labelBkg` get `fill: #1a1d24 !important`. Scoped so the rest of the app
+  is untouched.
+- All six MermaidPreview callers (ingestion preview, diagram detail page
+  source + ERD tabs, database model ERD, export preview) benefit because
+  they all go through the same component. No call site code changed.
+
+## INGESTION PHASE 4 + 5 — Mermaid + SQL Schema ingestion (previous pass)
+- **Phase 4 — Mermaid**:
+  - New `backend/src/modules/ingestion/mermaid.engine.ts`. Pure regex. Lifts
+    out a `\`\`\`mermaid` fence if the input is Markdown, detects diagram type
+    from the first non-comment line (FLOWCHART for `flowchart` / `graph`,
+    SEQUENCE / ERD / CLASS / STATE / GANTT, else ARCHITECTURE), extracts a
+    title from a `%% Title: …` comment, counts lines, and pulls best-effort
+    node hints (bracket labels for flowchart, participant/actor + arrow targets
+    for sequence, entity declarations for ERD).
+  - Endpoints `POST /api/ingestion/:id/parse-mermaid` (DEVELOPER+, body
+    `{ mermaidSource }`) and `POST /api/ingestion/:id/confirm-mermaid` (body
+    `{ mode: "CREATE_DIAGRAM", artifactId?, title, diagramType }`). Confirm
+    creates a real `Diagram` row, writes a `DIAGRAM/CREATED` VersionEvent
+    `"Mermaid diagram imported · <title>"`, optionally links to an artifact.
+  - Frontend wizard: paste-or-upload .mmd / .md → preview with **live
+    MermaidPreview render** + node-hint chips + collapsible raw source →
+    confirm with editable title, diagram type select, optional artifact
+    picker. On commit → router push to `/projects/:id/diagrams/:id`.
+- **Phase 5 — SQL Schema**:
+  - New `backend/src/modules/ingestion/sql.engine.ts`. Hand-written DDL
+    scanner — strips line/block comments, finds each `CREATE TABLE …`
+    head, then uses a paren-depth walker to capture the table body so
+    constraints like `FOREIGN KEY (col) REFERENCES tbl(col)` with nested
+    parens are recovered correctly. Per column: type (with paren'd suffixes
+    like `varchar(255)`), `NOT NULL`, inline `PRIMARY KEY`, inline `UNIQUE`,
+    inline `REFERENCES`. Per table-level constraint: `PRIMARY KEY (...)`,
+    `UNIQUE (...)`, `FOREIGN KEY (...) REFERENCES …(…)`. Identifiers can be
+    `"quoted"`, `` `backticked` ``, `[bracketed]`, or schema-prefixed.
+  - Endpoints `POST /api/ingestion/:id/parse-sql-schema` (DEVELOPER+, body
+    `{ sql }`) and `POST /api/ingestion/:id/confirm-sql-schema` (body
+    `{ mode: "CREATE_DATABASE_MODEL", artifactId?, title, databaseType }`).
+    Confirm runs a single Prisma `$transaction`: creates `DatabaseModel`,
+    then in pass 1 creates every `DatabaseEntity` + `DatabaseField` with
+    `referencesEntityId: null`, then in pass 2 resolves FKs by name and
+    updates the field rows. Writes one `DATABASE_MODEL/CREATED` event +
+    one `DATABASE_ENTITY/CREATED` event per entity.
+  - Frontend wizard: paste-or-upload .sql → preview entities + fields (PK
+    + FK chips), generated Mermaid ERD preview rendered client-side, FK
+    relationship summary → confirm with editable title, database type
+    select, optional artifact picker. On commit → router push to
+    `/projects/:id/database/:id`.
+- Both wizards reuse a new shared `ArtifactLinkPicker` component (search
+  + `— No artifact link —` row + selected highlight).
+- Ingestion Hub history "Result" column now reports per source:
+  - PARSED Mermaid: `<diagramType> · <N> lines`.
+  - PARSED SQL: `<N> entities · <M> fields · <K> FK`.
+  - CONFIRMED Mermaid: `Diagram created`.
+  - CONFIRMED SQL: `DB model + <N> entities · <M> fields`.
+- All four source-type cards are now "Parser ready". The simple "Start
+  draft" form is unreachable from the Hub.
+- The existing Diagrams + Database Model modules are unchanged. The wizards
+  write to the same Prisma tables (`Diagram`, `DatabaseModel`,
+  `DatabaseEntity`, `DatabaseField`), so the existing detail pages, ERD
+  views, validation rules and SSOT export pick up the imported records
+  unchanged (verified end-to-end).
+- 11/11 backend smoke tests still pass.
+
+## INGESTION PHASE 3 — OpenAPI JSON ingestion (previous pass)
 - New deterministic engine at `backend/src/modules/ingestion/openapi.engine.ts`.
   No AI, no YAML. Validates basic OpenAPI structure (must have `openapi` or
   `swagger` field plus a `paths` object), then extracts:

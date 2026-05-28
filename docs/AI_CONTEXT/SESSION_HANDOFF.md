@@ -2,6 +2,36 @@
 
 ## Last Completed Feature
 
+**Global Mermaid label visibility fix**:
+- Shared renderer `components/mermaid-preview.tsx` was rendering shapes +
+  arrows correctly but text labels were invisible in many diagrams.
+- Root cause: `securityLevel: "strict"` plus Mermaid's default `htmlLabels:
+  true` produced `<foreignObject>` HTML labels with inline fills that
+  ignored our `themeVariables`. Our previous post-render warning falsely
+  triggered instead of fixing the underlying styles.
+- Renderer changes:
+  - `securityLevel` → `"loose"` so post-render style overrides actually
+    apply (Mermaid sources are author-controlled, no XSS surface).
+  - `flowchart: { htmlLabels: false }`, same on class / state diagrams —
+    native SVG `<text>` honors `fill="..."` and survives the sweep.
+  - New `forceLabelVisibility(host)` walks every label selector after each
+    render and sets `color`/`opacity`/`visibility` (inline) and `fill` on
+    `<text>` / `<tspan>` **only** when the existing fill is empty,
+    transparent, or pure black. Authored colors preserved.
+  - Edge label backgrounds (`.edgeLabel rect`, `.labelBkg`, etc.) get
+    `#1a1d24`.
+  - `detectLabelsMissing` widened to also check `.nodeLabel` / `.edgeLabel`
+    and runs after the sweep so the yellow warning only fires when text is
+    truly absent.
+- New scoped CSS rules in `app/globals.css` under `.mermaid-host` cover any
+  selector that slips through the JS sweep. Not global — only inside the
+  renderer host.
+- All six MermaidPreview callers (ingestion preview, diagram detail source
+  + ERD tabs, database model ERD, export preview) benefit automatically —
+  no call-site code changed.
+
+## Previous feature pass
+
 **Ingestion Phases 4 + 5 — Mermaid + SQL Schema ingestion**:
 - Phase 4 — Mermaid: new `mermaid.engine.ts` (no AI, pure regex). Lifts a
   `\`\`\`mermaid` fence from Markdown if present, detects diagram type from
@@ -309,7 +339,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-3019f96 — *Implement Mermaid + SQL schema ingestion workflows*
+_(updated by the Mermaid label fix commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 

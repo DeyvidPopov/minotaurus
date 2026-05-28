@@ -57,12 +57,51 @@ Living list of trade-offs and partial implementations in the current MVP. Update
   project — they live on their own tables and only show up under their parent
   artifact via foreign key.
 
-## Ingestion (Phases 1 + 2 + 3)
-- Phase 1 shipped the IngestionRecord table + workflow shell. Phase 2 shipped a
-  **deterministic Markdown parser** + the LINK_EXISTING / CREATE_NEW confirm
-  flow. Phase 3 shipped a **deterministic OpenAPI JSON parser** +
-  CREATE_API_SPEC confirm. Mermaid and SQL schema parsers are still
-  placeholders.
+## Ingestion (Phases 1 + 2 + 3 + 4 + 5)
+- Phase 1 shipped the IngestionRecord table + workflow shell. Phases 2–5
+  shipped deterministic parsers for **Markdown / OpenAPI JSON / Mermaid /
+  SQL Schema**. All four source cards are now "Parser ready". No AI is
+  involved.
+- Mermaid parser limits:
+  - Accepts `.mmd` or `.md` with a `\`\`\`mermaid` fenced block. Detects
+    the diagram type from the first non-comment line keyword (flowchart /
+    graph → FLOWCHART; sequenceDiagram → SEQUENCE; erDiagram → ERD;
+    classDiagram → CLASS; stateDiagram → STATE; gantt → GANTT; otherwise
+    ARCHITECTURE).
+  - Title is taken from a `%% Title: <name>` comment at the top, else
+    sourceName, else `"Imported Mermaid Diagram"`.
+  - Node hints are a best-effort regex pass for the preview only — flowchart
+    bracket labels, sequence participants / arrow targets, ERD entity
+    declarations. They do **not** create artifacts or relations.
+  - Confirm creates a single `Diagram` row with `mermaidSource` set to the
+    parsed body. The existing Diagrams module renders it via the lazy-loaded
+    Mermaid client — same security and styling notes apply.
+  - Image / draw.io / PlantUML / Excalidraw inputs are not supported.
+- SQL Schema parser limits:
+  - Supported subset: `CREATE TABLE` with column definitions, `NOT NULL`,
+    inline / table-level `PRIMARY KEY`, inline / table-level `UNIQUE`,
+    inline `REFERENCES`, and table-level `FOREIGN KEY (col) REFERENCES
+    table(col)`. Identifiers may be quoted, backticked, bracketed, or
+    schema-prefixed.
+  - Unsupported: views, triggers, stored procedures, `ALTER TABLE` chains
+    beyond simple FKs, indexes, sequences, complex `CHECK` expressions,
+    vendor-specific extensions beyond best-effort handling of common type
+    suffixes like `varchar(255)`.
+  - `databaseType` is captured separately by the user on the confirm step;
+    the parser always seeds the preview with `"PostgreSQL"`.
+  - FK resolution runs in a two-pass `$transaction` on confirm: pass 1
+    creates entities + fields with `referencesEntityId: null`, pass 2 looks
+    up the target entity by name and updates the field. FKs that point at
+    entities not declared in the same parse pass are silently dropped.
+  - The detail page's entity endpoint returns `referencesEntityId` only;
+    the entity name is resolved client-side by joining against the model's
+    entity list (matching the existing API contract).
+- Across all four parsers: VIEWER role is blocked on both parse and confirm
+  (`INSUFFICIENT_ROLE`). Records that hit a parse error end up in `FAILED`
+  status with `errorMessage` set; they're not auto-retried and the user
+  has to delete + start over. Ingestion records still aren't included in
+  SSOT export — the user-visible output (artifacts / specs / diagrams /
+  database models) is already there.
 - OpenAPI parser limits:
   - JSON only — `.yaml` / `.yml` is rejected client-side, and the backend has
     no YAML parser. Convert YAML to JSON before importing.
@@ -142,7 +181,19 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - The "Invalid Mermaid syntax" validation rule is a tiny heuristic (header keyword + arrow token), not a real parser. The real syntax check happens client-side when Mermaid renders the source.
 - ARCHITECTURE diagrams without a linked artifact produce an INFO-severity issue. Intentional nudge, can be ignored.
 - No undo / version history on the editor. Save persists the current source; previous versions are not retained.
-- **Label visibility (FIXED, see release notes):** Mermaid `fontFamily` no longer references CSS variables; concrete `themeVariables` ensure light text on dark background. Templates and seeded sources use explicit quoted node labels (`Client["Client"]`). ERD generator pads empty entity bodies with a `_empty` placeholder and always emits a non-empty relationship label. A post-render label scan warns when an SVG renders without any visible text content.
+- **Label visibility (FIXED globally in `components/mermaid-preview.tsx`):**
+  the shared renderer now uses `securityLevel: "loose"`, forces
+  `htmlLabels: false` on flowchart / class / state diagrams (so labels are
+  native SVG `<text>` instead of `<foreignObject>` HTML), runs a
+  `forceLabelVisibility` sweep after every `mermaid.render` to set
+  `fill="#e6e8ec"` / `color: #e6e8ec` / `opacity: 1` / `visibility: visible`
+  on every label-bearing selector (text, tspan, .nodeLabel, .edgeLabel,
+  .label, .messageText, .actor, .labelText, .loopText, .noteText, ERD
+  attribute rows, foreignObject + descendants), and has an `.mermaid-host`-
+  scoped CSS rule set in `app/globals.css` as a fallback. Authored colorful
+  fills are preserved — we only overwrite fills that are empty,
+  transparent, or pure black. The "labels may be missing" warning fires
+  after the sweep so it only appears when text is truly absent.
 - Custom themes beyond dark are not supported — `themeVariables` are tuned for the platform's dark card background only.
 
 ## Validation

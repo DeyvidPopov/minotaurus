@@ -1,19 +1,20 @@
 # Next Steps
 
-Ingestion Phase 3 (OpenAPI JSON ingestion) is shipped: deterministic engine,
-`POST /api/ingestion/:id/parse-openapi-json` + `POST /api/ingestion/:id/confirm-openapi-json`
-endpoints, multi-step wizard in the Ingestion Hub with paste/upload/preview
-(endpoint table + auth chip)/optional artifact link. CREATE_API_SPEC writes
-real `ApiSpec` + `ApiEndpoint` rows in a single Prisma `$transaction` so the
-API Specs page, validation engine, and SSOT export pick them up unchanged.
-11/11 backend smoke tests still pass.
+Ingestion Phases 4 (Mermaid) and 5 (SQL Schema) are both shipped. All four
+ingestion source cards are now "Parser ready": Markdown / OpenAPI JSON /
+Mermaid / SQL Schema. Each wizard runs deterministically (no AI), creates
+real Prisma rows via existing modules, fires VersionEvents, and is gated to
+DEVELOPER+. 11/11 backend smoke tests still pass.
 
-**Recommended next phase: Mermaid ingestion** — accept a Mermaid source body,
-detect the diagram type from the header keyword (flowchart / sequenceDiagram /
-erDiagram / classDiagram / stateDiagram / gantt), create a `Diagram` row,
-optionally infer relations from arrow targets (`A --> B`), and link to an
-optional artifact. After that: SQL Schema parser (create a `DatabaseModel`
-with entities and fields from `CREATE TABLE` statements).
+**Recommended next phase: AI architecture review.** Now that ingestion
+covers documentation, APIs, diagrams and database schemas, the platform has
+enough structured signal for an AI pass to (a) summarise the architecture
+for a project, (b) flag inconsistencies between artifacts / specs / models /
+diagrams that the deterministic validation rules can't catch, and (c)
+answer impact questions ("what breaks if I deprecate the Auth Service?"). A
+single backend endpoint wrapping a model call would be enough; Settings
+already has a place for an Anthropic API key field to keep the feature
+opt-in.
 
 Phase A (Dedicated Documentation Hub) is shipped: new
 `GET /api/projects/:projectId/documentation` overview endpoint, real

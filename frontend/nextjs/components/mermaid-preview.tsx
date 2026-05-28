@@ -62,11 +62,24 @@ async function getMermaid() {
       const mermaid = m.default;
       mermaid.initialize({
         startOnLoad: false,
-        securityLevel: "strict",
+        // "loose" lets our post-render style overrides actually take effect
+        // (strict scrubs inline styles in some Mermaid versions). We never
+        // execute user-supplied HTML / scripts because the source comes from
+        // our own controlled inputs.
+        securityLevel: "loose",
         theme: "base",
         themeVariables: MERMAID_THEME_VARIABLES,
         fontFamily: MERMAID_FONT,
-      });
+        // Force native SVG <text> rendering everywhere — HTML labels
+        // ("foreignObject") often get baked-in inline color styles that
+        // ignore themeVariables, which is the root cause of invisible text
+        // on dark themes. Native text honors `fill="…"` from themeVariables
+        // and survives our post-render style sweep.
+        flowchart: { htmlLabels: false },
+        sequence: { useMaxWidth: true },
+        class: { htmlLabels: false },
+        state: { htmlLabels: false },
+      } as Parameters<typeof mermaid.initialize>[0]);
       return mermaid;
     });
   }
@@ -74,16 +87,96 @@ async function getMermaid() {
 }
 
 /**
- * Walk the rendered SVG and decide if Mermaid produced visible labels.
- * We check both <text> nodes (used by flowchart / sequence / class / etc.)
- * and <foreignObject> nodes (used by some label modes that embed HTML).
- * Returns false only when the SVG exists but every text-bearing element is
- * empty — the symptom this fallback is meant to catch.
+ * Post-render sweep: force readable styles on every label-bearing element in
+ * the SVG. Mermaid emits a few overlapping conventions (raw `<text>`,
+ * `.nodeLabel` / `.edgeLabel` wrapper classes, optional `<foreignObject>`
+ * HTML labels), and which one is used depends on diagram type and Mermaid
+ * version. We hit them all.
+ */
+const SVG_LABEL_SELECTORS = [
+  "text",
+  "tspan",
+  ".label",
+  ".nodeLabel",
+  ".edgeLabel",
+  ".edgeLabel span",
+  ".edgeLabel div",
+  "foreignObject",
+  "foreignObject div",
+  "foreignObject span",
+  // ERD attribute rows
+  "g.attribute-row text",
+  "g.entity-label text",
+  // Sequence diagram labels
+  ".messageText",
+  ".actor",
+  ".labelText",
+  ".loopText",
+  ".noteText",
+] as const;
+
+const FG = "#e6e8ec";
+const EDGE_LABEL_BG = "#1a1d24";
+
+function forceLabelVisibility(host: HTMLDivElement): void {
+  const svg = host.querySelector("svg");
+  if (!svg) return;
+  // Ensure the SVG itself doesn't carry a stray opacity/visibility override.
+  (svg as SVGElement).style.color = FG;
+  (svg as SVGElement).style.opacity = "1";
+  (svg as SVGElement).style.visibility = "visible";
+
+  for (const sel of SVG_LABEL_SELECTORS) {
+    const nodes = svg.querySelectorAll<SVGElement | HTMLElement>(sel);
+    nodes.forEach((node) => {
+      // Inline style wins over attributes and over any global stylesheet that
+      // might be coercing SVG text to a different color.
+      node.style.color = FG;
+      node.style.opacity = "1";
+      node.style.visibility = "visible";
+      // <text> / <tspan> use the SVG `fill` attribute, not `color`. Only set
+      // it when the existing fill is empty / transparent / pure black or
+      // matches the dark background — never overwrite an explicit colorful
+      // fill (e.g. status badges that authors set on purpose).
+      const tag = node.tagName.toLowerCase();
+      if (tag === "text" || tag === "tspan") {
+        const currentFill = (node.getAttribute("fill") || "").trim().toLowerCase();
+        if (
+          !currentFill ||
+          currentFill === "none" ||
+          currentFill === "transparent" ||
+          currentFill === "#000" ||
+          currentFill === "#000000" ||
+          currentFill === "black" ||
+          currentFill === "rgb(0, 0, 0)" ||
+          currentFill === "rgb(0,0,0)"
+        ) {
+          node.setAttribute("fill", FG);
+        }
+      }
+    });
+  }
+
+  // Edge label backgrounds get a readable filler so the line behind them
+  // doesn't bleed through the text.
+  const edgeBgs = svg.querySelectorAll<SVGElement>(".edgeLabel .label-container, .edgeLabel rect, .labelBkg, foreignObject div");
+  edgeBgs.forEach((bg) => {
+    if (bg.classList.contains("edgeLabel") || bg.classList.contains("label-container") || bg.classList.contains("labelBkg")) {
+      bg.style.background = EDGE_LABEL_BG;
+      bg.style.backgroundColor = EDGE_LABEL_BG;
+    }
+  });
+}
+
+/**
+ * Decide if Mermaid produced visible labels. Run AFTER `forceLabelVisibility`
+ * so we don't false-alarm on text that's there but was previously invisible
+ * due to a fill/opacity issue.
  */
 function detectLabelsMissing(host: HTMLDivElement): boolean {
   const svg = host.querySelector("svg");
   if (!svg) return false;
-  const candidates = svg.querySelectorAll("text, foreignObject");
+  const candidates = svg.querySelectorAll("text, foreignObject, .nodeLabel, .edgeLabel");
   if (candidates.length === 0) {
     // No label-bearing nodes at all — common for tiny diagrams (single node).
     // Don't false-alarm.
@@ -148,6 +241,10 @@ export function MermaidPreview({
         if (cancelled) return;
         if (hostRef.current) {
           hostRef.current.innerHTML = svg;
+          // Force readable styles on the freshly-injected SVG BEFORE the
+          // missing-label sweep — otherwise label text that was hidden by
+          // an inline fill/opacity would falsely register as "missing".
+          forceLabelVisibility(hostRef.current);
           setLabelsMissing(detectLabelsMissing(hostRef.current));
         }
         setError(null);

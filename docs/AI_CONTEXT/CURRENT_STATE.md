@@ -25,22 +25,25 @@ Backend:
 - Documentation (per-artifact Markdown editor) + **Documentation Hub** with
   project-wide coverage stats, search, filter, and direct deep-links to the
   artifact detail's Documentation tab via `?tab=documentation`.
-- **Ingestion Hub with live Markdown + OpenAPI JSON parsers** —
+- **Ingestion Hub with four live parsers** —
   - Foundation (Ingestion Phase 1): `IngestionRecord` table, draft CRUD API,
     sidebar entry, source type cards, history.
-  - **Markdown parser (Ingestion Phase 2)**: paste or upload `.md` →
-    deterministic parse → preview → confirm into either an existing artifact
-    (LINK_EXISTING) or a new DOCUMENTATION artifact (CREATE_NEW). Status flow
-    DRAFT → PARSED → CONFIRMED, with FAILED on errors. Imported docs flow
-    through `Artifact.documentationContent`.
-  - **OpenAPI JSON parser (Ingestion Phase 3)**: paste or upload `.json` →
-    deterministic parse (info, servers[0].url, paths) → preview with endpoints
-    table → confirm CREATE_API_SPEC with optional artifact link. Creates real
-    `ApiSpec` + `ApiEndpoint` rows via `$transaction`. JSON only (no YAML).
-  - Mermaid / SQL parsers are still placeholders (next phases).
+  - **Markdown parser (Phase 2)**: paste / upload `.md` → DOCUMENTATION
+    artifact (LINK_EXISTING / CREATE_NEW).
+  - **OpenAPI JSON parser (Phase 3)**: paste / upload `.json` → ApiSpec +
+    ApiEndpoints (CREATE_API_SPEC), editable base URL.
+  - **Mermaid parser (Phase 4)**: paste / upload `.mmd` or `.md` with a
+    `\`\`\`mermaid` fence → Diagram (CREATE_DIAGRAM), live MermaidPreview in
+    the wizard, optional artifact link.
+  - **SQL Schema parser (Phase 5)**: paste / upload `.sql` (subset of
+    CREATE TABLE DDL) → DatabaseModel + DatabaseEntity + DatabaseField with
+    resolved FKs (CREATE_DATABASE_MODEL), generated Mermaid ERD preview.
 - API Specs
 - Database Models (with visual Mermaid ERD)
-- Diagrams (Mermaid editor + live preview, polished, readable labels in dark theme)
+- Diagrams (Mermaid editor + live preview, polished, readable labels in dark
+  theme — global renderer now guarantees label visibility via a post-render
+  style sweep + scoped CSS fallback + `htmlLabels: false` Mermaid config; all
+  6 MermaidPreview callers benefit)
 - Validation (artifact relation, doc, security, API, DB, diagram, churn, deprecated-still-used, single-member rules)
 - Version History (every CUD records a VersionEvent — including member add/role-change/remove; timeline + filters)
 - Impact Analysis (per-artifact blast radius: deps, dependents, APIs, DBs, diagrams, docs, recent events)
