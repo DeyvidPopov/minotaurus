@@ -2,6 +2,48 @@
 
 ## Last Completed Feature
 
+**Ingestion Phases 4 + 5 — Mermaid + SQL Schema ingestion**:
+- Phase 4 — Mermaid: new `mermaid.engine.ts` (no AI, pure regex). Lifts a
+  `\`\`\`mermaid` fence from Markdown if present, detects diagram type from
+  the first non-comment keyword, extracts a `%% Title: …` comment, counts
+  lines, pulls best-effort node hints. Endpoints `POST /ingestion/:id/
+  parse-mermaid` + `POST /ingestion/:id/confirm-mermaid` (CREATE_DIAGRAM,
+  optional artifact link). Confirm creates a real `Diagram` row + writes a
+  `DIAGRAM/CREATED` VersionEvent.
+- Phase 5 — SQL Schema: new `sql.engine.ts`. Hand-written DDL scanner that
+  matches `CREATE TABLE` heads then uses a paren-depth walker to capture the
+  body — needed so `FOREIGN KEY (col) REFERENCES tbl(col)` constraints with
+  nested parens are recovered. Supports `NOT NULL`, inline + table-level
+  `PRIMARY KEY` and `UNIQUE`, inline `REFERENCES`, and table-level
+  `FOREIGN KEY`. Endpoints `POST /ingestion/:id/parse-sql-schema` +
+  `POST /ingestion/:id/confirm-sql-schema` (CREATE_DATABASE_MODEL, optional
+  artifact link). Confirm runs a single Prisma `$transaction` with a
+  two-pass FK resolution (entities first, then update field references).
+  Writes one `DATABASE_MODEL/CREATED` + one `DATABASE_ENTITY/CREATED` per
+  entity.
+- Frontend Ingestion Hub now drives all four source cards (Markdown /
+  OpenAPI / Mermaid / SQL) through wizards. The Mermaid wizard renders a
+  live MermaidPreview in the preview step; the SQL wizard renders a
+  client-generated `erDiagram` Mermaid preview from the parsed entities +
+  relationships. New shared `ArtifactLinkPicker` component used by both
+  wizards. History "Result" column reports per source. The simple "Start
+  draft" form is unreachable from the Hub now.
+- Existing Diagrams + Database Model modules are untouched. The wizards
+  write to the same Prisma tables so detail pages, ERD views, validation
+  rules and SSOT export pick the imported records up unchanged.
+- Verification: 11/11 backend smoke tests pass. Mermaid flow tested with
+  the brief's sequenceDiagram sample (correct title, type=SEQUENCE, 4 node
+  hints) → confirm with artifact link → Diagram detail shows artifactId
+  + Mermaid source. SQL flow tested with the brief's users / sessions
+  sample → correctly resolved `sessions.user_id` → `users.id` FK after
+  fixing the CREATE TABLE body capture to use paren-depth scanning
+  instead of a non-greedy regex (the regex stopped at the first `)` of
+  `(user_id)`). JSON export with DATABASE_MODELS contains the imported
+  model with 2 entities and 1 FK field. VIEWERs blocked from both
+  endpoints (`INSUFFICIENT_ROLE`).
+
+## Previous feature pass
+
 **Ingestion Phase 3 — OpenAPI JSON ingestion**:
 - New deterministic engine `backend/src/modules/ingestion/openapi.engine.ts`
   (pure regex / JSON.parse, no AI, no YAML). Validates `openapi`/`swagger` +
@@ -267,7 +309,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-f430295 — *Implement OpenAPI JSON ingestion workflow*
+3019f96 — *Implement Mermaid + SQL schema ingestion workflows*
 
 ## Current Working State
 
@@ -283,9 +325,11 @@ f430295 — *Implement OpenAPI JSON ingestion workflow*
 
 ## Current Goal
 
-**Mermaid ingestion** — accept a Mermaid source body, detect diagram type from
-the header keyword, create a `Diagram` row, optionally infer relations from
-arrow targets, and link to an optional artifact. See NEXT_STEPS.md.
+**AI architecture review** — wrap a model call in a backend endpoint to
+summarise architecture, flag cross-artifact inconsistencies the deterministic
+validation rules can't catch, and answer impact questions. Settings already
+has a place for an Anthropic API key field to keep it opt-in. See
+NEXT_STEPS.md.
 
 ## Important Constraints
 
