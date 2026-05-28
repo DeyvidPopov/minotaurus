@@ -2,6 +2,7 @@
 
 import { apiClient } from "./client";
 import type { ArtifactType } from "@/lib/types";
+import type { HttpMethod } from "./api-specs";
 
 export type IngestionSourceType =
   | "MARKDOWN"
@@ -21,10 +22,30 @@ export interface MarkdownParserResult {
   markdown?: string;
 }
 
+export interface ParsedOpenApiEndpoint {
+  method: HttpMethod;
+  path: string;
+  summary: string;
+  description: string;
+  requiresAuth: boolean;
+  requestSchema?: string;
+  responseSchema?: string;
+}
+
+export interface OpenApiParserResult {
+  source: "OPENAPI_JSON";
+  title: string;
+  version: string;
+  baseUrl: string;
+  description: string;
+  endpointCount: number;
+  endpoints: ParsedOpenApiEndpoint[];
+}
+
 export interface CreatedRecordRef {
-  type: "ARTIFACT";
+  type: "ARTIFACT" | "API_SPEC" | "API_ENDPOINT";
   id: string;
-  mode?: "LINK_EXISTING" | "CREATE_NEW";
+  mode?: "LINK_EXISTING" | "CREATE_NEW" | "CREATE_API_SPEC";
 }
 
 export interface IngestionRecord {
@@ -35,7 +56,7 @@ export interface IngestionRecord {
   title: string;
   sourceName: string;
   createdRecords: CreatedRecordRef[] | unknown;
-  parserResult: MarkdownParserResult | null;
+  parserResult: MarkdownParserResult | OpenApiParserResult | null;
   errorMessage: string;
   createdById: string;
   createdAt: string;
@@ -62,6 +83,28 @@ export interface ConfirmMarkdownResponse {
   artifact: { id: string; title: string; type: ArtifactType };
 }
 
+export interface OpenApiParseResponse {
+  record: IngestionRecord;
+  preview: OpenApiParserResult;
+}
+
+export interface ConfirmOpenApiBody {
+  mode: "CREATE_API_SPEC";
+  artifactId?: string | null;
+}
+
+export interface ConfirmOpenApiResponse {
+  record: IngestionRecord;
+  apiSpec: {
+    id: string;
+    title: string;
+    version: string;
+    baseUrl: string;
+    endpointCount: number;
+    linkedArtifactId: string | null;
+  };
+}
+
 export const ingestionApi = {
   list: (projectId: string) =>
     apiClient.get<IngestionRecord[]>(`/projects/${projectId}/ingestion`),
@@ -75,4 +118,8 @@ export const ingestionApi = {
     apiClient.post<MarkdownParseResponse>(`/ingestion/${ingestionId}/parse-markdown`, { markdown }),
   confirmMarkdown: (ingestionId: string, body: ConfirmMarkdownBody) =>
     apiClient.post<ConfirmMarkdownResponse>(`/ingestion/${ingestionId}/confirm-markdown`, body),
+  parseOpenApiJson: (ingestionId: string, openapiJson: string) =>
+    apiClient.post<OpenApiParseResponse>(`/ingestion/${ingestionId}/parse-openapi-json`, { openapiJson }),
+  confirmOpenApiJson: (ingestionId: string, body: ConfirmOpenApiBody) =>
+    apiClient.post<ConfirmOpenApiResponse>(`/ingestion/${ingestionId}/confirm-openapi-json`, body),
 };

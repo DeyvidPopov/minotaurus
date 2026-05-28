@@ -25,17 +25,19 @@ Backend:
 - Documentation (per-artifact Markdown editor) + **Documentation Hub** with
   project-wide coverage stats, search, filter, and direct deep-links to the
   artifact detail's Documentation tab via `?tab=documentation`.
-- **Ingestion Hub with live Markdown parser** —
+- **Ingestion Hub with live Markdown + OpenAPI JSON parsers** —
   - Foundation (Ingestion Phase 1): `IngestionRecord` table, draft CRUD API,
     sidebar entry, source type cards, history.
   - **Markdown parser (Ingestion Phase 2)**: paste or upload `.md` →
-    deterministic parse (headings + word count + excerpt + suggested title) →
-    preview → confirm into either an existing artifact (LINK_EXISTING) or a
-    new DOCUMENTATION artifact (CREATE_NEW). Status flow DRAFT → PARSED →
-    CONFIRMED, with FAILED on errors. Imported docs flow through
-    `Artifact.documentationContent` and appear in the Documentation Hub /
-    SSOT export automatically.
-  - OpenAPI / Mermaid / SQL parsers are still placeholders (next phases).
+    deterministic parse → preview → confirm into either an existing artifact
+    (LINK_EXISTING) or a new DOCUMENTATION artifact (CREATE_NEW). Status flow
+    DRAFT → PARSED → CONFIRMED, with FAILED on errors. Imported docs flow
+    through `Artifact.documentationContent`.
+  - **OpenAPI JSON parser (Ingestion Phase 3)**: paste or upload `.json` →
+    deterministic parse (info, servers[0].url, paths) → preview with endpoints
+    table → confirm CREATE_API_SPEC with optional artifact link. Creates real
+    `ApiSpec` + `ApiEndpoint` rows via `$transaction`. JSON only (no YAML).
+  - Mermaid / SQL parsers are still placeholders (next phases).
 - API Specs
 - Database Models (with visual Mermaid ERD)
 - Diagrams (Mermaid editor + live preview, polished, readable labels in dark theme)

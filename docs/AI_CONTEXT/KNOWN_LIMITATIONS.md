@@ -57,10 +57,31 @@ Living list of trade-offs and partial implementations in the current MVP. Update
   project — they live on their own tables and only show up under their parent
   artifact via foreign key.
 
-## Ingestion (Phases 1 + 2)
+## Ingestion (Phases 1 + 2 + 3)
 - Phase 1 shipped the IngestionRecord table + workflow shell. Phase 2 shipped a
   **deterministic Markdown parser** + the LINK_EXISTING / CREATE_NEW confirm
-  flow. OpenAPI, Mermaid and SQL schema parsers are still placeholders.
+  flow. Phase 3 shipped a **deterministic OpenAPI JSON parser** +
+  CREATE_API_SPEC confirm. Mermaid and SQL schema parsers are still
+  placeholders.
+- OpenAPI parser limits:
+  - JSON only — `.yaml` / `.yml` is rejected client-side, and the backend has
+    no YAML parser. Convert YAML to JSON before importing.
+  - GraphQL / Postman collections / OpenAPI 1.x not supported. Swagger 2.0
+    works on best-effort (host + basePath becomes the baseUrl).
+  - Only the five HTTP methods in our `HttpMethod` enum (GET / POST / PUT /
+    PATCH / DELETE) are imported. `options`, `head`, `trace` are silently
+    dropped.
+  - `requestBody` and `responses` are stored verbatim as `JSON.stringify`'d
+    strings on `ApiEndpoint.requestSchema` / `responseSchema` — they're not
+    further interpreted, validated, or expanded.
+  - `requiresAuth` is true when the operation has its own `security` array OR
+    the document has a root `security` and the operation didn't override it.
+    Detailed auth scheme info (bearer / API key / OAuth scopes) is not stored.
+  - `$ref` resolution is not performed. References are kept as the raw JSON
+    text they appear in.
+  - No de-duplication: if you confirm the same OpenAPI doc twice, you'll get
+    two distinct `ApiSpec` rows (artifact-title uniqueness doesn't apply to
+    API specs).
 - Markdown parser limits:
   - Only `.md` files or pasted plain Markdown. No `.docx`, `.pdf`, `.txt`,
     or zip archives — the wizard rejects non-`.md` files client-side and the

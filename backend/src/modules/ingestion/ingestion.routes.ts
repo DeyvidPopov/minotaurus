@@ -1,11 +1,13 @@
 import { Router } from "express";
 import {
   confirmMarkdownEndpoint,
+  confirmOpenApiJsonEndpoint,
   createDraft,
   deleteIngestionRecord,
   getIngestionRecord,
   listIngestionRecords,
   parseMarkdownEndpoint,
+  parseOpenApiJsonEndpoint,
 } from "./ingestion.controller.js";
 
 export const projectIngestionRouter = Router({ mergeParams: true });
@@ -17,3 +19,5 @@ ingestionRouter.get("/:ingestionId", getIngestionRecord);
 ingestionRouter.delete("/:ingestionId", deleteIngestionRecord);
 ingestionRouter.post("/:ingestionId/parse-markdown", parseMarkdownEndpoint);
 ingestionRouter.post("/:ingestionId/confirm-markdown", confirmMarkdownEndpoint);
+ingestionRouter.post("/:ingestionId/parse-openapi-json", parseOpenApiJsonEndpoint);
+ingestionRouter.post("/:ingestionId/confirm-openapi-json", confirmOpenApiJsonEndpoint);

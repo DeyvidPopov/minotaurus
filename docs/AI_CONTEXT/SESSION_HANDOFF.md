@@ -2,6 +2,47 @@
 
 ## Last Completed Feature
 
+**Ingestion Phase 3 — OpenAPI JSON ingestion**:
+- New deterministic engine `backend/src/modules/ingestion/openapi.engine.ts`
+  (pure regex / JSON.parse, no AI, no YAML). Validates `openapi`/`swagger` +
+  `paths`, extracts title / version / description / `servers[0].url` (with
+  Swagger 2.0 best-effort), and per-(path, method) operation summary,
+  description, requestSchema (stringified `requestBody`), responseSchema
+  (stringified `responses`), and `requiresAuth` (op-level `security[]` OR
+  root-level `security[]` with no op override). Only GET / POST / PUT / PATCH /
+  DELETE imported.
+- Two new endpoints — both DEVELOPER+:
+  - `POST /api/ingestion/:id/parse-openapi-json` — JSON `{ openapiJson }`.
+    Stores preview + `source: "OPENAPI_JSON"` marker in `parserResult`, flips
+    DRAFT → PARSED, writes `PROJECT/UPDATED` event
+    `"OpenAPI JSON parsed · <title>"`. On parser error: FAILED + 422
+    PARSE_FAILED.
+  - `POST /api/ingestion/:id/confirm-openapi-json` — body
+    `{ mode: "CREATE_API_SPEC", artifactId?: string | null }`. Single Prisma
+    `$transaction` creates `ApiSpec` (linked to optional artifact) + one
+    `ApiEndpoint` per parsed endpoint. Writes one `API_SPEC/CREATED` event +
+    one `API_ENDPOINT/CREATED` event per endpoint. Flips status PARSED →
+    CONFIRMED. `createdRecords` ends as `[API_SPEC + API_ENDPOINT[]]`.
+- Frontend Ingestion Hub now drives the OpenAPI JSON card through a multi-step
+  wizard mirroring the Markdown one: paste-or-upload `.json` → preview
+  (endpoints table with method-toned chips + auth badge) → optional artifact
+  picker → confirm. On success → router push to `/projects/:id/api/:newSpecId`.
+  History "Result" column shows `<N> endpoint(s) · v<version>` for PARSED and
+  `API spec + <N> endpoint(s) created` for CONFIRMED. Detail modal links
+  API_SPEC records to the real API spec detail page.
+- Existing API Specs module is untouched — wizard creates real rows so the
+  API Specs page, validation engine, and SSOT export pick them up unchanged
+  (verified end-to-end).
+- VIEWER blocked from both endpoints (`INSUFFICIENT_ROLE`).
+- Verification: 11/11 backend smoke tests pass. curl flow against the brief's
+  sample doc: parse → PARSED (3 endpoints, baseUrl `/api`, requiresAuth
+  true/false/true respecting `/auth/me` security) → confirm with artifact link
+  → 1 API_SPEC + 3 API_ENDPOINT created → version history shows 5 events
+  (PARSED + spec CREATED + 3 endpoints CREATED) → JSON export with
+  API_SPECS section contains the imported spec with endpointCount 3.
+
+## Previous feature pass
+
 **Artifact titles unique per project**:
 - New `normalizedTitle String` column on `Artifact` + unique index
   `@@unique([projectId, normalizedTitle])`. Migration
@@ -226,7 +267,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-f6bc224 — *Prevent duplicate artifact titles per project*
+_(updated by the Ingestion Phase 3 commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 
@@ -242,10 +283,9 @@ f6bc224 — *Prevent duplicate artifact titles per project*
 
 ## Current Goal
 
-**OpenAPI JSON ingestion** — accept an OpenAPI 3.x JSON payload, create an
-`ApiSpec` + `ApiEndpoint` rows (and optionally link to an existing artifact),
-populate `createdRecords` with the spec / endpoint ids, and preserve the same
-DRAFT → PARSED → CONFIRMED flow. See NEXT_STEPS.md.
+**Mermaid ingestion** — accept a Mermaid source body, detect diagram type from
+the header keyword, create a `Diagram` row, optionally infer relations from
+arrow targets, and link to an optional artifact. See NEXT_STEPS.md.
 
 ## Important Constraints
 

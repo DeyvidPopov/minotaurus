@@ -9,19 +9,68 @@
 - Export
 - Documentation (per-artifact Markdown editor)
 - **Documentation Hub (Phase A — project-wide coverage view)**
-- **Ingestion Hub (Ingestion Phase 1 + 2)**
+- **Ingestion Hub (Ingestion Phases 1 + 2 + 3)**
   - Phase 1: draft workflow + history + sidebar entry.
   - Phase 2: **Markdown parser + documentation import** — deterministic parser
-    (no AI), preview UI, LINK_EXISTING / CREATE_NEW confirm modes, status flow
-    DRAFT → PARSED → CONFIRMED (or FAILED). OpenAPI / Mermaid / SQL ingestion
-    still not implemented.
+    (no AI), preview UI, LINK_EXISTING / CREATE_NEW confirm modes.
+  - Phase 3: **OpenAPI JSON parser + API spec creation** — deterministic parser,
+    preview with endpoints table, CREATE_API_SPEC confirm with optional artifact
+    link. JSON only (YAML not supported). Mermaid / SQL ingestion still
+    placeholders.
 - API Specs
 - Database Models (with auto-generated Mermaid ERD preview)
 - Diagrams (Mermaid editor with live preview, syntax status, template picker)
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## ARTIFACT TITLES UNIQUE PER PROJECT (current pass)
+## INGESTION PHASE 3 — OpenAPI JSON ingestion (current pass)
+- New deterministic engine at `backend/src/modules/ingestion/openapi.engine.ts`.
+  No AI, no YAML. Validates basic OpenAPI structure (must have `openapi` or
+  `swagger` field plus a `paths` object), then extracts:
+  - `info.title`, `info.version`, `info.description`
+  - `servers[0].url` (with Swagger 2.0 best-effort: `scheme://host + basePath`)
+  - per (path, method) operation → `{ method, path, summary, description,
+    requiresAuth, requestSchema, responseSchema }`. `requiresAuth` is true if
+    the operation has its own `security` array OR if a root-level `security`
+    exists and the operation didn't override it. `requestSchema` /
+    `responseSchema` are `JSON.stringify`'d versions of `requestBody` /
+    `responses` so they fit the existing `ApiEndpoint` schema fields.
+  - Only the five supported HTTP methods (GET / POST / PUT / PATCH / DELETE)
+    are imported; options/head/trace are silently dropped.
+- Two new ingestion endpoints — both DEVELOPER+:
+  - `POST /api/ingestion/:id/parse-openapi-json` — JSON `{ openapiJson }`. Only
+    on `OPENAPI_JSON` sourceType. Stores the preview (+ source marker
+    `source: "OPENAPI_JSON"`) in `parserResult`, flips status DRAFT → PARSED,
+    writes `PROJECT/UPDATED` VersionEvent `"OpenAPI JSON parsed · <title>"`. On
+    failure: status FAILED, errorMessage set, returns 422 PARSE_FAILED.
+  - `POST /api/ingestion/:id/confirm-openapi-json` — body
+    `{ mode: "CREATE_API_SPEC", artifactId?: string | null }`. Requires the
+    record to be PARSED. Creates an `ApiSpec` (linked to the optional artifact)
+    + one `ApiEndpoint` per parsed endpoint **in a single `$transaction`**.
+    Writes one `API_SPEC/CREATED` and one `API_ENDPOINT/CREATED` event per
+    endpoint. Flips status PARSED → CONFIRMED. `createdRecords` ends up as
+    `[{ type: "API_SPEC", id, mode: "CREATE_API_SPEC" }, { type: "API_ENDPOINT", id }, …]`.
+- Frontend: existing Ingestion Hub now drives the OpenAPI JSON card with a
+  multi-step wizard modal that mirrors the Markdown wizard:
+  - Step 1: title + optional source name + paste-or-upload `.json`.
+  - Step 2: preview — API title / version / base URL / description / endpoint
+    table (method chip with tone per HTTP verb, path, summary, auth chip).
+  - Step 3: confirm — searchable artifact picker (with a `— No artifact link —`
+    option), Create API spec button. On success → router push to
+    `/projects/:id/api/:newSpecId`.
+  - History "Result" column: PARSED rows show `<N> endpoint(s) · v<version>`;
+    CONFIRMED rows show `API spec + <N> endpoint(s) created`.
+  - Detail modal shows API title / version / base URL / endpoint count and
+    links each created record to its real detail page (API spec for `API_SPEC`,
+    artifact detail for `ARTIFACT`).
+  - VIEWERs see the wizard disabled; the API returns `INSUFFICIENT_ROLE` on
+    bypass.
+- The existing API Specs module is **unchanged** — the wizard creates real
+  `ApiSpec` + `ApiEndpoint` rows via Prisma, so the API Specs page, detail
+  view, validation engine and SSOT export all pick them up unchanged.
+- 11/11 backend smoke tests still pass.
+
+## ARTIFACT TITLES UNIQUE PER PROJECT (previous pass)
 - Added `normalizedTitle String` column on `Artifact` + unique index
   `@@unique([projectId, normalizedTitle])`. Migration
   `20260528080000_artifact_unique_title` backfills via

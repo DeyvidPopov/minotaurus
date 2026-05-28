@@ -1,18 +1,19 @@
 # Next Steps
 
-Ingestion Phase 2 (Markdown parser + documentation import) is shipped:
-deterministic Markdown engine, `POST /api/ingestion/:id/parse-markdown` +
-`POST /api/ingestion/:id/confirm-markdown` endpoints, multi-step wizard in the
-Ingestion Hub with paste/upload/preview/LINK_EXISTING/CREATE_NEW. Imported docs
-flow through `Artifact.documentationContent` into the Documentation Hub and SSOT
-export. 11/11 backend smoke tests still pass.
+Ingestion Phase 3 (OpenAPI JSON ingestion) is shipped: deterministic engine,
+`POST /api/ingestion/:id/parse-openapi-json` + `POST /api/ingestion/:id/confirm-openapi-json`
+endpoints, multi-step wizard in the Ingestion Hub with paste/upload/preview
+(endpoint table + auth chip)/optional artifact link. CREATE_API_SPEC writes
+real `ApiSpec` + `ApiEndpoint` rows in a single Prisma `$transaction` so the
+API Specs page, validation engine, and SSOT export pick them up unchanged.
+11/11 backend smoke tests still pass.
 
-**Recommended next phase: OpenAPI JSON ingestion** — accept an OpenAPI 3.x JSON
-payload, create an `ApiSpec` + `ApiEndpoint` rows (and optionally link to an
-existing artifact), populate `createdRecords` with the spec / endpoint ids, and
-preserve the same DRAFT → PARSED → CONFIRMED flow. After that: Mermaid parser
-(create a `Diagram` and infer relations from arrow targets), then SQL Schema
-parser (create a `DatabaseModel` with entities and fields).
+**Recommended next phase: Mermaid ingestion** — accept a Mermaid source body,
+detect the diagram type from the header keyword (flowchart / sequenceDiagram /
+erDiagram / classDiagram / stateDiagram / gantt), create a `Diagram` row,
+optionally infer relations from arrow targets (`A --> B`), and link to an
+optional artifact. After that: SQL Schema parser (create a `DatabaseModel`
+with entities and fields from `CREATE TABLE` statements).
 
 Phase A (Dedicated Documentation Hub) is shipped: new
 `GET /api/projects/:projectId/documentation` overview endpoint, real

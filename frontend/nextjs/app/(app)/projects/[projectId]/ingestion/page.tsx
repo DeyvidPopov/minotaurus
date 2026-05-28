@@ -24,6 +24,7 @@ import {
   type IngestionSourceType,
   type IngestionStatus,
   type MarkdownParserResult,
+  type OpenApiParserResult,
   type CreatedRecordRef,
 } from "@/lib/api/ingestion";
 import { membersApi, type ProjectMember } from "@/lib/api/members";
@@ -52,10 +53,10 @@ const SOURCE_TYPES: SourceTypeMeta[] = [
   {
     type: "OPENAPI_JSON",
     label: "OpenAPI JSON",
-    description: "API specs with endpoints. Will create an API_SPEC + ApiEndpoints.",
+    description: "OpenAPI 3.x or Swagger 2.0 JSON. Parses paths + operations into an API Spec with endpoints, optionally linked to an artifact.",
     icon: <Plug size={16} />,
-    badge: "Coming next",
-    parserReady: false,
+    badge: "Parser ready",
+    parserReady: true,
   },
   {
     type: "MERMAID",
@@ -99,7 +100,7 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
   const [myMembership, setMyMembership] = useState<ProjectMember | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draftFormFor, setDraftFormFor] = useState<IngestionSourceType | null>(null);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState<null | "MARKDOWN" | "OPENAPI_JSON">(null);
   const [selected, setSelected] = useState<IngestionRecord | null>(null);
 
   const refresh = async () => {
@@ -144,8 +145,8 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
       toast.error("Your role doesn't allow ingestion mutations.");
       return;
     }
-    if (s.parserReady && s.type === "MARKDOWN") {
-      setWizardOpen(true);
+    if (s.parserReady && (s.type === "MARKDOWN" || s.type === "OPENAPI_JSON")) {
+      setWizardOpen(s.type);
     } else {
       setDraftFormFor(s.type);
     }
@@ -249,16 +250,32 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
                   {records.map((r) => {
                     const meta = sourceMeta(r.sourceType);
                     const created = createdRecordList(r.createdRecords);
-                    const preview = r.parserResult as MarkdownParserResult | null;
+                    const parser = r.parserResult as MarkdownParserResult | OpenApiParserResult | null;
+                    const isOpenApiParser = !!parser && (parser as OpenApiParserResult).source === "OPENAPI_JSON";
                     let summary: React.ReactNode = <span className="text-fg-subtle">—</span>;
-                    if (r.status === "PARSED" && preview) {
-                      summary = (
-                        <span className="text-fg-muted text-[12.5px]">
-                          {preview.wordCount} words · {preview.headings.length} heading{preview.headings.length === 1 ? "" : "s"}
-                        </span>
-                      );
+                    if (r.status === "PARSED" && parser) {
+                      if (isOpenApiParser) {
+                        const p = parser as OpenApiParserResult;
+                        summary = (
+                          <span className="text-fg-muted text-[12.5px]">
+                            {p.endpointCount} endpoint{p.endpointCount === 1 ? "" : "s"} · v{p.version}
+                          </span>
+                        );
+                      } else {
+                        const p = parser as MarkdownParserResult;
+                        summary = (
+                          <span className="text-fg-muted text-[12.5px]">
+                            {p.wordCount} words · {p.headings.length} heading{p.headings.length === 1 ? "" : "s"}
+                          </span>
+                        );
+                      }
                     } else if (r.status === "CONFIRMED") {
-                      summary = (
+                      const apiSpec = created.find((c) => c.type === "API_SPEC");
+                      summary = apiSpec ? (
+                        <span className="text-success text-[12.5px]">
+                          API spec + {created.filter((c) => c.type === "API_ENDPOINT").length} endpoint{created.filter((c) => c.type === "API_ENDPOINT").length === 1 ? "" : "s"} created
+                        </span>
+                      ) : (
                         <span className="text-success text-[12.5px]">
                           {created.length} record{created.length === 1 ? "" : "s"} created
                         </span>
@@ -331,18 +348,31 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
         />
       )}
 
-      {wizardOpen && (
+      {wizardOpen === "MARKDOWN" && (
         <MarkdownImportWizard
           projectId={projectId}
-          onClose={() => setWizardOpen(false)}
+          onClose={() => setWizardOpen(null)}
           onCommitted={async (artifactId) => {
-            setWizardOpen(false);
+            setWizardOpen(null);
             await refresh();
-            // Don't auto-navigate — let the user choose. Toast already showed success.
             void artifactId;
           }}
           onNavigateToArtifact={(artifactId) => {
             router.push(`/projects/${projectId}/artifacts/${artifactId}?tab=documentation`);
+          }}
+        />
+      )}
+
+      {wizardOpen === "OPENAPI_JSON" && (
+        <OpenApiImportWizard
+          projectId={projectId}
+          onClose={() => setWizardOpen(null)}
+          onCommitted={async () => {
+            setWizardOpen(null);
+            await refresh();
+          }}
+          onNavigateToApiSpec={(apiSpecId) => {
+            router.push(`/projects/${projectId}/api/${apiSpecId}`);
           }}
         />
       )}
@@ -728,6 +758,299 @@ function MarkdownImportWizard({
   );
 }
 
+// ────────────────────────────── OpenAPI Import Wizard ──────────────────────────────
+
+type OpenApiStep = "input" | "preview" | "confirm";
+
+const METHOD_TONE: Record<string, "info" | "success" | "warning" | "danger" | "default"> = {
+  GET: "info",
+  POST: "success",
+  PUT: "warning",
+  PATCH: "warning",
+  DELETE: "danger",
+};
+
+function OpenApiImportWizard({
+  projectId,
+  onClose,
+  onCommitted,
+  onNavigateToApiSpec,
+}: {
+  projectId: string;
+  onClose: () => void;
+  onCommitted: () => Promise<void> | void;
+  onNavigateToApiSpec: (apiSpecId: string) => void;
+}) {
+  const [step, setStep] = useState<OpenApiStep>("input");
+  const [title, setTitle] = useState("OpenAPI import");
+  const [sourceName, setSourceName] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [record, setRecord] = useState<IngestionRecord | null>(null);
+  const [preview, setPreview] = useState<OpenApiParserResult | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [linkedArtifactId, setLinkedArtifactId] = useState<string | "">("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFile = async (file: File) => {
+    if (!/\.json$/i.test(file.name)) {
+      toast.error("Please pick a .json file");
+      return;
+    }
+    const text = await file.text();
+    setBody(text);
+    if (!sourceName) setSourceName(file.name);
+    if (!title || title === "OpenAPI import") {
+      setTitle(file.name.replace(/\.json$/i, ""));
+    }
+  };
+
+  const runParse = async () => {
+    if (!body.trim()) {
+      toast.error("Paste or upload an OpenAPI JSON document first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const draft = record ?? await ingestionApi.createDraft(projectId, {
+        sourceType: "OPENAPI_JSON",
+        title: title.trim() || "OpenAPI import",
+        sourceName: sourceName.trim() || undefined,
+      });
+      const result = await ingestionApi.parseOpenApiJson(draft.id, body);
+      setRecord(result.record);
+      setPreview(result.preview);
+      setStep("preview");
+      toast.success("OpenAPI JSON parsed");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Parse failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const goConfirm = async () => {
+    setStep("confirm");
+    if (artifacts !== null) return;
+    try {
+      const list = await artifactsApi.list(projectId);
+      setArtifacts(list);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to load artifacts");
+    }
+  };
+
+  const filteredArtifacts = useMemo(() => {
+    if (!artifacts) return [];
+    const q = pickerSearch.trim().toLowerCase();
+    if (!q) return artifacts;
+    return artifacts.filter(
+      (a) => a.title.toLowerCase().includes(q) || a.type.toLowerCase().includes(q),
+    );
+  }, [artifacts, pickerSearch]);
+
+  const confirmCreate = async () => {
+    if (!record) return;
+    setBusy(true);
+    try {
+      const out = await ingestionApi.confirmOpenApiJson(record.id, {
+        mode: "CREATE_API_SPEC",
+        artifactId: linkedArtifactId || null,
+      });
+      toast.success(`Imported "${out.apiSpec.title}" with ${out.apiSpec.endpointCount} endpoints`);
+      await onCommitted();
+      onNavigateToApiSpec(out.apiSpec.id);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Confirm failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose} title="Import OpenAPI JSON" wide>
+      {step === "input" && (
+        <div className="flex flex-col gap-3">
+          <LabeledInput label="Title" value={title} onChange={setTitle} placeholder="e.g. Catalog API" required />
+          <LabeledInput label="Source name" optional value={sourceName} onChange={setSourceName} placeholder="catalog.openapi.json" mono />
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-fg-muted">OpenAPI JSON</span>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleFile(f);
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  icon={<UploadIcon size={13} />}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Upload .json
+                </Button>
+              </div>
+            </div>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder='{ "openapi": "3.0.0", "info": { ... }, "paths": { ... } }'
+              spellCheck={false}
+              className="min-h-[280px] max-h-[420px] px-3 py-2 bg-panel-2 border border-border rounded-sm text-[12.5px] font-mono leading-relaxed focus:outline-none focus:border-border-strong"
+            />
+            <div className="text-[11.5px] text-fg-subtle">
+              {body.length.toLocaleString()} chars
+            </div>
+          </div>
+          <div className="text-[12px] text-fg-muted">
+            JSON only — YAML is not supported in this phase. Supported root keys: <code>openapi</code> (3.x) or <code>swagger</code> (2.0 best-effort), plus <code>info</code>, <code>servers</code>, <code>paths</code>.
+          </div>
+          <div className="flex items-center justify-end gap-2 mt-1">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button type="button" variant="primary" onClick={runParse} disabled={busy || !body.trim()}>
+              {busy ? "Parsing…" : "Parse"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === "preview" && preview && (
+        <div className="flex flex-col gap-3 text-[13px]">
+          <DetailRow label="API title" value={<strong className="text-fg">{preview.title}</strong>} />
+          <DetailRow label="Version" value={<span className="text-fg-muted">v{preview.version}</span>} />
+          <DetailRow label="Base URL" value={
+            preview.baseUrl
+              ? <span className="font-mono text-[12.5px]">{preview.baseUrl}</span>
+              : <span className="text-fg-subtle">none declared</span>
+          } />
+          <DetailRow label="Description" value={
+            preview.description
+              ? <span className="text-fg-muted leading-relaxed">{preview.description}</span>
+              : <span className="text-fg-subtle">—</span>
+          } />
+          <DetailRow label="Endpoints" value={
+            <span className="text-fg-muted">{preview.endpointCount} total</span>
+          } />
+          <div className="bg-panel-2 border border-border rounded-sm max-h-[300px] overflow-y-auto">
+            <table className="w-full text-[12.5px]">
+              <thead className="border-b border-border bg-panel sticky top-0">
+                <tr className="text-left text-[11px] uppercase tracking-wider text-fg-subtle">
+                  <th className="px-3 py-2">Method</th>
+                  <th className="px-3 py-2">Path</th>
+                  <th className="px-3 py-2">Summary</th>
+                  <th className="px-3 py-2">Auth</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.endpoints.length === 0 ? (
+                  <tr><td colSpan={4} className="px-3 py-4 text-fg-muted text-center">No supported endpoints found (GET / POST / PUT / PATCH / DELETE only).</td></tr>
+                ) : preview.endpoints.map((ep, i) => (
+                  <tr key={`${ep.method}-${ep.path}-${i}`} className="border-b border-border last:border-0">
+                    <td className="px-3 py-2"><Badge tone={METHOD_TONE[ep.method] ?? "default"} mono>{ep.method}</Badge></td>
+                    <td className="px-3 py-2 font-mono truncate max-w-[260px]" title={ep.path}>{ep.path}</td>
+                    <td className="px-3 py-2 text-fg-muted truncate max-w-[260px]" title={ep.summary}>{ep.summary || "—"}</td>
+                    <td className="px-3 py-2">
+                      {ep.requiresAuth
+                        ? <Badge tone="warning">🔒 auth</Badge>
+                        : <span className="text-fg-subtle text-[11.5px]">public</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="bg-panel-2 border border-border rounded-md px-3 py-2 text-[12px] text-fg-muted">
+            Parsing was deterministic — no AI, no auto-linking. Only standard HTTP methods are imported.
+          </div>
+          <div className="flex items-center justify-between gap-2 mt-1">
+            <Button type="button" variant="ghost" icon={<ArrowLeft size={13} />} onClick={() => setStep("input")} disabled={busy}>Back</Button>
+            <Button type="button" variant="primary" onClick={goConfirm} disabled={busy || preview.endpointCount === 0}>
+              Create API spec
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === "confirm" && preview && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="ghost" icon={<ArrowLeft size={13} />} onClick={() => setStep("preview")}>Back</Button>
+            <div className="text-[13px] font-medium">Confirm API spec creation</div>
+          </div>
+          <DetailRow label="API title" value={<strong className="text-fg">{preview.title}</strong>} />
+          <DetailRow label="Endpoints" value={<span className="text-fg-muted">{preview.endpointCount}</span>} />
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] text-fg-muted">Link to artifact <span className="text-fg-subtle">(optional)</span></span>
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
+              <input
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                placeholder="Search artifacts by title or type…"
+                className="w-full h-8 pl-8 pr-3 bg-panel-2 border border-border rounded-sm text-[13px] focus:outline-none focus:border-border-strong"
+              />
+            </div>
+            <div className="bg-panel-2 border border-border rounded-sm max-h-[220px] overflow-y-auto">
+              <ul className="divide-y divide-border">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setLinkedArtifactId("")}
+                    className={`w-full text-left px-3 py-2 hover:bg-panel-hover text-[13px] ${linkedArtifactId === "" ? "bg-panel-hover" : ""}`}
+                  >
+                    <span className="text-fg-muted">— No artifact link —</span>
+                  </button>
+                </li>
+                {artifacts === null ? (
+                  <li className="px-3 py-3 text-fg-muted text-[13px]">Loading artifacts…</li>
+                ) : filteredArtifacts.length === 0 ? (
+                  <li className="px-3 py-3 text-fg-muted text-[13px]">No artifacts match.</li>
+                ) : filteredArtifacts.map((a) => (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => setLinkedArtifactId(a.id)}
+                      className={`w-full text-left px-3 py-2 hover:bg-panel-hover flex items-center gap-2.5 ${linkedArtifactId === a.id ? "bg-panel-hover" : ""}`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13.5px] font-medium truncate">{a.title}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <TypeChip type={a.type} />
+                          <StatusBadge status={a.status} />
+                        </div>
+                      </div>
+                      {linkedArtifactId === a.id && (
+                        <Badge tone="info">Selected</Badge>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </label>
+          <div className="text-[12px] text-fg-muted">
+            The API spec is created in this project. If you link it to an artifact, the artifact's detail page will list it under <em>Linked resources</em>.
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setStep("preview")} disabled={busy}>Cancel</Button>
+            <Button type="button" variant="primary" onClick={confirmCreate} disabled={busy}>
+              {busy ? "Creating…" : "Create API spec"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 // ────────────────────────────── Shared modal / detail bits ──────────────────────────────
 
 function Modal({ children, onClose, title, wide }: { children: React.ReactNode; onClose: () => void; title: string; wide?: boolean }) {
@@ -789,7 +1112,13 @@ function LabeledInput({
 function DetailView({ record, projectId }: { record: IngestionRecord; projectId: string }) {
   const meta = sourceMeta(record.sourceType);
   const createdList = createdRecordList(record.createdRecords);
-  const preview = record.parserResult as MarkdownParserResult | null;
+  const parser = record.parserResult as MarkdownParserResult | OpenApiParserResult | null;
+  const isOpenApi = !!parser && (parser as OpenApiParserResult).source === "OPENAPI_JSON";
+  const linkHrefFor = (c: CreatedRecordRef) => {
+    if (c.type === "API_SPEC") return `/projects/${projectId}/api/${c.id}`;
+    if (c.type === "ARTIFACT") return `/projects/${projectId}/artifacts/${c.id}?tab=documentation`;
+    return `/projects/${projectId}/api`;
+  };
   return (
     <div className="flex flex-col gap-3 text-[13px]">
       <DetailRow label="Source type" value={
@@ -800,15 +1129,28 @@ function DetailView({ record, projectId }: { record: IngestionRecord; projectId:
       <DetailRow label="Created by" value={record.createdBy?.name || record.createdBy?.email || "—"} />
       <DetailRow label="Created" value={<span className="text-fg-muted">{timeAgo(record.createdAt)}</span>} />
 
-      {preview && (
+      {parser && !isOpenApi && (
         <>
-          <DetailRow label="Parsed title" value={<span className="text-fg">{preview.title}</span>} />
-          <DetailRow label="Word count" value={<span className="text-fg-muted">{preview.wordCount} words</span>} />
+          <DetailRow label="Parsed title" value={<span className="text-fg">{(parser as MarkdownParserResult).title}</span>} />
+          <DetailRow label="Word count" value={<span className="text-fg-muted">{(parser as MarkdownParserResult).wordCount} words</span>} />
           <DetailRow label="Headings" value={
-            preview.headings.length === 0
+            (parser as MarkdownParserResult).headings.length === 0
               ? <span className="text-fg-muted">None detected.</span>
-              : <span className="text-fg-muted">{preview.headings.length} (e.g. {preview.headings.slice(0, 3).join(", ")}{preview.headings.length > 3 ? "…" : ""})</span>
+              : <span className="text-fg-muted">{(parser as MarkdownParserResult).headings.length} (e.g. {(parser as MarkdownParserResult).headings.slice(0, 3).join(", ")}{(parser as MarkdownParserResult).headings.length > 3 ? "…" : ""})</span>
           } />
+        </>
+      )}
+
+      {parser && isOpenApi && (
+        <>
+          <DetailRow label="API title" value={<span className="text-fg">{(parser as OpenApiParserResult).title}</span>} />
+          <DetailRow label="Version" value={<span className="text-fg-muted">v{(parser as OpenApiParserResult).version}</span>} />
+          <DetailRow label="Base URL" value={
+            (parser as OpenApiParserResult).baseUrl
+              ? <span className="font-mono text-[12.5px]">{(parser as OpenApiParserResult).baseUrl}</span>
+              : <span className="text-fg-subtle">none</span>
+          } />
+          <DetailRow label="Endpoints" value={<span className="text-fg-muted">{(parser as OpenApiParserResult).endpointCount}</span>} />
         </>
       )}
 
@@ -821,7 +1163,7 @@ function DetailView({ record, projectId }: { record: IngestionRecord; projectId:
                 <li key={i} className="flex items-center gap-2">
                   <Badge tone="default" mono>{c.type}</Badge>
                   <a
-                    href={`/projects/${projectId}/artifacts/${c.id}?tab=documentation`}
+                    href={linkHrefFor(c)}
                     className="text-accent hover:underline truncate"
                   >
                     {c.id}
