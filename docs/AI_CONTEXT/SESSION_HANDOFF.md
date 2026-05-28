@@ -133,7 +133,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-_(updated by the Phase A commit — see `git log -1` on `main` for the exact hash)_
+58c17cb — *Add dedicated documentation hub*
 
 ## Current Working State
 
