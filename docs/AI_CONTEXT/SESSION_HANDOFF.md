@@ -226,7 +226,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-_(updated by the artifact uniqueness commit — see `git log -1` on `main` for the exact hash)_
+f6bc224 — *Prevent duplicate artifact titles per project*
 
 ## Current Working State
 
