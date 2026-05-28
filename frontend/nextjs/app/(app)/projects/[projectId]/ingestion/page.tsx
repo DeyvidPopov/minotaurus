@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Empty } from "@/components/ui/empty";
 import { TypeChip } from "@/components/ui/type-chip";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { MermaidPreview } from "@/components/mermaid-preview";
 import { useAuth } from "@/lib/auth-context";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
@@ -25,8 +26,12 @@ import {
   type IngestionStatus,
   type MarkdownParserResult,
   type OpenApiParserResult,
+  type MermaidParserResult,
+  type SqlSchemaParserResult,
   type CreatedRecordRef,
 } from "@/lib/api/ingestion";
+import type { DiagramType as IngestionDiagramType } from "@/lib/api/diagrams";
+import type { DatabaseType as IngestionDatabaseType } from "@/lib/api/database-models";
 import { membersApi, type ProjectMember } from "@/lib/api/members";
 import { ApiError } from "@/lib/api/client";
 import { timeAgo } from "@/lib/utils";
@@ -61,18 +66,18 @@ const SOURCE_TYPES: SourceTypeMeta[] = [
   {
     type: "MERMAID",
     label: "Mermaid Diagram",
-    description: "Flowchart / sequence / ERD source. Will create a Diagram (+ inferred relations).",
+    description: "Flowchart / sequence / ERD source (.mmd or fenced .md). Creates a Diagram with the detected type.",
     icon: <GitMerge size={16} />,
-    badge: "Coming next",
-    parserReady: false,
+    badge: "Parser ready",
+    parserReady: true,
   },
   {
     type: "SQL_SCHEMA",
     label: "SQL Schema",
-    description: "CREATE TABLE statements. Will create a DatabaseModel with entities + fields.",
+    description: "CREATE TABLE DDL. Creates a DatabaseModel with entities, fields and resolved foreign keys.",
     icon: <Database size={16} />,
-    badge: "Coming next",
-    parserReady: false,
+    badge: "Parser ready",
+    parserReady: true,
   },
 ];
 
@@ -100,7 +105,7 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
   const [myMembership, setMyMembership] = useState<ProjectMember | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draftFormFor, setDraftFormFor] = useState<IngestionSourceType | null>(null);
-  const [wizardOpen, setWizardOpen] = useState<null | "MARKDOWN" | "OPENAPI_JSON">(null);
+  const [wizardOpen, setWizardOpen] = useState<null | "MARKDOWN" | "OPENAPI_JSON" | "MERMAID" | "SQL_SCHEMA">(null);
   const [selected, setSelected] = useState<IngestionRecord | null>(null);
 
   const refresh = async () => {
@@ -145,7 +150,7 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
       toast.error("Your role doesn't allow ingestion mutations.");
       return;
     }
-    if (s.parserReady && (s.type === "MARKDOWN" || s.type === "OPENAPI_JSON")) {
+    if (s.parserReady) {
       setWizardOpen(s.type);
     } else {
       setDraftFormFor(s.type);
@@ -250,15 +255,29 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
                   {records.map((r) => {
                     const meta = sourceMeta(r.sourceType);
                     const created = createdRecordList(r.createdRecords);
-                    const parser = r.parserResult as MarkdownParserResult | OpenApiParserResult | null;
-                    const isOpenApiParser = !!parser && (parser as OpenApiParserResult).source === "OPENAPI_JSON";
+                    const parser = r.parserResult as MarkdownParserResult | OpenApiParserResult | MermaidParserResult | SqlSchemaParserResult | null;
+                    const parserSource = (parser as { source?: string } | null)?.source ?? null;
                     let summary: React.ReactNode = <span className="text-fg-subtle">—</span>;
                     if (r.status === "PARSED" && parser) {
-                      if (isOpenApiParser) {
+                      if (parserSource === "OPENAPI_JSON") {
                         const p = parser as OpenApiParserResult;
                         summary = (
                           <span className="text-fg-muted text-[12.5px]">
                             {p.endpointCount} endpoint{p.endpointCount === 1 ? "" : "s"} · v{p.version}
+                          </span>
+                        );
+                      } else if (parserSource === "MERMAID") {
+                        const p = parser as MermaidParserResult;
+                        summary = (
+                          <span className="text-fg-muted text-[12.5px]">
+                            {p.diagramType} · {p.lineCount} lines
+                          </span>
+                        );
+                      } else if (parserSource === "SQL_SCHEMA") {
+                        const p = parser as SqlSchemaParserResult;
+                        summary = (
+                          <span className="text-fg-muted text-[12.5px]">
+                            {p.entityCount} entit{p.entityCount === 1 ? "y" : "ies"} · {p.fieldCount} fields · {p.relationships.length} FK
                           </span>
                         );
                       } else {
@@ -271,15 +290,31 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
                       }
                     } else if (r.status === "CONFIRMED") {
                       const apiSpec = created.find((c) => c.type === "API_SPEC");
-                      summary = apiSpec ? (
-                        <span className="text-success text-[12.5px]">
-                          API spec + {created.filter((c) => c.type === "API_ENDPOINT").length} endpoint{created.filter((c) => c.type === "API_ENDPOINT").length === 1 ? "" : "s"} created
-                        </span>
-                      ) : (
-                        <span className="text-success text-[12.5px]">
-                          {created.length} record{created.length === 1 ? "" : "s"} created
-                        </span>
-                      );
+                      const diagram = created.find((c) => c.type === "DIAGRAM");
+                      const dbModel = created.find((c) => c.type === "DATABASE_MODEL");
+                      if (apiSpec) {
+                        summary = (
+                          <span className="text-success text-[12.5px]">
+                            API spec + {created.filter((c) => c.type === "API_ENDPOINT").length} endpoint{created.filter((c) => c.type === "API_ENDPOINT").length === 1 ? "" : "s"} created
+                          </span>
+                        );
+                      } else if (diagram) {
+                        summary = <span className="text-success text-[12.5px]">Diagram created</span>;
+                      } else if (dbModel) {
+                        const entities = created.filter((c) => c.type === "DATABASE_ENTITY").length;
+                        const fieldsN = created.filter((c) => c.type === "DATABASE_FIELD").length;
+                        summary = (
+                          <span className="text-success text-[12.5px]">
+                            DB model + {entities} entit{entities === 1 ? "y" : "ies"} · {fieldsN} fields
+                          </span>
+                        );
+                      } else {
+                        summary = (
+                          <span className="text-success text-[12.5px]">
+                            {created.length} record{created.length === 1 ? "" : "s"} created
+                          </span>
+                        );
+                      }
                     } else if (r.status === "FAILED" && r.errorMessage) {
                       summary = (
                         <span className="text-danger text-[12.5px] truncate inline-block max-w-[240px]" title={r.errorMessage}>
@@ -374,6 +409,24 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
           onNavigateToApiSpec={(apiSpecId) => {
             router.push(`/projects/${projectId}/api/${apiSpecId}`);
           }}
+        />
+      )}
+
+      {wizardOpen === "MERMAID" && (
+        <MermaidImportWizard
+          projectId={projectId}
+          onClose={() => setWizardOpen(null)}
+          onCommitted={async () => { setWizardOpen(null); await refresh(); }}
+          onNavigateToDiagram={(id) => router.push(`/projects/${projectId}/diagrams/${id}`)}
+        />
+      )}
+
+      {wizardOpen === "SQL_SCHEMA" && (
+        <SqlSchemaImportWizard
+          projectId={projectId}
+          onClose={() => setWizardOpen(null)}
+          onCommitted={async () => { setWizardOpen(null); await refresh(); }}
+          onNavigateToDatabaseModel={(id) => router.push(`/projects/${projectId}/database/${id}`)}
         />
       )}
 
@@ -1071,6 +1124,550 @@ function OpenApiImportWizard({
   );
 }
 
+// ────────────────────────────── Mermaid Import Wizard ──────────────────────────────
+
+type MermaidStep = "input" | "preview" | "confirm";
+
+const DIAGRAM_TYPE_OPTIONS: IngestionDiagramType[] = [
+  "FLOWCHART", "SEQUENCE", "ERD", "CLASS", "STATE", "GANTT", "ARCHITECTURE",
+];
+
+function MermaidImportWizard({
+  projectId,
+  onClose,
+  onCommitted,
+  onNavigateToDiagram,
+}: {
+  projectId: string;
+  onClose: () => void;
+  onCommitted: () => Promise<void> | void;
+  onNavigateToDiagram: (diagramId: string) => void;
+}) {
+  const [step, setStep] = useState<MermaidStep>("input");
+  const [title, setTitle] = useState("Mermaid import");
+  const [sourceName, setSourceName] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [record, setRecord] = useState<IngestionRecord | null>(null);
+  const [preview, setPreview] = useState<MermaidParserResult | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [linkedArtifactId, setLinkedArtifactId] = useState<string | "">("");
+  const [chosenTitle, setChosenTitle] = useState("");
+  const [chosenType, setChosenType] = useState<IngestionDiagramType>("FLOWCHART");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFile = async (file: File) => {
+    if (!/\.(mmd|md)$/i.test(file.name)) {
+      toast.error("Please pick a .mmd or .md file");
+      return;
+    }
+    const text = await file.text();
+    setBody(text);
+    if (!sourceName) setSourceName(file.name);
+    if (!title || title === "Mermaid import") {
+      setTitle(file.name.replace(/\.(mmd|md)$/i, ""));
+    }
+  };
+
+  const runParse = async () => {
+    if (!body.trim()) { toast.error("Paste or upload Mermaid source first."); return; }
+    setBusy(true);
+    try {
+      const draft = record ?? await ingestionApi.createDraft(projectId, {
+        sourceType: "MERMAID",
+        title: title.trim() || "Mermaid import",
+        sourceName: sourceName.trim() || undefined,
+      });
+      const result = await ingestionApi.parseMermaid(draft.id, body);
+      setRecord(result.record);
+      setPreview(result.preview);
+      setChosenTitle(result.preview.title);
+      setChosenType(result.preview.diagramType);
+      setStep("preview");
+      toast.success("Mermaid parsed");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Parse failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const goConfirm = async () => {
+    setStep("confirm");
+    if (artifacts !== null) return;
+    try {
+      const list = await artifactsApi.list(projectId);
+      setArtifacts(list);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to load artifacts");
+    }
+  };
+
+  const filteredArtifacts = useMemo(() => {
+    if (!artifacts) return [];
+    const q = pickerSearch.trim().toLowerCase();
+    if (!q) return artifacts;
+    return artifacts.filter((a) => a.title.toLowerCase().includes(q) || a.type.toLowerCase().includes(q));
+  }, [artifacts, pickerSearch]);
+
+  const confirmCreate = async () => {
+    if (!record) return;
+    setBusy(true);
+    try {
+      const out = await ingestionApi.confirmMermaid(record.id, {
+        mode: "CREATE_DIAGRAM",
+        artifactId: linkedArtifactId || null,
+        title: chosenTitle.trim() || "Imported Mermaid Diagram",
+        diagramType: chosenType,
+      });
+      toast.success(`Imported diagram "${out.diagram.title}"`);
+      await onCommitted();
+      onNavigateToDiagram(out.diagram.id);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Confirm failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose} title="Import Mermaid diagram" wide>
+      {step === "input" && (
+        <div className="flex flex-col gap-3">
+          <LabeledInput label="Title" value={title} onChange={setTitle} placeholder="e.g. Checkout Flow" required />
+          <LabeledInput label="Source name" optional value={sourceName} onChange={setSourceName} placeholder="checkout.mmd" mono />
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-fg-muted">Mermaid source</span>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".mmd,.md,text/markdown,text/plain"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); e.target.value = ""; }}
+                />
+                <Button type="button" size="sm" icon={<UploadIcon size={13} />} onClick={() => fileInputRef.current?.click()}>
+                  Upload .mmd / .md
+                </Button>
+              </div>
+            </div>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder={"%% Title: Checkout Flow\nsequenceDiagram\nCustomer->>Frontend: Checkout\nFrontend->>OrderService: Create order"}
+              spellCheck={false}
+              className="min-h-[280px] max-h-[420px] px-3 py-2 bg-panel-2 border border-border rounded-sm text-[12.5px] font-mono leading-relaxed focus:outline-none focus:border-border-strong"
+            />
+            <div className="text-[11.5px] text-fg-subtle">
+              {body.length.toLocaleString()} chars
+            </div>
+          </div>
+          <div className="text-[12px] text-fg-muted">
+            We accept Mermaid source (.mmd) or Markdown (.md) containing a <code>```mermaid</code> code block. The first non-comment line determines the diagram type.
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button type="button" variant="primary" onClick={runParse} disabled={busy || !body.trim()}>{busy ? "Parsing…" : "Parse"}</Button>
+          </div>
+        </div>
+      )}
+
+      {step === "preview" && preview && (
+        <div className="flex flex-col gap-3 text-[13px]">
+          <DetailRow label="Title" value={<strong className="text-fg">{preview.title}</strong>} />
+          <DetailRow label="Diagram type" value={<Badge tone="info" mono>{preview.diagramType}</Badge>} />
+          <DetailRow label="Lines" value={<span className="text-fg-muted">{preview.lineCount}</span>} />
+          <DetailRow label="Node hints" value={
+            preview.nodeHints.length === 0
+              ? <span className="text-fg-muted">None detected.</span>
+              : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {preview.nodeHints.slice(0, 24).map((n, i) => (
+                      <span key={`${n}-${i}`} className="inline-flex items-center px-1.5 py-0.5 rounded-sm bg-panel-2 border border-border text-[12px] text-fg-muted">{n}</span>
+                    ))}
+                    {preview.nodeHints.length > 24 && (
+                      <span className="text-[11.5px] text-fg-subtle">+ {preview.nodeHints.length - 24} more</span>
+                    )}
+                  </div>
+                )
+          } />
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11.5px] uppercase tracking-wider text-fg-subtle">Live preview</span>
+            <div className="bg-panel-2 border border-border rounded-sm p-3 overflow-x-auto">
+              <MermaidPreview source={preview.mermaidSource} />
+            </div>
+          </div>
+          <details className="text-[12px] text-fg-muted">
+            <summary className="cursor-pointer">Show raw Mermaid source</summary>
+            <pre className="mt-2 px-3 py-2 bg-panel-2 border border-border rounded-sm text-[12px] font-mono leading-relaxed whitespace-pre-wrap max-h-[260px] overflow-y-auto">{preview.mermaidSource}</pre>
+          </details>
+          <div className="flex items-center justify-between gap-2">
+            <Button type="button" variant="ghost" icon={<ArrowLeft size={13} />} onClick={() => setStep("input")} disabled={busy}>Back</Button>
+            <Button type="button" variant="primary" onClick={goConfirm} disabled={busy}>Create diagram</Button>
+          </div>
+        </div>
+      )}
+
+      {step === "confirm" && preview && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="ghost" icon={<ArrowLeft size={13} />} onClick={() => setStep("preview")}>Back</Button>
+            <div className="text-[13px] font-medium">Confirm diagram creation</div>
+          </div>
+          <LabeledInput label="Diagram title" value={chosenTitle} onChange={setChosenTitle} required />
+          <label className="flex flex-col gap-1">
+            <span className="text-[12px] text-fg-muted">Diagram type</span>
+            <select
+              value={chosenType}
+              onChange={(e) => setChosenType(e.target.value as IngestionDiagramType)}
+              className="h-8 px-2 bg-panel-2 border border-border rounded-sm text-[13px] focus:outline-none focus:border-border-strong"
+            >
+              {DIAGRAM_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <ArtifactLinkPicker
+            artifacts={artifacts}
+            filtered={filteredArtifacts}
+            value={linkedArtifactId}
+            onChange={setLinkedArtifactId}
+            search={pickerSearch}
+            onSearch={setPickerSearch}
+            helper="Linking shows this diagram under the artifact's Linked resources."
+          />
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setStep("preview")} disabled={busy}>Cancel</Button>
+            <Button type="button" variant="primary" onClick={confirmCreate} disabled={busy || !chosenTitle.trim()}>{busy ? "Creating…" : "Create diagram"}</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ────────────────────────────── SQL Schema Import Wizard ──────────────────────────────
+
+type SqlStep = "input" | "preview" | "confirm";
+
+const DATABASE_TYPE_OPTIONS: IngestionDatabaseType[] = ["PostgreSQL", "MySQL", "MongoDB", "Redis", "SQLite"];
+
+function SqlSchemaImportWizard({
+  projectId,
+  onClose,
+  onCommitted,
+  onNavigateToDatabaseModel,
+}: {
+  projectId: string;
+  onClose: () => void;
+  onCommitted: () => Promise<void> | void;
+  onNavigateToDatabaseModel: (modelId: string) => void;
+}) {
+  const [step, setStep] = useState<SqlStep>("input");
+  const [title, setTitle] = useState("SQL schema import");
+  const [sourceName, setSourceName] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [record, setRecord] = useState<IngestionRecord | null>(null);
+  const [preview, setPreview] = useState<SqlSchemaParserResult | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [linkedArtifactId, setLinkedArtifactId] = useState<string | "">("");
+  const [chosenTitle, setChosenTitle] = useState("Imported Database Schema");
+  const [chosenDb, setChosenDb] = useState<IngestionDatabaseType>("PostgreSQL");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFile = async (file: File) => {
+    if (!/\.sql$/i.test(file.name)) { toast.error("Please pick a .sql file"); return; }
+    const text = await file.text();
+    setBody(text);
+    if (!sourceName) setSourceName(file.name);
+    if (!title || title === "SQL schema import") {
+      setTitle(file.name.replace(/\.sql$/i, ""));
+    }
+  };
+
+  const runParse = async () => {
+    if (!body.trim()) { toast.error("Paste or upload SQL DDL first."); return; }
+    setBusy(true);
+    try {
+      const draft = record ?? await ingestionApi.createDraft(projectId, {
+        sourceType: "SQL_SCHEMA",
+        title: title.trim() || "SQL schema import",
+        sourceName: sourceName.trim() || undefined,
+      });
+      const result = await ingestionApi.parseSqlSchema(draft.id, body);
+      setRecord(result.record);
+      setPreview(result.preview);
+      setChosenTitle(result.preview.title || "Imported Database Schema");
+      setChosenDb(result.preview.databaseType);
+      setStep("preview");
+      toast.success(`Parsed ${result.preview.entityCount} entities`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Parse failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const goConfirm = async () => {
+    setStep("confirm");
+    if (artifacts !== null) return;
+    try {
+      const list = await artifactsApi.list(projectId);
+      setArtifacts(list);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to load artifacts");
+    }
+  };
+
+  const filteredArtifacts = useMemo(() => {
+    if (!artifacts) return [];
+    const q = pickerSearch.trim().toLowerCase();
+    if (!q) return artifacts;
+    return artifacts.filter((a) => a.title.toLowerCase().includes(q) || a.type.toLowerCase().includes(q));
+  }, [artifacts, pickerSearch]);
+
+  const confirmCreate = async () => {
+    if (!record) return;
+    setBusy(true);
+    try {
+      const out = await ingestionApi.confirmSqlSchema(record.id, {
+        mode: "CREATE_DATABASE_MODEL",
+        artifactId: linkedArtifactId || null,
+        title: chosenTitle.trim() || "Imported Database Schema",
+        databaseType: chosenDb,
+      });
+      toast.success(`Imported database "${out.databaseModel.title}" with ${out.databaseModel.entityCount} entities`);
+      await onCommitted();
+      onNavigateToDatabaseModel(out.databaseModel.id);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Confirm failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Generate a small Mermaid ERD preview client-side from the parsed schema.
+  const erdSource = useMemo(() => {
+    if (!preview || preview.entities.length === 0) return "";
+    const lines: string[] = ["erDiagram"];
+    for (const e of preview.entities) {
+      const safeName = e.name.replace(/[^A-Za-z0-9_]/g, "_") || "entity";
+      if (e.fields.length === 0) {
+        lines.push(`  ${safeName} { string _empty "No fields parsed" }`);
+        continue;
+      }
+      lines.push(`  ${safeName} {`);
+      for (const f of e.fields.slice(0, 12)) {
+        const fname = (f.name || "field").replace(/[^A-Za-z0-9_]/g, "_");
+        const ftype = (f.type || "text").replace(/[^A-Za-z0-9_]/g, "_") || "text";
+        const flags = [f.isPrimaryKey ? "PK" : "", f.isForeignKey ? "FK" : ""].filter(Boolean).join(",");
+        lines.push(`    ${ftype} ${fname}${flags ? ` "${flags}"` : ""}`);
+      }
+      lines.push("  }");
+    }
+    for (const r of preview.relationships) {
+      const from = r.fromEntity.replace(/[^A-Za-z0-9_]/g, "_");
+      const to = r.toEntity.replace(/[^A-Za-z0-9_]/g, "_");
+      const label = `${r.fromField}→${r.toField || "id"}`.replace(/[^A-Za-z0-9_>→\-]/g, "_");
+      lines.push(`  ${from} }o--|| ${to} : "${label}"`);
+    }
+    return lines.join("\n");
+  }, [preview]);
+
+  return (
+    <Modal onClose={onClose} title="Import SQL schema" wide>
+      {step === "input" && (
+        <div className="flex flex-col gap-3">
+          <LabeledInput label="Title" value={title} onChange={setTitle} placeholder="e.g. User Management Database" required />
+          <LabeledInput label="Source name" optional value={sourceName} onChange={setSourceName} placeholder="schema.sql" mono />
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-fg-muted">SQL DDL</span>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".sql,text/sql,text/plain"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); e.target.value = ""; }}
+                />
+                <Button type="button" size="sm" icon={<UploadIcon size={13} />} onClick={() => fileInputRef.current?.click()}>
+                  Upload .sql
+                </Button>
+              </div>
+            </div>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder={"CREATE TABLE users (\n  id uuid PRIMARY KEY,\n  email text NOT NULL UNIQUE\n);"}
+              spellCheck={false}
+              className="min-h-[280px] max-h-[420px] px-3 py-2 bg-panel-2 border border-border rounded-sm text-[12.5px] font-mono leading-relaxed focus:outline-none focus:border-border-strong"
+            />
+            <div className="text-[11.5px] text-fg-subtle">
+              {body.length.toLocaleString()} chars
+            </div>
+          </div>
+          <div className="text-[12px] text-fg-muted">
+            Supported subset: CREATE TABLE with column definitions, PRIMARY KEY, NOT NULL, UNIQUE, FOREIGN KEY ... REFERENCES table(column). No migrations, views, triggers, or vendor-specific syntax.
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button type="button" variant="primary" onClick={runParse} disabled={busy || !body.trim()}>{busy ? "Parsing…" : "Parse"}</Button>
+          </div>
+        </div>
+      )}
+
+      {step === "preview" && preview && (
+        <div className="flex flex-col gap-3 text-[13px]">
+          <DetailRow label="Database type" value={<Badge tone="info" mono>{preview.databaseType}</Badge>} />
+          <DetailRow label="Entities" value={<span className="text-fg-muted">{preview.entityCount}</span>} />
+          <DetailRow label="Fields" value={<span className="text-fg-muted">{preview.fieldCount}</span>} />
+          <DetailRow label="Foreign keys" value={<span className="text-fg-muted">{preview.relationships.length}</span>} />
+          <div className="bg-panel-2 border border-border rounded-sm max-h-[280px] overflow-y-auto p-2">
+            {preview.entities.length === 0 ? (
+              <div className="px-2 py-2 text-fg-muted text-[12.5px]">No entities detected.</div>
+            ) : preview.entities.map((e) => (
+              <div key={e.name} className="mb-2 last:mb-0">
+                <div className="text-[13px] font-semibold font-mono">{e.name}</div>
+                <ul className="m-0 mt-1 pl-3 list-none text-[12.5px] text-fg-muted">
+                  {e.fields.map((f) => (
+                    <li key={f.name} className="flex items-center gap-1.5">
+                      <span className="font-mono">{f.name}</span>
+                      <span className="text-fg-subtle">{f.type}</span>
+                      {f.isPrimaryKey && <Badge tone="warning" mono>PK</Badge>}
+                      {f.isForeignKey && (
+                        <Badge tone="info" mono>FK → {f.referencesEntity}.{f.referencesField || "id"}</Badge>
+                      )}
+                      {f.required && !f.isPrimaryKey && <span className="text-fg-subtle">required</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          {erdSource && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11.5px] uppercase tracking-wider text-fg-subtle">ERD preview</span>
+              <div className="bg-panel-2 border border-border rounded-sm p-3 overflow-x-auto">
+                <MermaidPreview source={erdSource} />
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <Button type="button" variant="ghost" icon={<ArrowLeft size={13} />} onClick={() => setStep("input")} disabled={busy}>Back</Button>
+            <Button type="button" variant="primary" onClick={goConfirm} disabled={busy || preview.entityCount === 0}>Create database model</Button>
+          </div>
+        </div>
+      )}
+
+      {step === "confirm" && preview && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="ghost" icon={<ArrowLeft size={13} />} onClick={() => setStep("preview")}>Back</Button>
+            <div className="text-[13px] font-medium">Confirm database model creation</div>
+          </div>
+          <LabeledInput label="Title" value={chosenTitle} onChange={setChosenTitle} required />
+          <label className="flex flex-col gap-1">
+            <span className="text-[12px] text-fg-muted">Database type</span>
+            <select
+              value={chosenDb}
+              onChange={(e) => setChosenDb(e.target.value as IngestionDatabaseType)}
+              className="h-8 px-2 bg-panel-2 border border-border rounded-sm text-[13px] focus:outline-none focus:border-border-strong"
+            >
+              {DATABASE_TYPE_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <ArtifactLinkPicker
+            artifacts={artifacts}
+            filtered={filteredArtifacts}
+            value={linkedArtifactId}
+            onChange={setLinkedArtifactId}
+            search={pickerSearch}
+            onSearch={setPickerSearch}
+            helper="Linking shows this database model under the artifact's Linked resources."
+          />
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setStep("preview")} disabled={busy}>Cancel</Button>
+            <Button type="button" variant="primary" onClick={confirmCreate} disabled={busy || !chosenTitle.trim()}>{busy ? "Creating…" : "Create database model"}</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// Shared artifact picker for Mermaid + SQL wizards.
+function ArtifactLinkPicker({
+  artifacts,
+  filtered,
+  value,
+  onChange,
+  search,
+  onSearch,
+  helper,
+}: {
+  artifacts: Artifact[] | null;
+  filtered: Artifact[];
+  value: string;
+  onChange: (id: string) => void;
+  search: string;
+  onSearch: (s: string) => void;
+  helper: string;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[12px] text-fg-muted">Link to artifact <span className="text-fg-subtle">(optional)</span></span>
+      <div className="relative">
+        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
+        <input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="Search artifacts by title or type…"
+          className="w-full h-8 pl-8 pr-3 bg-panel-2 border border-border rounded-sm text-[13px] focus:outline-none focus:border-border-strong"
+        />
+      </div>
+      <div className="bg-panel-2 border border-border rounded-sm max-h-[220px] overflow-y-auto">
+        <ul className="divide-y divide-border">
+          <li>
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className={`w-full text-left px-3 py-2 hover:bg-panel-hover text-[13px] ${value === "" ? "bg-panel-hover" : ""}`}
+            >
+              <span className="text-fg-muted">— No artifact link —</span>
+            </button>
+          </li>
+          {artifacts === null ? (
+            <li className="px-3 py-3 text-fg-muted text-[13px]">Loading artifacts…</li>
+          ) : filtered.length === 0 ? (
+            <li className="px-3 py-3 text-fg-muted text-[13px]">No artifacts match.</li>
+          ) : filtered.map((a) => (
+            <li key={a.id}>
+              <button
+                type="button"
+                onClick={() => onChange(a.id)}
+                className={`w-full text-left px-3 py-2 hover:bg-panel-hover flex items-center gap-2.5 ${value === a.id ? "bg-panel-hover" : ""}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13.5px] font-medium truncate">{a.title}</div>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <TypeChip type={a.type} />
+                    <StatusBadge status={a.status} />
+                  </div>
+                </div>
+                {value === a.id && <Badge tone="info">Selected</Badge>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="text-[12px] text-fg-muted">{helper}</div>
+    </label>
+  );
+}
+
 // ────────────────────────────── Shared modal / detail bits ──────────────────────────────
 
 function Modal({ children, onClose, title, wide }: { children: React.ReactNode; onClose: () => void; title: string; wide?: boolean }) {
@@ -1132,12 +1729,17 @@ function LabeledInput({
 function DetailView({ record, projectId }: { record: IngestionRecord; projectId: string }) {
   const meta = sourceMeta(record.sourceType);
   const createdList = createdRecordList(record.createdRecords);
-  const parser = record.parserResult as MarkdownParserResult | OpenApiParserResult | null;
-  const isOpenApi = !!parser && (parser as OpenApiParserResult).source === "OPENAPI_JSON";
+  const parser = record.parserResult as MarkdownParserResult | OpenApiParserResult | MermaidParserResult | SqlSchemaParserResult | null;
+  const parserSource = (parser as { source?: string } | null)?.source ?? null;
+  const isOpenApi = parserSource === "OPENAPI_JSON";
+  const isMermaid = parserSource === "MERMAID";
+  const isSql = parserSource === "SQL_SCHEMA";
   const linkHrefFor = (c: CreatedRecordRef) => {
     if (c.type === "API_SPEC") return `/projects/${projectId}/api/${c.id}`;
     if (c.type === "ARTIFACT") return `/projects/${projectId}/artifacts/${c.id}?tab=documentation`;
-    return `/projects/${projectId}/api`;
+    if (c.type === "DIAGRAM") return `/projects/${projectId}/diagrams/${c.id}`;
+    if (c.type === "DATABASE_MODEL") return `/projects/${projectId}/database/${c.id}`;
+    return `/projects/${projectId}`;
   };
   return (
     <div className="flex flex-col gap-3 text-[13px]">
@@ -1149,7 +1751,7 @@ function DetailView({ record, projectId }: { record: IngestionRecord; projectId:
       <DetailRow label="Created by" value={record.createdBy?.name || record.createdBy?.email || "—"} />
       <DetailRow label="Created" value={<span className="text-fg-muted">{timeAgo(record.createdAt)}</span>} />
 
-      {parser && !isOpenApi && (
+      {parser && !isOpenApi && !isMermaid && !isSql && (
         <>
           <DetailRow label="Parsed title" value={<span className="text-fg">{(parser as MarkdownParserResult).title}</span>} />
           <DetailRow label="Word count" value={<span className="text-fg-muted">{(parser as MarkdownParserResult).wordCount} words</span>} />
@@ -1171,6 +1773,29 @@ function DetailView({ record, projectId }: { record: IngestionRecord; projectId:
               : <span className="text-fg-subtle">none</span>
           } />
           <DetailRow label="Endpoints" value={<span className="text-fg-muted">{(parser as OpenApiParserResult).endpointCount}</span>} />
+        </>
+      )}
+
+      {parser && isMermaid && (
+        <>
+          <DetailRow label="Diagram title" value={<span className="text-fg">{(parser as MermaidParserResult).title}</span>} />
+          <DetailRow label="Diagram type" value={<Badge tone="info" mono>{(parser as MermaidParserResult).diagramType}</Badge>} />
+          <DetailRow label="Lines" value={<span className="text-fg-muted">{(parser as MermaidParserResult).lineCount}</span>} />
+          <DetailRow label="Node hints" value={
+            (parser as MermaidParserResult).nodeHints.length === 0
+              ? <span className="text-fg-muted">None detected.</span>
+              : <span className="text-fg-muted">{(parser as MermaidParserResult).nodeHints.slice(0, 5).join(", ")}{(parser as MermaidParserResult).nodeHints.length > 5 ? `, +${(parser as MermaidParserResult).nodeHints.length - 5} more` : ""}</span>
+          } />
+        </>
+      )}
+
+      {parser && isSql && (
+        <>
+          <DetailRow label="DB title" value={<span className="text-fg">{(parser as SqlSchemaParserResult).title}</span>} />
+          <DetailRow label="Database type" value={<Badge tone="info" mono>{(parser as SqlSchemaParserResult).databaseType}</Badge>} />
+          <DetailRow label="Entities" value={<span className="text-fg-muted">{(parser as SqlSchemaParserResult).entityCount}</span>} />
+          <DetailRow label="Fields" value={<span className="text-fg-muted">{(parser as SqlSchemaParserResult).fieldCount}</span>} />
+          <DetailRow label="Relationships" value={<span className="text-fg-muted">{(parser as SqlSchemaParserResult).relationships.length} FK</span>} />
         </>
       )}
 

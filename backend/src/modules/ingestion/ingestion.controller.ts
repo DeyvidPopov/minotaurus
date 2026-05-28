@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   ArtifactType,
   ArtifactStatus,
+  DatabaseType,
+  DiagramType,
   IngestionSourceType,
   IngestionStatus,
   type IngestionRecord,
@@ -16,6 +18,8 @@ import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { parseMarkdown } from "./markdown.engine.js";
 import { OpenApiParseError, parseOpenApi, type OpenApiPreview } from "./openapi.engine.js";
+import { MermaidParseError, parseMermaid, type MermaidPreview } from "./mermaid.engine.js";
+import { SqlParseError, parseSqlSchema, type SqlSchemaPreview } from "./sql.engine.js";
 import {
   ARTIFACT_TITLE_TAKEN_MESSAGE,
   checkArtifactTitleConflict,
@@ -631,5 +635,398 @@ export async function confirmOpenApiJsonEndpoint(req: AuthedRequest, res: Respon
       },
     },
     "OpenAPI spec imported",
+  );
+}
+
+// ────────────────────────────── Mermaid parse / confirm ──────────────────────────────
+
+const DIAGRAM_TYPES = Object.values(DiagramType) as [DiagramType, ...DiagramType[]];
+
+const parseMermaidEndpointSchema = z.object({
+  mermaidSource: z.string().min(1, "mermaidSource is required"),
+});
+
+const confirmMermaidSchema = z.object({
+  mode: z.literal("CREATE_DIAGRAM"),
+  artifactId: z.string().uuid().nullable().optional(),
+  title: z.string().min(1).max(160),
+  diagramType: z.enum(DIAGRAM_TYPES),
+});
+
+export async function parseMermaidEndpoint(req: AuthedRequest, res: Response) {
+  const row = await loadIngestionForMutation(req, res);
+  if (!row) return;
+
+  if (row.sourceType !== IngestionSourceType.MERMAID) {
+    return fail(res, 400, "UNSUPPORTED_SOURCE", `Parser does not support ${row.sourceType}`);
+  }
+  if (row.status === IngestionStatus.CONFIRMED) {
+    return fail(res, 400, "ALREADY_CONFIRMED", "Ingestion record is already confirmed");
+  }
+
+  const parsed = parseMermaidEndpointSchema.safeParse(req.body);
+  if (!parsed.success) {
+    await prisma.ingestionRecord.update({
+      where: { id: row.id },
+      data: { status: IngestionStatus.FAILED, errorMessage: parsed.error.message },
+    });
+    return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
+  }
+
+  let preview: MermaidPreview;
+  try {
+    preview = parseMermaid(parsed.data.mermaidSource, { sourceName: row.sourceName });
+  } catch (err) {
+    const message =
+      err instanceof MermaidParseError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "Mermaid parse failed";
+    await prisma.ingestionRecord.update({
+      where: { id: row.id },
+      data: { status: IngestionStatus.FAILED, errorMessage: message },
+    });
+    return fail(res, 422, "PARSE_FAILED", message);
+  }
+
+  const nextTitle = row.title && row.title.trim() ? row.title : preview.title;
+  const updated = await prisma.ingestionRecord.update({
+    where: { id: row.id },
+    data: {
+      status: IngestionStatus.PARSED,
+      title: nextTitle,
+      parserResult: preview as unknown as Prisma.InputJsonValue,
+      errorMessage: "",
+    },
+    include: INCLUDE_USER,
+  });
+
+  await recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "PROJECT",
+    entityId: row.projectId,
+    action: "UPDATED",
+    title: `Mermaid parsed · ${preview.title}`,
+    description: `${preview.diagramType} · ${preview.lineCount} lines`,
+    triggeredBy: req.user!.userId,
+    metadata: {
+      ingestionId: row.id,
+      diagramType: preview.diagramType,
+      lineCount: preview.lineCount,
+      nodeHintCount: preview.nodeHints.length,
+    },
+  });
+
+  return ok(res, { record: serializeRecord(updated), preview }, "Mermaid parsed");
+}
+
+export async function confirmMermaidEndpoint(req: AuthedRequest, res: Response) {
+  const row = await loadIngestionForMutation(req, res);
+  if (!row) return;
+
+  if (row.sourceType !== IngestionSourceType.MERMAID) {
+    return fail(res, 400, "UNSUPPORTED_SOURCE", `Confirm does not support ${row.sourceType}`);
+  }
+  if (row.status !== IngestionStatus.PARSED) {
+    return fail(res, 400, "NOT_PARSED", "Run parse-mermaid before confirming");
+  }
+  const stored = row.parserResult as Partial<MermaidPreview> | null;
+  if (!stored || stored.source !== "MERMAID" || !stored.mermaidSource) {
+    return fail(res, 400, "EMPTY_PARSE", "Parser result is missing or malformed");
+  }
+
+  const parsed = confirmMermaidSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
+
+  let linkedArtifactId: string | null = null;
+  if (parsed.data.artifactId) {
+    const artifact = await prisma.artifact.findUnique({ where: { id: parsed.data.artifactId } });
+    if (!artifact || artifact.projectId !== row.projectId) {
+      return fail(res, 400, "INVALID_ARTIFACT", "Linked artifact must belong to this project");
+    }
+    linkedArtifactId = artifact.id;
+  }
+
+  const diagram = await prisma.diagram.create({
+    data: {
+      projectId: row.projectId,
+      artifactId: linkedArtifactId,
+      title: parsed.data.title.trim() || stored.title || "Imported Mermaid Diagram",
+      type: parsed.data.diagramType,
+      mermaidSource: stored.mermaidSource,
+      description: "Imported from Mermaid source",
+      createdById: req.user!.userId,
+    },
+  });
+
+  await recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "DIAGRAM",
+    entityId: diagram.id,
+    action: "CREATED",
+    title: `Mermaid diagram imported · ${diagram.title}`,
+    description: `${diagram.type}`,
+    triggeredBy: req.user!.userId,
+    metadata: {
+      ingestionId: row.id,
+      diagramType: diagram.type,
+      linkedArtifactId,
+      lineCount: stored.lineCount ?? 0,
+    },
+  });
+
+  const updatedRecord = await prisma.ingestionRecord.update({
+    where: { id: row.id },
+    data: {
+      status: IngestionStatus.CONFIRMED,
+      createdRecords: [
+        { type: "DIAGRAM", id: diagram.id, mode: "CREATE_DIAGRAM" as const },
+      ] as unknown as Prisma.InputJsonValue,
+      errorMessage: "",
+    },
+    include: INCLUDE_USER,
+  });
+
+  return ok(
+    res,
+    {
+      record: serializeRecord(updatedRecord),
+      diagram: { id: diagram.id, title: diagram.title, type: diagram.type, linkedArtifactId },
+    },
+    "Mermaid diagram imported",
+  );
+}
+
+// ────────────────────────────── SQL schema parse / confirm ──────────────────────────────
+
+const DATABASE_TYPES = Object.values(DatabaseType) as [DatabaseType, ...DatabaseType[]];
+
+const parseSqlSchemaSchema = z.object({
+  sql: z.string().min(1, "sql is required"),
+});
+
+const confirmSqlSchemaSchema = z.object({
+  mode: z.literal("CREATE_DATABASE_MODEL"),
+  artifactId: z.string().uuid().nullable().optional(),
+  title: z.string().min(1).max(160),
+  databaseType: z.enum(DATABASE_TYPES),
+});
+
+export async function parseSqlSchemaEndpoint(req: AuthedRequest, res: Response) {
+  const row = await loadIngestionForMutation(req, res);
+  if (!row) return;
+
+  if (row.sourceType !== IngestionSourceType.SQL_SCHEMA) {
+    return fail(res, 400, "UNSUPPORTED_SOURCE", `Parser does not support ${row.sourceType}`);
+  }
+  if (row.status === IngestionStatus.CONFIRMED) {
+    return fail(res, 400, "ALREADY_CONFIRMED", "Ingestion record is already confirmed");
+  }
+
+  const parsed = parseSqlSchemaSchema.safeParse(req.body);
+  if (!parsed.success) {
+    await prisma.ingestionRecord.update({
+      where: { id: row.id },
+      data: { status: IngestionStatus.FAILED, errorMessage: parsed.error.message },
+    });
+    return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
+  }
+
+  let preview: SqlSchemaPreview;
+  try {
+    preview = parseSqlSchema(parsed.data.sql);
+  } catch (err) {
+    const message =
+      err instanceof SqlParseError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "SQL parse failed";
+    await prisma.ingestionRecord.update({
+      where: { id: row.id },
+      data: { status: IngestionStatus.FAILED, errorMessage: message },
+    });
+    return fail(res, 422, "PARSE_FAILED", message);
+  }
+
+  // Stash the original SQL alongside the parsed preview so the confirm step
+  // (and the detail modal) can show it without a second upload.
+  const stored = { ...preview, rawSql: parsed.data.sql };
+  const nextTitle = row.title && row.title.trim() ? row.title : preview.title;
+  const updated = await prisma.ingestionRecord.update({
+    where: { id: row.id },
+    data: {
+      status: IngestionStatus.PARSED,
+      title: nextTitle,
+      parserResult: stored as unknown as Prisma.InputJsonValue,
+      errorMessage: "",
+    },
+    include: INCLUDE_USER,
+  });
+
+  await recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "PROJECT",
+    entityId: row.projectId,
+    action: "UPDATED",
+    title: `SQL schema parsed · ${preview.entityCount} entities`,
+    description: `${preview.fieldCount} fields · ${preview.relationships.length} relationships`,
+    triggeredBy: req.user!.userId,
+    metadata: {
+      ingestionId: row.id,
+      entityCount: preview.entityCount,
+      fieldCount: preview.fieldCount,
+      relationshipCount: preview.relationships.length,
+    },
+  });
+
+  return ok(res, { record: serializeRecord(updated), preview }, "SQL schema parsed");
+}
+
+export async function confirmSqlSchemaEndpoint(req: AuthedRequest, res: Response) {
+  const row = await loadIngestionForMutation(req, res);
+  if (!row) return;
+
+  if (row.sourceType !== IngestionSourceType.SQL_SCHEMA) {
+    return fail(res, 400, "UNSUPPORTED_SOURCE", `Confirm does not support ${row.sourceType}`);
+  }
+  if (row.status !== IngestionStatus.PARSED) {
+    return fail(res, 400, "NOT_PARSED", "Run parse-sql-schema before confirming");
+  }
+  const stored = row.parserResult as Partial<SqlSchemaPreview> | null;
+  if (!stored || stored.source !== "SQL_SCHEMA" || !Array.isArray(stored.entities)) {
+    return fail(res, 400, "EMPTY_PARSE", "Parser result is missing or malformed");
+  }
+
+  const parsed = confirmSqlSchemaSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
+
+  let linkedArtifactId: string | null = null;
+  if (parsed.data.artifactId) {
+    const artifact = await prisma.artifact.findUnique({ where: { id: parsed.data.artifactId } });
+    if (!artifact || artifact.projectId !== row.projectId) {
+      return fail(res, 400, "INVALID_ARTIFACT", "Linked artifact must belong to this project");
+    }
+    linkedArtifactId = artifact.id;
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const model = await tx.databaseModel.create({
+      data: {
+        projectId: row.projectId,
+        artifactId: linkedArtifactId,
+        title: parsed.data.title.trim() || stored.title || "Imported Database Schema",
+        databaseType: parsed.data.databaseType,
+        description: `Imported via ingestion · ${stored.entities!.length} entities`,
+        createdById: req.user!.userId,
+      },
+    });
+    // First pass: create entities with no field references.
+    const entityIds = new Map<string, string>();
+    const created: { entityId: string; fields: { id: string; name: string }[] }[] = [];
+    for (const e of stored.entities!) {
+      const ent = await tx.databaseEntity.create({
+        data: {
+          databaseModelId: model.id,
+          name: e.name,
+          description: e.description ?? "",
+        },
+      });
+      entityIds.set(e.name, ent.id);
+      const createdFields: { id: string; name: string }[] = [];
+      for (const f of e.fields ?? []) {
+        const field = await tx.databaseField.create({
+          data: {
+            entityId: ent.id,
+            name: f.name,
+            type: f.type || "text",
+            required: !!f.required,
+            isPrimaryKey: !!f.isPrimaryKey,
+            isForeignKey: !!f.isForeignKey,
+            description: f.description ?? "",
+            // referencesEntityId left null in pass 1; pass 2 resolves them.
+          },
+        });
+        createdFields.push({ id: field.id, name: field.name });
+      }
+      created.push({ entityId: ent.id, fields: createdFields });
+    }
+    // Second pass: resolve FK referencesEntityId.
+    for (let i = 0; i < stored.entities!.length; i++) {
+      const e = stored.entities![i];
+      const entityId = created[i].entityId;
+      for (const f of e.fields ?? []) {
+        if (!f.isForeignKey || !f.referencesEntity) continue;
+        const targetEntityId = entityIds.get(f.referencesEntity);
+        if (!targetEntityId) continue;
+        const dbField = created[i].fields.find((cf) => cf.name === f.name);
+        if (!dbField) continue;
+        await tx.databaseField.update({
+          where: { id: dbField.id },
+          data: { referencesEntityId: targetEntityId },
+        });
+      }
+      void entityId;
+    }
+    return { model, created };
+  });
+
+  await recordVersionEvent({
+    projectId: row.projectId,
+    entityType: "DATABASE_MODEL",
+    entityId: result.model.id,
+    action: "CREATED",
+    title: `${result.model.title} (imported)`,
+    description: `${result.created.length} entities · ${stored.fieldCount ?? 0} fields`,
+    triggeredBy: req.user!.userId,
+    metadata: {
+      ingestionId: row.id,
+      databaseType: result.model.databaseType,
+      linkedArtifactId,
+    },
+  });
+  for (const c of result.created) {
+    await recordVersionEvent({
+      projectId: row.projectId,
+      entityType: "DATABASE_ENTITY",
+      entityId: c.entityId,
+      action: "CREATED",
+      title: stored.entities!.find((_, i) => result.created[i].entityId === c.entityId)?.name || "entity",
+      description: `Added to ${result.model.title}`,
+      triggeredBy: req.user!.userId,
+      metadata: { databaseModelId: result.model.id, ingestionId: row.id },
+    });
+  }
+
+  const createdRecords = [
+    { type: "DATABASE_MODEL" as const, id: result.model.id, mode: "CREATE_DATABASE_MODEL" as const },
+    ...result.created.map((c) => ({ type: "DATABASE_ENTITY" as const, id: c.entityId })),
+    ...result.created.flatMap((c) => c.fields.map((f) => ({ type: "DATABASE_FIELD" as const, id: f.id }))),
+  ];
+
+  const updatedRecord = await prisma.ingestionRecord.update({
+    where: { id: row.id },
+    data: {
+      status: IngestionStatus.CONFIRMED,
+      createdRecords: createdRecords as unknown as Prisma.InputJsonValue,
+      errorMessage: "",
+    },
+    include: INCLUDE_USER,
+  });
+
+  return ok(
+    res,
+    {
+      record: serializeRecord(updatedRecord),
+      databaseModel: {
+        id: result.model.id,
+        title: result.model.title,
+        databaseType: result.model.databaseType,
+        entityCount: result.created.length,
+        linkedArtifactId,
+      },
+    },
+    "SQL schema imported",
   );
 }

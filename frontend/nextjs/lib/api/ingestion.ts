@@ -3,6 +3,8 @@
 import { apiClient } from "./client";
 import type { ArtifactType } from "@/lib/types";
 import type { HttpMethod } from "./api-specs";
+import type { DiagramType } from "./diagrams";
+import type { DatabaseType } from "./database-models";
 
 export type IngestionSourceType =
   | "MARKDOWN"
@@ -43,10 +45,71 @@ export interface OpenApiParserResult {
   endpoints: ParsedOpenApiEndpoint[];
 }
 
+// DiagramType + DatabaseType are intentionally NOT re-exported from this
+// module to avoid clashing with the same names on the diagrams /
+// database-models modules through the api barrel. Consumers should import
+// them from there directly.
+
+export interface MermaidParserResult {
+  source: "MERMAID";
+  title: string;
+  diagramType: DiagramType;
+  lineCount: number;
+  nodeHints: string[];
+  mermaidSource: string;
+}
+
+export interface ParsedSqlField {
+  name: string;
+  type: string;
+  required: boolean;
+  isPrimaryKey: boolean;
+  isForeignKey: boolean;
+  referencesEntity?: string;
+  referencesField?: string;
+  description?: string;
+}
+
+export interface ParsedSqlEntity {
+  name: string;
+  description?: string;
+  fields: ParsedSqlField[];
+}
+
+export interface ParsedSqlRelationship {
+  fromEntity: string;
+  fromField: string;
+  toEntity: string;
+  toField: string;
+}
+
+export interface SqlSchemaParserResult {
+  source: "SQL_SCHEMA";
+  title: string;
+  databaseType: DatabaseType;
+  entityCount: number;
+  fieldCount: number;
+  entities: ParsedSqlEntity[];
+  relationships: ParsedSqlRelationship[];
+  rawSql?: string;
+}
+
 export interface CreatedRecordRef {
-  type: "ARTIFACT" | "API_SPEC" | "API_ENDPOINT";
+  type:
+    | "ARTIFACT"
+    | "API_SPEC"
+    | "API_ENDPOINT"
+    | "DIAGRAM"
+    | "DATABASE_MODEL"
+    | "DATABASE_ENTITY"
+    | "DATABASE_FIELD";
   id: string;
-  mode?: "LINK_EXISTING" | "CREATE_NEW" | "CREATE_API_SPEC";
+  mode?:
+    | "LINK_EXISTING"
+    | "CREATE_NEW"
+    | "CREATE_API_SPEC"
+    | "CREATE_DIAGRAM"
+    | "CREATE_DATABASE_MODEL";
 }
 
 export interface IngestionRecord {
@@ -57,7 +120,12 @@ export interface IngestionRecord {
   title: string;
   sourceName: string;
   createdRecords: CreatedRecordRef[] | unknown;
-  parserResult: MarkdownParserResult | OpenApiParserResult | null;
+  parserResult:
+    | MarkdownParserResult
+    | OpenApiParserResult
+    | MermaidParserResult
+    | SqlSchemaParserResult
+    | null;
   errorMessage: string;
   createdById: string;
   createdAt: string;
@@ -124,4 +192,24 @@ export const ingestionApi = {
     apiClient.post<OpenApiParseResponse>(`/ingestion/${ingestionId}/parse-openapi-json`, { openapiJson }),
   confirmOpenApiJson: (ingestionId: string, body: ConfirmOpenApiBody) =>
     apiClient.post<ConfirmOpenApiResponse>(`/ingestion/${ingestionId}/confirm-openapi-json`, body),
+  parseMermaid: (ingestionId: string, mermaidSource: string) =>
+    apiClient.post<{ record: IngestionRecord; preview: MermaidParserResult }>(
+      `/ingestion/${ingestionId}/parse-mermaid`,
+      { mermaidSource },
+    ),
+  confirmMermaid: (ingestionId: string, body: { mode: "CREATE_DIAGRAM"; artifactId?: string | null; title: string; diagramType: DiagramType }) =>
+    apiClient.post<{ record: IngestionRecord; diagram: { id: string; title: string; type: DiagramType; linkedArtifactId: string | null } }>(
+      `/ingestion/${ingestionId}/confirm-mermaid`,
+      body,
+    ),
+  parseSqlSchema: (ingestionId: string, sql: string) =>
+    apiClient.post<{ record: IngestionRecord; preview: SqlSchemaParserResult }>(
+      `/ingestion/${ingestionId}/parse-sql-schema`,
+      { sql },
+    ),
+  confirmSqlSchema: (ingestionId: string, body: { mode: "CREATE_DATABASE_MODEL"; artifactId?: string | null; title: string; databaseType: DatabaseType }) =>
+    apiClient.post<{ record: IngestionRecord; databaseModel: { id: string; title: string; databaseType: DatabaseType; entityCount: number; linkedArtifactId: string | null } }>(
+      `/ingestion/${ingestionId}/confirm-sql-schema`,
+      body,
+    ),
 };
