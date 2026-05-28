@@ -40,10 +40,15 @@ Backend:
     resolved FKs (CREATE_DATABASE_MODEL), generated Mermaid ERD preview.
 - API Specs
 - Database Models (with visual Mermaid ERD)
-- Diagrams (Mermaid editor + live preview, polished, readable labels in dark
-  theme — global renderer now guarantees label visibility via a post-render
-  style sweep + scoped CSS fallback + `htmlLabels: false` Mermaid config; all
-  6 MermaidPreview callers benefit)
+- Diagrams — visual gallery of Mermaid diagrams. List page renders each
+  diagram as a card with a live Mermaid thumbnail, type chip and linked
+  artifact. Detail page is read-first (rendered diagram up top, source in a
+  collapsible block); explicit Edit button toggles the split editor. New
+  diagram flow is a purpose picker (Architecture overview / Request flow /
+  Login sequence / Checkout sequence / Database ERD / Domain model /
+  Validation lifecycle / Impact analysis / Roadmap) and seeds the editor
+  with a Minotaurus-relevant template. Sequence-diagram actor boxes get a
+  dark fill + accent border via the shared renderer.
 - Validation (artifact relation, doc, security, API, DB, diagram, churn, deprecated-still-used, single-member rules)
 - Version History (every CUD records a VersionEvent — including member add/role-change/remove; timeline + filters)
 - Impact Analysis (per-artifact blast radius: deps, dependents, APIs, DBs, diagrams, docs, recent events)

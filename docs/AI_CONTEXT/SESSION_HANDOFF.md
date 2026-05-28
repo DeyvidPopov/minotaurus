@@ -2,6 +2,42 @@
 
 ## Last Completed Feature
 
+**Diagrams module UX refactor**:
+- Diagrams list page rewritten as a visual card gallery. Each card
+  renders a live Mermaid thumbnail (clamped via CSS), title, type chip,
+  linked artifact chip, description, updated timestamp, and an OpenLink.
+  Empty diagrams get a `DiagramFallback` placeholder. Type filter shows a
+  one-line `DIAGRAM_TYPE_BLURBS` helper sentence when active.
+- Diagram detail page is now read-first: rendered Mermaid up top, source
+  in a `<details>` collapsible. Edit toggles a split source/preview
+  editor with Templates / Copy / Fullscreen / Save / Done in the header.
+  Done warns about unsaved changes. Arriving with `?edit=1` from the new
+  flow opens directly in editor mode.
+- New-diagram modal is now a **purpose picker**: Architecture overview,
+  Request flow, Login sequence, Checkout sequence, Database ERD, Domain
+  model, Validation lifecycle, Impact analysis, Roadmap (Gantt). Picking
+  one auto-fills title + description, sets the diagram type, and seeds
+  the editor with a Minotaurus-relevant Mermaid template that names
+  real services / artifacts / DB entities.
+- `MERMAID_TEMPLATES` now derives from `DIAGRAM_PURPOSES` — same source,
+  same wording. The previous "generic A→B" defaults are gone.
+- **Mermaid sequence contrast fix.** themeVariables strengthened
+  (`actorBorder: "#5f8fb8"`, `labelBoxBkgColor`, `activationBkgColor`,
+  `noteBkgColor: "#111318"`); post-render sweep in
+  `components/mermaid-preview.tsx` rewrites `rect.actor /
+  rect.actor-top / rect.actor-bottom / rect.actor-box` to dark fill +
+  accent border and `rect.note / polygon.labelBox` to darker fill.
+  Scoped CSS fallback added to `app/globals.css`. All six MermaidPreview
+  callers (gallery thumbnails, detail page, ingestion preview, etc.)
+  benefit.
+- Template apply on the detail page only confirms replacement when the
+  existing source genuinely differs from the new template; an empty or
+  identical editor gets a silent "Template applied" toast (no more
+  "Replaced source with SEQUENCE template" copy).
+- `npx tsc --noEmit` clean. Backend untouched.
+
+## Previous feature pass
+
 **Ingestion detail UI polish**:
 - The ingestion history row-end delete / remove-log button is gone for
   every status. The history table now has only the Open action;
@@ -392,7 +428,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-ee33140 — *Polish ingestion history detail UI*
+_(updated by the diagrams UX refactor commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 

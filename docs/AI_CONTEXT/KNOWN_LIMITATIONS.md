@@ -201,6 +201,15 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - The "Invalid Mermaid syntax" validation rule is a tiny heuristic (header keyword + arrow token), not a real parser. The real syntax check happens client-side when Mermaid renders the source.
 - ARCHITECTURE diagrams without a linked artifact produce an INFO-severity issue. Intentional nudge, can be ignored.
 - No undo / version history on the editor. Save persists the current source; previous versions are not retained.
+- **Sequence diagram contrast (FIXED, see release notes):** sequence actor
+  boxes used to render with a hardcoded light fill from Mermaid, making
+  white-on-light labels unreadable. The shared renderer now sets
+  `actorBorder: "#5f8fb8"` etc. on themeVariables and the post-render
+  sweep rewrites `rect.actor / rect.actor-top / rect.actor-bottom /
+  rect.actor-box` to `fill: "#1a1d24" stroke: "#5f8fb8"`, plus
+  `rect.note / polygon.labelBox` to `fill: "#111318"`. The
+  `.mermaid-host`-scoped CSS in `app/globals.css` has matching
+  `!important` rules as a fallback.
 - **Label visibility (FIXED globally in `components/mermaid-preview.tsx`):**
   the shared renderer now uses `securityLevel: "loose"`, forces
   `htmlLabels: false` on flowchart / class / state diagrams (so labels are

@@ -26,7 +26,53 @@
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## INGESTION DETAIL UI POLISH (current pass)
+## DIAGRAMS MODULE UX REFACTOR (current pass)
+- **Diagrams list is now a visual card gallery.** Each diagram card renders
+  a live Mermaid thumbnail (clamped to ~140px), title, type chip, linked
+  artifact chip, description, updated timestamp, and an `OpenLink`.
+  Clicking the thumbnail or the OpenLink opens the detail page. A
+  `DiagramFallback` renders title + type chip if the source is empty.
+  Search + type filter survive. When a type filter is active, the page
+  shows a one-line helper sentence explaining that diagram type
+  (`DIAGRAM_TYPE_BLURBS`).
+- **Diagram detail is now read-first.** The default view shows the title,
+  type, linked artifact, description, type blurb, the rendered Mermaid
+  diagram, and a `<details>` "Mermaid source" collapsible. Edit / Copy
+  Mermaid / Fullscreen / Metadata / Delete sit in the header. Clicking
+  Edit (or arriving with `?edit=1` from a fresh create) flips to the
+  split source-and-live-preview editor with Templates / Copy / Fullscreen
+  / Save / Done in the header. Done warns about unsaved changes.
+- **New diagram flow is a purpose picker.** The modal opens to a grid of
+  purpose cards — Architecture overview / Request flow / Login sequence /
+  Checkout sequence / Database ERD / Domain model / Validation lifecycle /
+  Impact analysis / Roadmap (Gantt). Picking one auto-fills the title +
+  description, sets the diagram type, and seeds the editor with a
+  Minotaurus-relevant Mermaid source (real services / artifacts /
+  database entities). The previous "Type → empty template" flow is gone.
+  After create, the detail page opens directly in editor mode via
+  `?edit=1`.
+- **Templates are project-relevant.** `lib/api/diagrams.ts` exports
+  `DIAGRAM_PURPOSES` and a re-derived `MERMAID_TEMPLATES`. Templates use
+  real platform names — API Gateway / Authentication Service / Product
+  Catalog API / Order Service / Payment Service / Customer Records /
+  Users + Sessions + Roles ERD / Validation issue lifecycle / Impact
+  analysis flow / Roadmap of phases.
+- **Mermaid sequence contrast fixed.** Theme variables strengthened:
+  `actorBorder: "#5f8fb8"`, `labelBoxBkgColor: "#1a1d24"`,
+  `activationBkgColor: "#2a2e36"`, `noteBkgColor: "#111318"`. The
+  post-render sweep in `components/mermaid-preview.tsx` now also rewrites
+  `rect.actor / rect.actor-top / rect.actor-bottom / rect.actor-box`
+  (fill `#1a1d24`, stroke `#5f8fb8`) and `rect.note / polygon.labelBox`
+  (fill `#111318`). Scoped CSS in `app/globals.css` carries the same
+  rules as `!important` fallbacks. Authored colours on `<text>` /
+  `<tspan>` are still preserved by the existing fill-check.
+- **Template insert is honest.** Applying the canonical-by-type template
+  is silent ("Template applied") when the editor is empty or already
+  matches the template, and only triggers the replacement confirmation
+  modal when the existing source actually differs from the new template.
+  No more "Replaced source with SEQUENCE template" copy.
+
+## INGESTION DETAIL UI POLISH (previous pass)
 - Ingestion history is now an audit trail in the UI. The row-end
   delete / remove-log button is gone entirely. Both confirmed and draft
   records show only the Open action; deletion still works via the

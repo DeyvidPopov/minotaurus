@@ -3,8 +3,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Edit, Trash2, Save, X, Copy, Maximize2, Minimize2, Wand2, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Edit, Trash2, Save, X, Copy, Maximize2, Minimize2, Wand2,
+  CheckCircle2, AlertTriangle, Loader2, ChevronDown,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -14,6 +17,7 @@ import { TypeChip } from "@/components/ui/type-chip";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   DIAGRAM_TYPES,
+  DIAGRAM_TYPE_BLURBS,
   MERMAID_TEMPLATES,
   diagramsApi,
   type Diagram,
@@ -24,16 +28,6 @@ import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import { MermaidPreview, type MermaidStatus } from "@/components/mermaid-preview";
 
-const TEMPLATE_BLURBS: Record<DiagramType, string> = {
-  FLOWCHART: "Top-down boxes and arrows. Best for request flows and architectures.",
-  SEQUENCE: "Vertical lifelines showing interaction order between actors.",
-  ERD: "Entity-relationship boxes with cardinality. Use for data models.",
-  CLASS: "OOP class diagrams with attributes, methods and relations.",
-  STATE: "State machine with transitions between named states.",
-  GANTT: "Time-based project plan with tasks, sections and dependencies.",
-  ARCHITECTURE: "Left-to-right component flow. Good for high-level system shape.",
-};
-
 export default function DiagramDetailPage({
   params,
 }: {
@@ -41,11 +35,14 @@ export default function DiagramDetailPage({
 }) {
   const { projectId, diagramId } = params;
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialEdit = searchParams?.get("edit") === "1";
 
   const [diagram, setDiagram] = useState<Diagram | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [source, setSource] = useState("");
   const [savedSource, setSavedSource] = useState("");
+  const [editing, setEditing] = useState(initialEdit);
   const [fullscreen, setFullscreen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingMeta, setEditingMeta] = useState(false);
@@ -104,6 +101,12 @@ export default function DiagramDetailPage({
     }
   };
 
+  const exitEdit = () => {
+    if (dirty && !confirm("Discard unsaved changes?")) return;
+    setSource(savedSource);
+    setEditing(false);
+  };
+
   const onDelete = async () => {
     if (!confirm(`Delete diagram "${diagram.title}"? This cannot be undone.`)) return;
     try {
@@ -124,24 +127,26 @@ export default function DiagramDetailPage({
 
   const applyTemplate = (type: DiagramType) => {
     const tpl = MERMAID_TEMPLATES[type];
-    if (source.trim()) {
-      // confirmation modal instead of an immediate overwrite
+    // Only treat the apply as a replacement if there's existing content that
+    // would actually be overwritten. An empty editor → silent apply.
+    if (source.trim() && source.trim() !== tpl.trim()) {
       setTemplateModal(false);
       setConfirmReplace({ type, source: tpl });
       return;
     }
     setSource(tpl);
     setTemplateModal(false);
-    toast.success(`Inserted ${type} template`);
+    toast.success("Template applied");
   };
 
   const confirmApplyTemplate = () => {
     if (!confirmReplace) return;
     setSource(confirmReplace.source);
-    toast.success(`Replaced source with ${confirmReplace.type} template`);
+    toast.success("Template applied");
     setConfirmReplace(null);
   };
 
+  // Fullscreen mode (read-only) — kept identical regardless of editing state.
   if (fullscreen) {
     return (
       <div className="fixed inset-0 z-[120] bg-bg flex flex-col">
@@ -166,15 +171,32 @@ export default function DiagramDetailPage({
           <>
             <Badge mono>DIAGRAM</Badge>
             <Badge mono>{diagram.type}</Badge>
+            {editing && <Badge tone="warning">Editing</Badge>}
+            {editing && dirty && <Badge tone="warning">Unsaved</Badge>}
           </>
         }
         title={diagram.title}
         subtitle={diagram.description || "No description"}
         actions={
-          <>
-            <Button icon={<Edit size={13} />} onClick={() => setEditingMeta(true)}>Edit</Button>
-            <Button icon={<Trash2 size={13} />} onClick={onDelete}>Delete</Button>
-          </>
+          editing ? (
+            <>
+              <Button size="sm" icon={<Wand2 size={13} />} onClick={() => setTemplateModal(true)}>Templates…</Button>
+              <Button size="sm" icon={<Copy size={13} />} onClick={copySource}>Copy</Button>
+              <Button size="sm" icon={<Maximize2 size={13} />} onClick={() => setFullscreen(true)}>Fullscreen</Button>
+              <Button size="sm" variant="primary" icon={<Save size={13} />} onClick={save} disabled={saving || !dirty}>
+                {saving ? "Saving…" : dirty ? "Save" : "Saved"}
+              </Button>
+              <Button size="sm" onClick={exitEdit}>Done</Button>
+            </>
+          ) : (
+            <>
+              <Button icon={<Edit size={13} />} onClick={() => setEditing(true)}>Edit</Button>
+              <Button icon={<Copy size={13} />} onClick={copySource}>Copy Mermaid</Button>
+              <Button icon={<Maximize2 size={13} />} onClick={() => setFullscreen(true)}>Fullscreen</Button>
+              <Button icon={<Edit size={13} />} onClick={() => setEditingMeta(true)}>Metadata</Button>
+              <Button icon={<Trash2 size={13} />} onClick={onDelete}>Delete</Button>
+            </>
+          )
         }
       >
         <div className="flex items-center gap-4 text-[12px] text-fg-muted mt-2 flex-wrap">
@@ -190,46 +212,78 @@ export default function DiagramDetailPage({
           <span>Updated {timeAgo(diagram.updatedAt)}</span>
           <span className="font-mono text-[11.5px]">{diagram.id}</span>
         </div>
+        <div className="mt-2 text-[12px] text-fg-muted max-w-[720px]">
+          <span className="text-fg-subtle">{diagram.type}:</span> {DIAGRAM_TYPE_BLURBS[diagram.type]}
+        </div>
       </PageHeader>
 
-      <Card
-        title={
-          <div className="flex items-center gap-2 flex-wrap">
-            <span>Mermaid editor</span>
-            <StatusPill status={status} error={statusError} />
-            {dirty && <Badge tone="warning">Unsaved</Badge>}
+      {/* READ MODE */}
+      {!editing && (
+        <>
+          <Card
+            title={
+              <div className="flex items-center gap-2 flex-wrap">
+                <span>Rendered diagram</span>
+                <StatusPill status={status} error={statusError} />
+              </div>
+            }
+            padded={false}
+          >
+            <div className="p-5 bg-bg min-h-[460px] flex items-start justify-center overflow-auto">
+              {source.trim() ? (
+                <MermaidPreview source={source} onStatusChange={onStatusChange} />
+              ) : (
+                <div className="text-fg-subtle text-[13px] italic">
+                  No Mermaid source yet. Click <strong>Edit</strong> to write one.
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {source.trim() && (
+            <details className="mt-4 group">
+              <summary className="cursor-pointer select-none inline-flex items-center gap-1.5 text-[13px] text-fg-muted hover:text-fg list-none">
+                <ChevronDown size={13} className="transition-transform group-open:rotate-180" />
+                Mermaid source
+              </summary>
+              <pre className="mt-2 bg-panel-2 border border-border rounded-md p-3 text-[12.5px] font-mono leading-[1.6] overflow-auto max-h-[420px]">
+                {source}
+              </pre>
+            </details>
+          )}
+        </>
+      )}
+
+      {/* EDIT MODE */}
+      {editing && (
+        <Card
+          title={
+            <div className="flex items-center gap-2 flex-wrap">
+              <span>Mermaid editor</span>
+              <StatusPill status={status} error={statusError} />
+            </div>
+          }
+          subtitle="Edit the source on the left; preview updates automatically on the right."
+          padded={false}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2">
+            <textarea
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              spellCheck={false}
+              placeholder="flowchart TD&#10;  A --> B"
+              className="min-h-[480px] bg-panel-2 border-0 border-r border-border outline-none px-4 py-3 text-[13px] font-mono leading-[1.6] resize-none"
+            />
+            <div className="min-h-[480px] p-4 overflow-auto bg-bg">
+              {source.trim() ? (
+                <MermaidPreview source={source} onStatusChange={onStatusChange} />
+              ) : (
+                <div className="text-fg-subtle text-[13px] italic">Add Mermaid source to see a preview.</div>
+              )}
+            </div>
           </div>
-        }
-        subtitle="Edit the source on the left; preview updates automatically on the right."
-        action={
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button size="sm" icon={<Wand2 size={12} />} onClick={() => setTemplateModal(true)}>Templates…</Button>
-            <Button size="sm" icon={<Copy size={12} />} onClick={copySource}>Copy</Button>
-            <Button size="sm" icon={<Maximize2 size={12} />} onClick={() => setFullscreen(true)}>Fullscreen</Button>
-            <Button size="sm" variant="primary" icon={<Save size={12} />} onClick={save} disabled={saving || !dirty}>
-              {saving ? "Saving…" : dirty ? "Save" : "Saved"}
-            </Button>
-          </div>
-        }
-        padded={false}
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-2">
-          <textarea
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            spellCheck={false}
-            placeholder="flowchart TD&#10;  A --> B"
-            className="min-h-[480px] bg-panel-2 border-0 border-r border-border outline-none px-4 py-3 text-[13px] font-mono leading-[1.6] resize-none"
-          />
-          <div className="min-h-[480px] p-4 overflow-auto bg-bg">
-            {source.trim() ? (
-              <MermaidPreview source={source} onStatusChange={onStatusChange} />
-            ) : (
-              <div className="text-fg-subtle text-[13px] italic">Add Mermaid source to see a preview.</div>
-            )}
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {editingMeta && (
         <EditMetaModal
@@ -320,7 +374,7 @@ function TemplatePickerModal({
                 <Badge mono>{t}</Badge>
                 {active && <span className="text-[11px] text-accent">selected</span>}
               </div>
-              <div className="text-[12.5px] text-fg-muted leading-relaxed">{TEMPLATE_BLURBS[t]}</div>
+              <div className="text-[12.5px] text-fg-muted leading-relaxed">{DIAGRAM_TYPE_BLURBS[t]}</div>
             </button>
           );
         })}
@@ -353,7 +407,7 @@ function ConfirmReplaceModal({
   return (
     <Modal title="Replace current Mermaid source?" onClose={onCancel}>
       <p className="text-[13.5px] text-fg-muted mb-4">
-        Inserting the <Badge mono>{type}</Badge> template will overwrite the current editor content.
+        Applying the <Badge mono>{type}</Badge> template will overwrite the current editor content.
         This cannot be undone unless you re-paste the previous source. The diagram has not been saved yet.
       </p>
       <div className="flex justify-end gap-2">
@@ -406,7 +460,7 @@ function EditMetaModal({
   };
 
   return (
-    <Modal title="Edit diagram" onClose={onClose}>
+    <Modal title="Edit diagram metadata" onClose={onClose}>
       <div className="flex flex-col gap-3">
         <Field label="Title">
           <input value={title} onChange={(e) => setTitle(e.target.value)}

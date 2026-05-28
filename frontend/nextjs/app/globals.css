@@ -291,6 +291,22 @@ body {
 .mermaid-host svg .labelBkg {
   fill: #1a1d24 !important;
 }
+/* Sequence diagrams — actor boxes and notes need explicit dark fills
+   because some Mermaid versions hardcode a light pastel fill that hides
+   the white labels we set above. */
+.mermaid-host svg rect.actor,
+.mermaid-host svg rect.actor-top,
+.mermaid-host svg rect.actor-bottom,
+.mermaid-host svg rect.actor-box {
+  fill: #1a1d24 !important;
+  stroke: #5f8fb8 !important;
+}
+.mermaid-host svg rect.note,
+.mermaid-host svg polygon.labelBox,
+.mermaid-host svg rect.labelBox {
+  fill: #111318 !important;
+  stroke: #3a3f48 !important;
+}
 
 /* Rendered Markdown — light styling so docs look right inside cards. */
 .prose-markdown {

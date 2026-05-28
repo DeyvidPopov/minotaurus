@@ -41,16 +41,22 @@ const MERMAID_THEME_VARIABLES = {
   // ERD-specific
   attributeBackgroundColorOdd: "#1a1d24",
   attributeBackgroundColorEven: "#15171c",
-  // Sequence / state / class diagrams
+  // Sequence / state / class diagrams. The visible-blue actorBorder makes
+  // the actor boxes legible without making them look like primary nodes.
   actorBkg: "#1a1d24",
-  actorBorder: "#2a2e36",
+  actorBorder: "#5f8fb8",
   actorTextColor: "#e6e8ec",
   actorLineColor: "#9aa3ad",
   signalColor: "#e6e8ec",
   signalTextColor: "#e6e8ec",
+  labelBoxBkgColor: "#1a1d24",
+  labelBoxBorderColor: "#2a2e36",
   labelTextColor: "#e6e8ec",
   loopTextColor: "#e6e8ec",
-  noteBkgColor: "#2a2e36",
+  activationBkgColor: "#2a2e36",
+  activationBorderColor: "#5f8fb8",
+  sequenceNumberColor: "#e6e8ec",
+  noteBkgColor: "#111318",
   noteTextColor: "#e6e8ec",
   noteBorderColor: "#3a3f48",
 };
@@ -165,6 +171,33 @@ function forceLabelVisibility(host: HTMLDivElement): void {
       bg.style.background = EDGE_LABEL_BG;
       bg.style.backgroundColor = EDGE_LABEL_BG;
     }
+  });
+
+  // Sequence diagram actor boxes: some Mermaid versions emit
+  // `<rect class="actor">` with a hardcoded light fill (e.g. #ECECFF) that
+  // overrides themeVariables and makes white-on-light-grey labels unreadable.
+  // Replace those fills explicitly.
+  const ACTOR_BG = "#1a1d24";
+  const ACTOR_BORDER = "#5f8fb8";
+  const NOTE_BG = "#111318";
+  svg.querySelectorAll<SVGElement>("rect.actor, line.actor-line").forEach((node) => {
+    const tag = node.tagName.toLowerCase();
+    if (tag === "rect") {
+      node.setAttribute("fill", ACTOR_BG);
+      node.setAttribute("stroke", ACTOR_BORDER);
+    } else if (tag === "line") {
+      node.setAttribute("stroke", "#9aa3ad");
+    }
+  });
+  // The "actor-top" / "actor-bottom" rects in newer Mermaid versions.
+  svg.querySelectorAll<SVGElement>("rect.actor-top, rect.actor-bottom, rect.actor-box").forEach((rect) => {
+    rect.setAttribute("fill", ACTOR_BG);
+    rect.setAttribute("stroke", ACTOR_BORDER);
+  });
+  // Note boxes.
+  svg.querySelectorAll<SVGElement>("rect.note, polygon.labelBox, rect.labelBox").forEach((rect) => {
+    rect.setAttribute("fill", NOTE_BG);
+    rect.setAttribute("stroke", "#3a3f48");
   });
 }
 
