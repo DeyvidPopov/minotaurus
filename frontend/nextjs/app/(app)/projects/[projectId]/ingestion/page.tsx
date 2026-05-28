@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Download, FileText, Plug, GitMerge, Database, Trash2, ExternalLink, X, Info,
+  Download, FileText, Plug, GitMerge, Database, ExternalLink, X, Info,
   Upload as UploadIcon, Search, ArrowLeft, Link as LinkIcon, Plus, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -158,31 +158,9 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
     }
   };
 
-  const deleteRecord = async (record: IngestionRecord) => {
-    if (!canMutate) {
-      toast.error("Your role doesn't allow deleting ingestion drafts.");
-      return;
-    }
-    const wasConfirmed = record.status === "CONFIRMED";
-    const confirmMessage = wasConfirmed
-      ? `Remove ingestion log?\n\nThis only removes the import history record. ` +
-        `Created artifacts, API specs, diagrams, or database models will remain in the project.`
-      : `Delete ingestion draft "${record.title}"?\n\nNo project assets will be affected.`;
-    if (!window.confirm(confirmMessage)) return;
-    try {
-      await ingestionApi.remove(record.id);
-      toast.success(
-        wasConfirmed
-          ? "Ingestion log removed · created assets unchanged"
-          : "Ingestion draft deleted",
-      );
-      if (selected?.id === record.id) setSelected(null);
-      await refresh();
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Failed to delete record";
-      toast.error(msg);
-    }
-  };
+  // The DELETE /api/ingestion/:id backend endpoint stays in place, but no
+  // delete / remove-log action is exposed from this page anymore — ingestion
+  // history is shown as a permanent audit trail in the UI.
 
   return (
     <div className="px-8 py-6">
@@ -356,37 +334,12 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2 justify-end">
+                            {/* Ingestion history is a permanent audit trail in the UI.
+                                The backend DELETE endpoint still exists, but no delete /
+                                remove action is exposed from this table. */}
                             <Button size="sm" variant="ghost" icon={<ExternalLink size={13} />} onClick={() => setSelected(r)}>
                               Open
                             </Button>
-                            {canMutate && (
-                              r.status === "CONFIRMED" ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => deleteRecord(r)}
-                                  title="Removes only the ingestion history entry. Created project assets remain unchanged."
-                                  aria-label={`Remove log for ${r.title}`}
-                                >
-                                  Remove log
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  icon={<Trash2 size={13} />}
-                                  onClick={() => deleteRecord(r)}
-                                  title={
-                                    r.status === "PARSED"
-                                      ? "Deletes the parsed draft. No project assets were created yet."
-                                      : "Deletes this unfinished ingestion record."
-                                  }
-                                  aria-label={`Delete draft ${r.title}`}
-                                >
-                                  Delete draft
-                                </Button>
-                              )
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -459,7 +412,7 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
       )}
 
       {selected && (
-        <Modal onClose={() => setSelected(null)} title={selected.title}>
+        <Modal onClose={() => setSelected(null)} title={selected.title} size="xlarge">
           <DetailView record={selected} projectId={projectId} />
         </Modal>
       )}
@@ -1699,11 +1652,34 @@ function ArtifactLinkPicker({
 
 // ────────────────────────────── Shared modal / detail bits ──────────────────────────────
 
-function Modal({ children, onClose, title, wide }: { children: React.ReactNode; onClose: () => void; title: string; wide?: boolean }) {
+type ModalSize = "default" | "wide" | "xlarge";
+
+function Modal({
+  children,
+  onClose,
+  title,
+  wide,
+  size,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+  title: string;
+  /** Legacy boolean: `wide` keeps acting like 760px max-width. */
+  wide?: boolean;
+  /** Explicit size. Wins over `wide` if both are supplied. */
+  size?: ModalSize;
+}) {
+  const resolvedSize: ModalSize = size ?? (wide ? "wide" : "default");
+  const sizeClass =
+    resolvedSize === "xlarge"
+      ? "max-w-[960px]"
+      : resolvedSize === "wide"
+        ? "max-w-[760px]"
+        : "max-w-[520px]";
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4" onClick={onClose}>
       <div
-        className={`bg-panel border border-border rounded-lg w-full max-h-[88vh] overflow-y-auto ${wide ? "max-w-[760px]" : "max-w-[520px]"}`}
+        className={`bg-panel border border-border rounded-lg w-full max-h-[85vh] overflow-y-auto ${sizeClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border sticky top-0 bg-panel">
@@ -1765,14 +1741,21 @@ const STATUS_EXPLANATION: Record<IngestionStatus, string> = {
     "Parsing failed. No project assets were created. Delete this draft and start over.",
 };
 
-const CREATED_RECORD_LABEL: Record<string, string> = {
+// Types that have a real detail page and deserve a top-level OpenLink in the
+// createdRecords summary. Other types (DATABASE_ENTITY / DATABASE_FIELD /
+// API_ENDPOINT) are summarized instead — they don't have their own routes,
+// they live under their parent resource.
+const ROUTED_RECORD_LABEL: Partial<Record<CreatedRecordRef["type"], string>> = {
   ARTIFACT: "Open artifact",
   API_SPEC: "Open API spec",
-  API_ENDPOINT: "Open API spec",
   DIAGRAM: "Open diagram",
   DATABASE_MODEL: "Open database model",
-  DATABASE_ENTITY: "Open database model",
-  DATABASE_FIELD: "Open database model",
+};
+
+const CHILD_RECORD_LABEL: Partial<Record<CreatedRecordRef["type"], string>> = {
+  API_ENDPOINT: "Endpoint",
+  DATABASE_ENTITY: "Entity",
+  DATABASE_FIELD: "Field",
 };
 
 function DetailView({ record, projectId }: { record: IngestionRecord; projectId: string }) {
@@ -1783,15 +1766,23 @@ function DetailView({ record, projectId }: { record: IngestionRecord; projectId:
   const isOpenApi = parserSource === "OPENAPI_JSON";
   const isMermaid = parserSource === "MERMAID";
   const isSql = parserSource === "SQL_SCHEMA";
-  const linkHrefFor = (c: CreatedRecordRef): string => {
-    if (c.type === "API_SPEC" || c.type === "API_ENDPOINT") return `/projects/${projectId}/api/${c.id}`;
+  // Only return a route for record types that actually have a detail page.
+  // Sub-records (entities, fields, endpoints) live under their parent so
+  // they don't get an Open link of their own.
+  const linkHrefFor = (c: CreatedRecordRef): string | null => {
+    if (c.type === "API_SPEC") return `/projects/${projectId}/api/${c.id}`;
     if (c.type === "ARTIFACT") return `/projects/${projectId}/artifacts/${c.id}?tab=documentation`;
     if (c.type === "DIAGRAM") return `/projects/${projectId}/diagrams/${c.id}`;
-    if (c.type === "DATABASE_MODEL" || c.type === "DATABASE_ENTITY" || c.type === "DATABASE_FIELD") {
-      return `/projects/${projectId}/database/${c.id}`;
-    }
-    return `/projects/${projectId}`;
+    if (c.type === "DATABASE_MODEL") return `/projects/${projectId}/database/${c.id}`;
+    return null;
   };
+  const routedRecords = createdList.filter((c) => !!ROUTED_RECORD_LABEL[c.type]);
+  const childRecords = createdList.filter((c) => !ROUTED_RECORD_LABEL[c.type]);
+  const childCounts: Record<string, CreatedRecordRef[]> = {};
+  for (const c of childRecords) {
+    if (!childCounts[c.type]) childCounts[c.type] = [];
+    childCounts[c.type].push(c);
+  }
   return (
     <div className="flex flex-col gap-3 text-[13px]">
       <div
@@ -1860,24 +1851,22 @@ function DetailView({ record, projectId }: { record: IngestionRecord; projectId:
         </>
       )}
 
-      <DetailRow label="Created records" value={
-        createdList.length === 0
-          ? <span className="text-fg-muted">{record.status === "PARSED" ? "Preview only — confirm to commit." : "None"}</span>
-          : (
-            <ul className="m-0 pl-0 list-none text-[12.5px] flex flex-col gap-1.5">
-              {createdList.map((c, i) => (
-                <li key={i} className="flex items-center gap-2 min-w-0">
-                  <Badge tone="default" mono>{c.type}</Badge>
-                  <OpenLink
-                    href={linkHrefFor(c)}
-                    label={CREATED_RECORD_LABEL[c.type] ?? "Open"}
-                  />
-                  <span className="font-mono text-[11.5px] text-fg-subtle truncate" title={c.id}>{c.id}</span>
-                </li>
-              ))}
-            </ul>
-          )
-      } />
+      {createdList.length === 0 ? (
+        <DetailRow
+          label="Created records"
+          value={
+            <span className="text-fg-muted">
+              {record.status === "PARSED" ? "Preview only — confirm to commit." : "None"}
+            </span>
+          }
+        />
+      ) : (
+        <CreatedRecordsSummary
+          routed={routedRecords}
+          childCounts={childCounts}
+          linkHrefFor={linkHrefFor}
+        />
+      )}
 
       {record.errorMessage && (
         <div className="text-[12.5px] text-danger">{record.errorMessage}</div>
@@ -1890,7 +1879,71 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   return (
     <div className="grid grid-cols-[140px_1fr] gap-2 items-baseline">
       <div className="text-[11.5px] uppercase tracking-wider text-fg-subtle">{label}</div>
-      <div>{value}</div>
+      <div className="min-w-0">{value}</div>
+    </div>
+  );
+}
+
+function CreatedRecordsSummary({
+  routed,
+  childCounts,
+  linkHrefFor,
+}: {
+  routed: CreatedRecordRef[];
+  childCounts: Record<string, CreatedRecordRef[]>;
+  linkHrefFor: (c: CreatedRecordRef) => string | null;
+}) {
+  const childOrder: CreatedRecordRef["type"][] = ["DATABASE_ENTITY", "DATABASE_FIELD", "API_ENDPOINT"];
+  const hasChildren = childOrder.some((t) => (childCounts[t]?.length ?? 0) > 0);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-[11.5px] uppercase tracking-wider text-fg-subtle">Created records</div>
+      <div className="border border-border rounded-md divide-y divide-border bg-panel-2">
+        {routed.length === 0 && !hasChildren && (
+          <div className="px-3 py-2.5 text-[12.5px] text-fg-muted">None</div>
+        )}
+        {routed.map((c) => (
+          <div key={c.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5 px-3 py-2.5">
+            <Badge tone="default" mono>{c.type}</Badge>
+            <span className="font-mono text-[11.5px] text-fg-subtle truncate" title={c.id}>{c.id}</span>
+            {(() => {
+              const href = linkHrefFor(c);
+              return href ? (
+                <OpenLink href={href} label={ROUTED_RECORD_LABEL[c.type] ?? "Open"} />
+              ) : null;
+            })()}
+          </div>
+        ))}
+        {childOrder.map((t) => {
+          const items = childCounts[t];
+          if (!items || items.length === 0) return null;
+          const label = CHILD_RECORD_LABEL[t] ?? t;
+          const plural = items.length === 1 ? "" : "s";
+          return (
+            <details key={t} className="group">
+              <summary className="px-3 py-2.5 flex items-center gap-2 cursor-pointer select-none list-none">
+                <Badge tone="default" mono>{t}</Badge>
+                <span className="text-[12.5px] text-fg-muted">
+                  {items.length} {label.toLowerCase()}{plural} created
+                </span>
+                <span className="ml-auto text-[11px] text-fg-subtle group-open:hidden">show ids</span>
+                <span className="ml-auto text-[11px] text-fg-subtle hidden group-open:inline">hide ids</span>
+              </summary>
+              <ul className="px-3 pb-3 pl-12 m-0 list-none flex flex-col gap-1">
+                {items.map((c) => (
+                  <li
+                    key={c.id}
+                    className="font-mono text-[11.5px] text-fg-subtle truncate"
+                    title={c.id}
+                  >
+                    {c.id}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          );
+        })}
+      </div>
     </div>
   );
 }

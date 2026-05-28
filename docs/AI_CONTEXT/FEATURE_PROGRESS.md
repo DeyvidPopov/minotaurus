@@ -26,7 +26,26 @@
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## NAVIGATION POLISH + INGESTION LOG SEMANTICS (current pass)
+## INGESTION DETAIL UI POLISH (current pass)
+- Ingestion history is now an audit trail in the UI. The row-end
+  delete / remove-log button is gone entirely. Both confirmed and draft
+  records show only the Open action; deletion still works via the
+  `DELETE /api/ingestion/:id` endpoint but isn't exposed from this page.
+- Detail modal's `Created records` block is now grouped + filtered, not
+  a flat list:
+  - Routed types (ARTIFACT / API_SPEC / DIAGRAM / DATABASE_MODEL) get
+    their own row with the type chip, truncated id, and an `OpenLink`
+    routing to the matching detail page.
+  - Child types (API_ENDPOINT / DATABASE_ENTITY / DATABASE_FIELD) get
+    a single summary row per type ("21 fields created"), with a
+    `<details>` "show ids" toggle that reveals the raw id list. No more
+    broken "Open database model" links for individual fields.
+- Detail modal is now `xlarge` (`max-w-[960px]`), responsive on mobile,
+  `max-h-[85vh]` with internal scroll. The Modal helper learned an
+  explicit `size: "default" | "wide" | "xlarge"` prop; the existing
+  `wide` boolean still works for backwards compatibility.
+
+## NAVIGATION POLISH + INGESTION LOG SEMANTICS (previous pass)
 - Reusable `components/ui/open-link.tsx` is the canonical "Open"
   navigation link app-wide: muted neutral foreground, `SquareArrowOutUpRight`
   icon on the left, "Open" label by default, brighter on hover, visible

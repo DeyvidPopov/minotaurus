@@ -2,6 +2,29 @@
 
 ## Last Completed Feature
 
+**Ingestion detail UI polish**:
+- The ingestion history row-end delete / remove-log button is gone for
+  every status. The history table now has only the Open action;
+  ingestion records read as a permanent audit trail in the UI. The
+  backend `DELETE /api/ingestion/:id` endpoint still exists and still
+  writes the correct status-aware VersionEvent — there's just no UI
+  affordance for it.
+- Detail modal's `Created records` block grouped + filtered:
+  - Routed types (ARTIFACT / API_SPEC / DIAGRAM / DATABASE_MODEL) each
+    get a single row with type chip, truncated id and an `OpenLink` to
+    the matching detail page.
+  - Child types (API_ENDPOINT / DATABASE_ENTITY / DATABASE_FIELD) collapse
+    to one summary row per type ("21 fields created") with a
+    `<details>` "show ids" toggle. No more broken "Open database model"
+    links for individual fields.
+- Modal width: ingestion detail modal is now `xlarge` (`max-w-[960px]`,
+  responsive on mobile via `w-full max-h-[85vh]`). The shared `Modal`
+  helper learned an explicit `size: "default" | "wide" | "xlarge"`
+  prop; the existing `wide` boolean still works for back-compat so the
+  Markdown / OpenAPI / Mermaid / SQL wizards continue at 760px.
+
+## Previous feature pass
+
 **Navigation polish + ingestion log semantics**:
 - All row-end chevrons and blue `Open →` links replaced with the canonical
   `components/ui/open-link.tsx` (muted neutral, external icon left, "Open"
@@ -369,7 +392,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-3e5a969 — *Polish navigation links and ingestion log semantics*
+_(updated by the ingestion detail UI polish commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 

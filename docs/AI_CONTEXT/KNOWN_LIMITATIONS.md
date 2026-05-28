@@ -67,17 +67,21 @@ Living list of trade-offs and partial implementations in the current MVP. Update
   DatabaseModel, DatabaseEntity, DatabaseField) live on their own tables
   with no FK back to IngestionRecord. Deleting an ingestion record (any
   status) never cascades to those assets — verified end-to-end.
-  - DRAFT / PARSED / FAILED records → "Delete draft" button. Confirmation
-    copy and tooltip say no project assets will be affected.
-  - CONFIRMED records → "Remove log" button. Confirmation copy explicitly
-    states created artifacts / API specs / diagrams / database models
-    remain in the project.
-  - Backend VersionEvent title differs by previous status:
-    `"Removed ingestion log"` for CONFIRMED, `"Ingestion draft deleted"`
-    otherwise. Metadata carries `logRemovalOnly: true` when the record
-    was CONFIRMED.
+  - **No delete / remove-log action is exposed from the ingestion history
+    UI.** The page is shown as a permanent audit trail. The
+    `DELETE /api/ingestion/:id` backend endpoint still exists for
+    programmatic cleanup and still writes the correct status-aware
+    VersionEvent ("Removed ingestion log" for CONFIRMED, "Ingestion
+    draft deleted" otherwise), but there is no button for it.
   - There is no undo / "rewind ingestion" feature. To actually delete a
     created asset, use that asset's own delete action on its detail page.
+- Detail modal `Created records` block shows OpenLinks **only for record
+  types with their own detail route** (ARTIFACT / API_SPEC / DIAGRAM /
+  DATABASE_MODEL). Child types — API_ENDPOINT, DATABASE_ENTITY,
+  DATABASE_FIELD — render as a single count summary per type with an
+  optional `<details>` toggle to reveal the raw ids. Previous behaviour
+  emitted broken "Open database model" links for every field, which has
+  been removed.
 - Mermaid parser limits:
   - Accepts `.mmd` or `.md` with a `\`\`\`mermaid` fenced block. Detects
     the diagram type from the first non-comment line keyword (flowchart /
