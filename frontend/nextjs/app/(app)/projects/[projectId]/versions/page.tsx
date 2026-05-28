@@ -197,46 +197,57 @@ function EventRow({ event, projectId }: { event: VersionEvent; projectId: string
       </div>
       <div className="text-[11.5px] text-fg-subtle font-mono shrink-0 flex flex-col items-end gap-1">
         <span>{timeAgo(event.createdAt)}</span>
-        {targetHref && (
-          <Link href={targetHref} className="text-accent hover:underline">
-            Open →
-          </Link>
-        )}
+        <Link href={targetHref} className="text-accent hover:underline">
+          Open →
+        </Link>
       </div>
     </li>
   );
 }
 
-function entityHref(projectId: string, e: VersionEvent): string | null {
+function entityHref(projectId: string, e: VersionEvent): string {
+  const md = (e.metadata ?? {}) as {
+    specId?: string;
+    databaseModelId?: string;
+    sourceArtifactId?: string;
+    ingestionId?: string;
+    memberId?: string;
+    memberUserId?: string;
+  };
   switch (e.entityType) {
     case "ARTIFACT":
     case "DOCUMENTATION":
       return `/projects/${projectId}/artifacts/${e.entityId}`;
     case "API_SPEC":
       return `/projects/${projectId}/api/${e.entityId}`;
-    case "API_ENDPOINT": {
-      const specId = (e.metadata as { specId?: string } | undefined)?.specId;
-      return specId ? `/projects/${projectId}/api/${specId}` : null;
-    }
+    case "API_ENDPOINT":
+      return md.specId
+        ? `/projects/${projectId}/api/${md.specId}`
+        : `/projects/${projectId}/api`;
     case "DATABASE_MODEL":
       return `/projects/${projectId}/database/${e.entityId}`;
     case "DATABASE_ENTITY":
-    case "DATABASE_FIELD": {
-      const modelId = (e.metadata as { databaseModelId?: string } | undefined)?.databaseModelId;
-      return modelId ? `/projects/${projectId}/database/${modelId}` : null;
-    }
+    case "DATABASE_FIELD":
+      return md.databaseModelId
+        ? `/projects/${projectId}/database/${md.databaseModelId}`
+        : `/projects/${projectId}/database`;
     case "DIAGRAM":
       return `/projects/${projectId}/diagrams/${e.entityId}`;
     case "EXPORT":
       return `/projects/${projectId}/export`;
     case "VALIDATION":
       return `/projects/${projectId}/validation`;
-    case "RELATION": {
-      const sourceId = (e.metadata as { sourceArtifactId?: string } | undefined)?.sourceArtifactId;
-      return sourceId ? `/projects/${projectId}/artifacts/${sourceId}` : null;
-    }
+    case "RELATION":
+      return md.sourceArtifactId
+        ? `/projects/${projectId}/artifacts/${md.sourceArtifactId}`
+        : `/projects/${projectId}/graph`;
+    case "PROJECT":
+      // Project-scoped events: route to whichever module the event came from.
+      if (md.ingestionId) return `/projects/${projectId}/ingestion`;
+      if (md.memberId || md.memberUserId) return `/projects/${projectId}/team`;
+      return `/projects/${projectId}`;
     default:
-      return null;
+      return `/projects/${projectId}`;
   }
 }
 

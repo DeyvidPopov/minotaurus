@@ -10,7 +10,13 @@ export function cn(...inputs: ClassValue[]) {
 
 /** Human-readable "x ago" from an ISO timestamp (assumes app-clock 2026-05-26). */
 export function timeAgo(iso: string) {
-  const ms = +new Date("2026-05-26T12:00:00Z") - +new Date(iso);
+  // Compare against the actual current time. Earlier prototypes pinned this
+  // to a constant for mock data; the value is real now, so use `Date.now()`.
+  const target = new Date(iso).getTime();
+  if (!Number.isFinite(target)) return "—";
+  const ms = Date.now() - target;
+  // Future timestamps (clock skew / recently-created records) → "just now".
+  if (ms < 0) return "just now";
   const s = Math.floor(ms / 1000);
   if (s < 60) return "just now";
   const m = Math.floor(s / 60);
