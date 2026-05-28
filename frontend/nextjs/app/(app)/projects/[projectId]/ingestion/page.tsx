@@ -791,6 +791,7 @@ function OpenApiImportWizard({
   const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
   const [linkedArtifactId, setLinkedArtifactId] = useState<string | "">("");
+  const [selectedBaseUrl, setSelectedBaseUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFile = async (file: File) => {
@@ -821,6 +822,7 @@ function OpenApiImportWizard({
       const result = await ingestionApi.parseOpenApiJson(draft.id, body);
       setRecord(result.record);
       setPreview(result.preview);
+      setSelectedBaseUrl(result.preview.baseUrl ?? "");
       setStep("preview");
       toast.success("OpenAPI JSON parsed");
     } catch (err) {
@@ -857,6 +859,7 @@ function OpenApiImportWizard({
       const out = await ingestionApi.confirmOpenApiJson(record.id, {
         mode: "CREATE_API_SPEC",
         artifactId: linkedArtifactId || null,
+        baseUrl: selectedBaseUrl.trim(),
       });
       toast.success(`Imported "${out.apiSpec.title}" with ${out.apiSpec.endpointCount} endpoints`);
       await onCommitted();
@@ -928,7 +931,16 @@ function OpenApiImportWizard({
           <DetailRow label="Version" value={<span className="text-fg-muted">v{preview.version}</span>} />
           <DetailRow label="Base URL" value={
             preview.baseUrl
-              ? <span className="font-mono text-[12.5px]">{preview.baseUrl}</span>
+              ? (
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="font-mono text-[12.5px]">{preview.baseUrl}</span>
+                    {preview.availableBaseUrls && preview.availableBaseUrls.length > 1 && (
+                      <span className="text-[11.5px] text-fg-subtle">
+                        + {preview.availableBaseUrls.length - 1} other server URL{preview.availableBaseUrls.length - 1 === 1 ? "" : "s"} — pick one on confirm
+                      </span>
+                    )}
+                  </div>
+                )
               : <span className="text-fg-subtle">none declared</span>
           } />
           <DetailRow label="Description" value={
@@ -987,6 +999,14 @@ function OpenApiImportWizard({
           </div>
           <DetailRow label="API title" value={<strong className="text-fg">{preview.title}</strong>} />
           <DetailRow label="Endpoints" value={<span className="text-fg-muted">{preview.endpointCount}</span>} />
+
+          <BaseUrlPicker
+            value={selectedBaseUrl}
+            onChange={setSelectedBaseUrl}
+            availableBaseUrls={preview.availableBaseUrls ?? []}
+            parsedBaseUrl={preview.baseUrl ?? ""}
+          />
+
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] text-fg-muted">Link to artifact <span className="text-fg-subtle">(optional)</span></span>
             <div className="relative">
@@ -1187,6 +1207,57 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
     <div className="grid grid-cols-[140px_1fr] gap-2 items-baseline">
       <div className="text-[11.5px] uppercase tracking-wider text-fg-subtle">{label}</div>
       <div>{value}</div>
+    </div>
+  );
+}
+
+function BaseUrlPicker({
+  value,
+  onChange,
+  availableBaseUrls,
+  parsedBaseUrl,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  availableBaseUrls: string[];
+  parsedBaseUrl: string;
+}) {
+  const showChips = availableBaseUrls.length > 1;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[12px] text-fg-muted">Base URL</span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={parsedBaseUrl || "/api"}
+        spellCheck={false}
+        className="h-8 px-2.5 bg-panel-2 border border-border rounded-sm text-[13px] font-mono focus:outline-none focus:border-border-strong"
+      />
+      {showChips && (
+        <div className="flex flex-wrap gap-1.5">
+          {availableBaseUrls.map((url) => {
+            const selected = value.trim() === url.trim();
+            return (
+              <button
+                key={url}
+                type="button"
+                onClick={() => onChange(url)}
+                className={`inline-flex items-center px-2 py-0.5 rounded-sm border text-[12px] font-mono transition-colors ${
+                  selected
+                    ? "bg-accent-soft text-accent border-accent"
+                    : "bg-panel-2 text-fg-muted border-border hover:bg-panel-hover hover:text-fg"
+                }`}
+                title={url}
+              >
+                {url}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <div className="text-[11.5px] text-fg-subtle">
+        OpenAPI files often contain generated, staging, or placeholder server URLs. Choose the URL that should be stored in Minotaurus.
+      </div>
     </div>
   );
 }

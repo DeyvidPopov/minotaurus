@@ -19,6 +19,7 @@ export interface OpenApiPreview {
   title: string;
   version: string;
   baseUrl: string;
+  availableBaseUrls: string[];
   description: string;
   endpointCount: number;
   endpoints: ParsedOpenApiEndpoint[];
@@ -73,24 +74,30 @@ function stringifyOrEmpty(value: unknown): string {
   }
 }
 
-function extractBaseUrl(doc: Record<string, unknown>): string {
-  // OpenAPI 3.x: servers[0].url
+function extractBaseUrls(doc: Record<string, unknown>): string[] {
+  const urls: string[] = [];
+  // OpenAPI 3.x: every entry in servers[].url
   const servers = asArray(doc.servers);
   for (const s of servers) {
-    const obj = asObject(s);
-    const url = asString(obj?.url);
-    if (url) return url;
+    const url = asString(asObject(s)?.url).trim();
+    if (url && !urls.includes(url)) urls.push(url);
   }
-  // Swagger 2.0 best-effort: host + basePath, with scheme if available.
-  const host = asString(doc.host);
-  const basePath = asString(doc.basePath);
-  if (host || basePath) {
-    const schemes = asArray(doc.schemes).filter((s): s is string => typeof s === "string");
-    const scheme = schemes[0] || "https";
-    if (host) return `${scheme}://${host}${basePath || ""}`;
-    return basePath || "";
+  // Swagger 2.0 best-effort: schemes[] × (host + basePath). If schemes is
+  // empty, fall back to "https" / basePath-only / host-only as appropriate.
+  const host = asString(doc.host).trim();
+  const basePath = asString(doc.basePath).trim();
+  if (host) {
+    const schemes = asArray(doc.schemes)
+      .filter((s): s is string => typeof s === "string" && s.length > 0);
+    const schemeList = schemes.length > 0 ? schemes : ["https"];
+    for (const scheme of schemeList) {
+      const candidate = `${scheme}://${host}${basePath}`;
+      if (!urls.includes(candidate)) urls.push(candidate);
+    }
+  } else if (basePath) {
+    if (!urls.includes(basePath)) urls.push(basePath);
   }
-  return "";
+  return urls;
 }
 
 function hasRootSecurity(doc: Record<string, unknown>): boolean {
@@ -122,7 +129,8 @@ export function parseOpenApi(jsonString: string): OpenApiPreview {
   const title = asString(info.title) || "Untitled API";
   const apiVersion = asString(info.version) || "1.0.0";
   const description = asString(info.description);
-  const baseUrl = extractBaseUrl(doc);
+  const availableBaseUrls = extractBaseUrls(doc);
+  const baseUrl = availableBaseUrls[0] ?? "";
   const rootSecurity = hasRootSecurity(doc);
 
   const endpoints: ParsedOpenApiEndpoint[] = [];
@@ -158,6 +166,7 @@ export function parseOpenApi(jsonString: string): OpenApiPreview {
     title,
     version: apiVersion,
     baseUrl,
+    availableBaseUrls,
     description,
     endpointCount: endpoints.length,
     endpoints,

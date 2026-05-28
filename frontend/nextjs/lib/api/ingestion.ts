@@ -37,6 +37,7 @@ export interface OpenApiParserResult {
   title: string;
   version: string;
   baseUrl: string;
+  availableBaseUrls?: string[];
   description: string;
   endpointCount: number;
   endpoints: ParsedOpenApiEndpoint[];
@@ -91,6 +92,7 @@ export interface OpenApiParseResponse {
 export interface ConfirmOpenApiBody {
   mode: "CREATE_API_SPEC";
   artifactId?: string | null;
+  baseUrl?: string;
 }
 
 export interface ConfirmOpenApiResponse {

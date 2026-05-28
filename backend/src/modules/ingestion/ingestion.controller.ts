@@ -435,6 +435,7 @@ const parseOpenApiSchema = z.object({
 const confirmOpenApiSchema = z.object({
   mode: z.literal("CREATE_API_SPEC"),
   artifactId: z.string().uuid().nullable().optional(),
+  baseUrl: z.string().max(500).optional(),
 });
 
 interface StoredOpenApiResult extends OpenApiPreview {
@@ -539,7 +540,9 @@ export async function confirmOpenApiJsonEndpoint(req: AuthedRequest, res: Respon
 
   const title = stored.title?.trim() || "Imported API";
   const version = stored.version?.trim() || "1.0.0";
-  const baseUrl = stored.baseUrl ?? "";
+  const overrideBaseUrl =
+    typeof parsed.data.baseUrl === "string" ? parsed.data.baseUrl.trim() : undefined;
+  const baseUrl = overrideBaseUrl !== undefined ? overrideBaseUrl : (stored.baseUrl ?? "");
   const description = stored.description ?? "";
 
   const result = await prisma.$transaction(async (tx) => {
