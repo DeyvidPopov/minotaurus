@@ -116,6 +116,7 @@ model Artifact {
   id                   String         @id @default(uuid())
   projectId            String
   title                String
+  normalizedTitle      String
   type                 ArtifactType
   status               ArtifactStatus @default(DRAFT)
   description          String         @default("")
@@ -135,6 +136,7 @@ model Artifact {
   databaseModels DatabaseModel[]
   diagrams       Diagram[]
 
+  @@unique([projectId, normalizedTitle])
   @@index([projectId])
   @@index([createdById])
 }

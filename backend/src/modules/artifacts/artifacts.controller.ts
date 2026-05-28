@@ -7,6 +7,11 @@ import type { AuthedRequest } from "../../middleware/auth.js";
 import { toPublicUser } from "../auth/auth.controller.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
+import {
+  ARTIFACT_TITLE_TAKEN_MESSAGE,
+  checkArtifactTitleConflict,
+  normalizeArtifactTitle,
+} from "./artifact-title.js";
 
 const ARTIFACT_TYPES = Object.values(ArtifactType) as [ArtifactType, ...ArtifactType[]];
 const ARTIFACT_STATUSES = Object.values(ArtifactStatus) as [ArtifactStatus, ...ArtifactStatus[]];
@@ -123,10 +128,18 @@ export async function createArtifact(req: AuthedRequest, res: Response) {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
+  const trimmedTitle = parsed.data.title.trim();
+  if (!trimmedTitle) return fail(res, 400, "VALIDATION_ERROR", "Title is required");
+  const titleCheck = await checkArtifactTitleConflict(projectId, trimmedTitle);
+  if (titleCheck.conflict) {
+    return fail(res, 409, "ARTIFACT_TITLE_TAKEN", ARTIFACT_TITLE_TAKEN_MESSAGE);
+  }
+
   const artifact = await prisma.artifact.create({
     data: {
       projectId,
-      title: parsed.data.title,
+      title: trimmedTitle,
+      normalizedTitle: titleCheck.normalized,
       type: parsed.data.type,
       status: parsed.data.status,
       description: parsed.data.description,
@@ -174,10 +187,26 @@ export async function updateArtifact(req: AuthedRequest, res: Response) {
   const access = await ensureProjectAccess(existing.projectId, req.user!.userId, "DEVELOPER");
   if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
+  let nextTitle: string | undefined;
+  let nextNormalized: string | undefined;
+  if (parsed.data.title !== undefined) {
+    nextTitle = parsed.data.title.trim();
+    if (!nextTitle) return fail(res, 400, "VALIDATION_ERROR", "Title is required");
+    const normalized = normalizeArtifactTitle(nextTitle);
+    if (normalized !== existing.normalizedTitle) {
+      const conflict = await checkArtifactTitleConflict(existing.projectId, nextTitle, existing.id);
+      if (conflict.conflict) {
+        return fail(res, 409, "ARTIFACT_TITLE_TAKEN", ARTIFACT_TITLE_TAKEN_MESSAGE);
+      }
+      nextNormalized = normalized;
+    }
+  }
+
   const updated = await prisma.artifact.update({
     where: { id: existing.id },
     data: {
-      ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+      ...(nextTitle !== undefined ? { title: nextTitle } : {}),
+      ...(nextNormalized !== undefined ? { normalizedTitle: nextNormalized } : {}),
       ...(parsed.data.type !== undefined ? { type: parsed.data.type } : {}),
       ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
       ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),

@@ -21,10 +21,13 @@ export default function NewArtifactPage({ params }: { params: { projectId: strin
   const [status, setStatus] = useState<ArtifactStatus>("DRAFT");
   const [desc, setDesc] = useState("");
   const [busy, setBusy] = useState(false);
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     const trimmed = title.trim();
+    setTitleError(null);
     if (!trimmed) {
+      setTitleError("Title is required");
       toast.error("Title is required");
       return;
     }
@@ -39,7 +42,10 @@ export default function NewArtifactPage({ params }: { params: { projectId: strin
       toast.success(`Artifact "${created.title}" created`);
       router.push(`/projects/${projectId}/artifacts/${created.id}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not create artifact");
+      const code = err instanceof ApiError ? (err.body as { error?: { code?: string } } | undefined)?.error?.code : null;
+      const msg = err instanceof ApiError ? err.message : "Could not create artifact";
+      if (code === "ARTIFACT_TITLE_TAKEN") setTitleError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -51,8 +57,16 @@ export default function NewArtifactPage({ params }: { params: { projectId: strin
       <Card>
         <div className="flex flex-col gap-3.5">
           <Field label="Title">
-            <input className="w-full bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent"
-              value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Inventory Service" />
+            <input
+              className={`w-full bg-panel border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent ${titleError ? "border-danger" : "border-border"}`}
+              value={title}
+              onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null); }}
+              placeholder="e.g. Inventory Service"
+              aria-invalid={titleError ? true : undefined}
+            />
+            {titleError && (
+              <div className="mt-1 text-[12px] text-danger">{titleError}</div>
+            )}
           </Field>
           <div className="grid grid-cols-2 gap-3.5">
             <Field label="Type">

@@ -373,15 +373,20 @@ function EditArtifactDialog({ artifact, onClose, onSaved }: { artifact: Artifact
   const [status, setStatus] = useState<ArtifactStatus>(artifact.status);
   const [description, setDescription] = useState(artifact.description);
   const [busy, setBusy] = useState(false);
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   const save = async () => {
+    setTitleError(null);
     setBusy(true);
     try {
       await artifactsApi.update(artifact.id, { title: title.trim(), status, description });
       toast.success("Artifact updated");
       onSaved();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not update");
+      const code = err instanceof ApiError ? (err.body as { error?: { code?: string } } | undefined)?.error?.code : null;
+      const msg = err instanceof ApiError ? err.message : "Could not update";
+      if (code === "ARTIFACT_TITLE_TAKEN") setTitleError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -391,8 +396,13 @@ function EditArtifactDialog({ artifact, onClose, onSaved }: { artifact: Artifact
     <Modal title="Edit artifact" onClose={onClose}>
       <div className="flex flex-col gap-3">
         <label className="text-[12.5px] text-fg-muted font-medium">Title</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)}
-          className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent" />
+        <input
+          value={title}
+          onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError(null); }}
+          aria-invalid={titleError ? true : undefined}
+          className={`bg-panel border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent ${titleError ? "border-danger" : "border-border"}`}
+        />
+        {titleError && <div className="text-[12px] text-danger">{titleError}</div>}
         <label className="text-[12.5px] text-fg-muted font-medium">Status</label>
         <select value={status} onChange={(e) => setStatus(e.target.value as ArtifactStatus)}
           className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px]">

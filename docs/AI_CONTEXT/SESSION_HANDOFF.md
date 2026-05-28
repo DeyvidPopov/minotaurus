@@ -2,6 +2,33 @@
 
 ## Last Completed Feature
 
+**Artifact titles unique per project**:
+- New `normalizedTitle String` column on `Artifact` + unique index
+  `@@unique([projectId, normalizedTitle])`. Migration
+  `20260528080000_artifact_unique_title` backfills existing rows via
+  `lower(btrim(regexp_replace(title, '\s+', ' ', 'g')))`.
+- Shared helper `src/modules/artifacts/artifact-title.ts` (
+  `normalizeArtifactTitle` + `checkArtifactTitleConflict`). Artifact create /
+  update and ingestion CREATE_NEW confirm all pre-check, returning
+  **409 `ARTIFACT_TITLE_TAKEN`** with a readable message on conflict. Update
+  flow ignores self.
+- Case- and whitespace-insensitive: `"Authentication Service"`,
+  `" authentication service "`, `"AUTHENTICATION SERVICE"`,
+  `"Authentication   Service"` all collide. Cross-project titles are
+  unaffected.
+- Frontend: new-artifact page, edit-artifact dialog, and the Markdown
+  ingestion CREATE_NEW step show the conflict **inline** (red field border +
+  error message) on top of the existing toast. Field clears the error as
+  soon as the user edits the title.
+- Seed updated to write `normalizedTitle`. 11/11 backend smoke tests pass.
+- Verification: curl flow covered all six rules from the brief — duplicate
+  exact + whitespace variant + case variant + collapse variant all → 409;
+  rename to existing-title-in-different-case → 409; rename to self (same
+  title) → 200; rename to unique → 200; cross-project same title → 200;
+  ingestion CREATE_NEW with duplicate title → 409, with fresh title → 200.
+
+## Previous feature pass
+
 **Ingestion Phase 2 — Markdown parser + documentation import**:
 - New `parserResult Json?` column on `IngestionRecord` (migration
   `20260528070602_ingestion_parser_result`). `createdRecords` now actually
@@ -199,7 +226,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-e7c5ea8 — *Implement markdown ingestion workflow*
+_(updated by the artifact uniqueness commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 

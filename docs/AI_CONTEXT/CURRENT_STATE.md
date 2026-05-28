@@ -19,7 +19,8 @@ Backend:
   ARCHITECT / DEVELOPER / VIEWER roles. Project access is now membership-based across
   every controller. OWNER manages members, ARCHITECT runs validation + exports,
   DEVELOPER edits artifacts/APIs/DB/diagrams/docs, VIEWER is read-only.
-- Artifacts
+- Artifacts (**title unique per project, case- and whitespace-insensitive** —
+  enforced by the `normalizedTitle` column + unique index on `(projectId, normalizedTitle)`)
 - Relations
 - Documentation (per-artifact Markdown editor) + **Documentation Hub** with
   project-wide coverage stats, search, filter, and direct deep-links to the

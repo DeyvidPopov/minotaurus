@@ -12,6 +12,7 @@ import { prisma } from "../src/lib/prisma.js";
 import { recordVersionEvent } from "../src/modules/versions/versions.engine.js";
 import { runValidationForProject } from "../src/modules/validation/validation.engine.js";
 import { buildExportContent } from "../src/modules/exports/exports.engine.js";
+import { normalizeArtifactTitle } from "../src/modules/artifacts/artifact-title.js";
 
 const DEMO_EMAIL = "deyvid@minotaurus.dev";
 const DEMO_PASSWORD = "minotaurus";
@@ -196,6 +197,7 @@ async function main() {
       data: {
         projectId: project.id,
         title: s.title,
+        normalizedTitle: normalizeArtifactTitle(s.title),
         type: s.type,
         status: s.status,
         description: s.description,

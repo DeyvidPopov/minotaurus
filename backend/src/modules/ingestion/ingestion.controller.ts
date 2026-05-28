@@ -15,6 +15,10 @@ import type { AuthedRequest } from "../../middleware/auth.js";
 import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { parseMarkdown } from "./markdown.engine.js";
+import {
+  ARTIFACT_TITLE_TAKEN_MESSAGE,
+  checkArtifactTitleConflict,
+} from "../artifacts/artifact-title.js";
 
 const ARTIFACT_TYPES = Object.values(ArtifactType) as [ArtifactType, ...ArtifactType[]];
 
@@ -360,11 +364,16 @@ export async function confirmMarkdownEndpoint(req: AuthedRequest, res: Response)
   }
 
   // CREATE_NEW
-  const desiredTitle = parsed.data.artifactTitle.trim() || stored.title || "Imported Markdown";
+  const desiredTitle = (parsed.data.artifactTitle.trim() || stored.title || "Imported Markdown").trim();
+  const titleCheck = await checkArtifactTitleConflict(row.projectId, desiredTitle);
+  if (titleCheck.conflict) {
+    return fail(res, 409, "ARTIFACT_TITLE_TAKEN", ARTIFACT_TITLE_TAKEN_MESSAGE);
+  }
   const newArtifact = await prisma.artifact.create({
     data: {
       projectId: row.projectId,
       title: desiredTitle,
+      normalizedTitle: titleCheck.normalized,
       type: parsed.data.artifactType ?? ArtifactType.DOCUMENTATION,
       status: ArtifactStatus.ACTIVE,
       description: stored.excerpt && stored.excerpt.trim() ? stored.excerpt.slice(0, 240) : "Imported from Markdown",

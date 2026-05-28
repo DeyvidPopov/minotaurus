@@ -45,6 +45,18 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - `/api/projects/:id/graph` only emits artifact nodes. API specs, database models, and diagrams are **not** native graph nodes by design (to keep the graph contract stable). Navigation between them goes via the artifact detail page's **Linked resources** card.
 - React Flow node positions are persisted in localStorage per-user, not on the server.
 
+## Artifacts
+- **Titles are unique per project**, case-insensitive and whitespace-normalized
+  (trim + collapse internal whitespace + lowercase). Same title is fine across
+  different projects. The constraint is enforced both by the `normalizedTitle`
+  column + unique index `(projectId, normalizedTitle)` and by a pre-check in
+  the create / update controllers, which return 409 `ARTIFACT_TITLE_TAKEN` on
+  duplicates. The ingestion `CREATE_NEW` confirm path uses the same check.
+- The constraint applies only to `Artifact` rows. Other entities (API specs,
+  diagrams, database models, etc.) still allow duplicate titles within a
+  project — they live on their own tables and only show up under their parent
+  artifact via foreign key.
+
 ## Ingestion (Phases 1 + 2)
 - Phase 1 shipped the IngestionRecord table + workflow shell. Phase 2 shipped a
   **deterministic Markdown parser** + the LINK_EXISTING / CREATE_NEW confirm

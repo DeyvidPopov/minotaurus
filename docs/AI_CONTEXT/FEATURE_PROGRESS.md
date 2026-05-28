@@ -21,7 +21,27 @@
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## INGESTION PHASE 2 — Markdown parser + documentation import (current pass)
+## ARTIFACT TITLES UNIQUE PER PROJECT (current pass)
+- Added `normalizedTitle String` column on `Artifact` + unique index
+  `@@unique([projectId, normalizedTitle])`. Migration
+  `20260528080000_artifact_unique_title` backfills via
+  `lower(btrim(regexp_replace(title, '\s+', ' ', 'g')))`.
+- New helper `src/modules/artifacts/artifact-title.ts` exports
+  `normalizeArtifactTitle(title)` (trim → collapse internal whitespace →
+  lowercase) and `checkArtifactTitleConflict(projectId, title, excludeId?)`.
+- Artifact create / update + ingestion `CREATE_NEW` confirm all pre-check
+  and return **409 `ARTIFACT_TITLE_TAKEN`** with the message
+  "An artifact with this title already exists in this project." on
+  duplicates. Update flow ignores self (passes `excludeArtifactId = existing.id`).
+- Same title is allowed across different projects — uniqueness is scoped per
+  project by the unique index.
+- Frontend create form + edit dialog + ingestion CREATE_NEW step show the
+  conflict inline (red field border + error message) on top of the existing
+  toast. Title field clears the error as soon as the user edits it.
+- Seed updated to write `normalizedTitle` (no duplicate titles in the demo).
+- 11/11 backend smoke tests still pass.
+
+## INGESTION PHASE 2 — Markdown parser + documentation import (previous pass)
 - Schema: added `parserResult Json?` column on `IngestionRecord` (migration
   `20260528070602_ingestion_parser_result`) to hold the preview payload between
   parse and confirm. `createdRecords` now stores the actual artifacts created

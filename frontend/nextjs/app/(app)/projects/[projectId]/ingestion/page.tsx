@@ -519,9 +519,12 @@ function MarkdownImportWizard({
     }
   };
 
+  const [artifactTitleError, setArtifactTitleError] = useState<string | null>(null);
+
   const confirmCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!record) return;
+    setArtifactTitleError(null);
     setBusy(true);
     try {
       const out = await ingestionApi.confirmMarkdown(record.id, {
@@ -533,7 +536,10 @@ function MarkdownImportWizard({
       await onCommitted(out.artifact.id);
       onNavigateToArtifact(out.artifact.id);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Confirm failed");
+      const code = err instanceof ApiError ? (err.body as { error?: { code?: string } } | undefined)?.error?.code : null;
+      const msg = err instanceof ApiError ? err.message : "Confirm failed";
+      if (code === "ARTIFACT_TITLE_TAKEN") setArtifactTitleError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -678,7 +684,15 @@ function MarkdownImportWizard({
             <Button type="button" size="sm" variant="ghost" icon={<ArrowLeft size={13} />} onClick={() => setStep("preview")}>Back</Button>
             <div className="text-[13px] font-medium">Create a new artifact for this Markdown</div>
           </div>
-          <LabeledInput label="Artifact title" value={artifactTitle} onChange={setArtifactTitle} required />
+          <LabeledInput
+            label="Artifact title"
+            value={artifactTitle}
+            onChange={(v) => { setArtifactTitle(v); if (artifactTitleError) setArtifactTitleError(null); }}
+            required
+          />
+          {artifactTitleError && (
+            <div className="text-[12px] text-danger -mt-2">{artifactTitleError}</div>
+          )}
           <label className="flex flex-col gap-1">
             <span className="text-[12px] text-fg-muted">Artifact type</span>
             <select
