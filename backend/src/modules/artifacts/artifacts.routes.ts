@@ -8,12 +8,16 @@ import {
 } from "./artifacts.controller.js";
 import {
   getDocumentation,
+  getProjectDocumentationOverview,
   putDocumentation,
 } from "./documentation.controller.js";
 
 export const projectArtifactsRouter = Router({ mergeParams: true });
 projectArtifactsRouter.get("/", listArtifacts);
 projectArtifactsRouter.post("/", createArtifact);
+
+export const projectDocumentationRouter = Router({ mergeParams: true });
+projectDocumentationRouter.get("/", getProjectDocumentationOverview);
 
 export const artifactsRouter = Router();
 artifactsRouter.get("/:artifactId", getArtifact);

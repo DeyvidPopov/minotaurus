@@ -1,11 +1,11 @@
 "use client";
-import { StubPage } from "@/components/ui/stub-page";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function DocDetailPage() {
-  return (
-    <StubPage
-      title="Documentation lives on the artifact detail page"
-      description="Open the artifact directly (Artifacts list → click a row) and select the Documentation tab. The split editor + live preview is there."
-    />
-  );
+export default function DocDetailRedirect({ params }: { params: { projectId: string; artifactId: string } }) {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace(`/projects/${params.projectId}/artifacts/${params.artifactId}?tab=documentation`);
+  }, [router, params.projectId, params.artifactId]);
+  return <div className="px-8 py-6 text-fg-muted">Redirecting to documentation editor…</div>;
 }

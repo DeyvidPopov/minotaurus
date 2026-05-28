@@ -48,6 +48,16 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 ## Documentation
 - One Markdown page per artifact. No history, no concurrent-edit locking. Last save wins.
 - `documentation.updatedAt` reuses the artifact's `updatedAt`; there is no doc-only timestamp yet.
+- **Documentation Hub** (`/projects/:id/docs`, Phase A) is a read-only overview — it
+  surfaces coverage stats, the list of documented / undocumented artifacts, and deep-links
+  to the artifact detail's Documentation tab via `?tab=documentation`. Editing still
+  happens on the artifact detail page (no inline editor on the Hub itself by design).
+- No ingestion yet — you can't upload an existing Markdown file or OpenAPI spec and have
+  Minotaurus turn it into a documented artifact. Everything is hand-authored in the
+  per-artifact editor.
+- Excerpts on the Hub are computed from the first ~220 chars of the Markdown body
+  with headings / code fences / link markup stripped. Header-only docs render as
+  "No prose excerpt — the doc may be header-only."
 
 ## API Specs
 - Validation rule "endpoint `requiresAuth=false` on a security-related spec" uses a title heuristic and produces false positives on legitimate bootstrap endpoints (`/login`, `/register`). Use Resolve / Ignore on the validation page to dismiss.
@@ -82,9 +92,9 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - No avatar upload. The "Upload photo" button on Settings is wired to nothing.
 - No notifications backend. The Notifications tab on Settings is disabled stubs.
 - No API tokens module yet. The API tokens tab is a "coming next" placeholder.
-- **Documentation route stubs.** `/projects/[id]/docs` and `…/docs/[id]` are intentionally
-  stub pages explaining that documentation lives on each artifact's detail page (the real
-  Markdown editor is on the artifact's Documentation tab). No project-wide docs index.
+- **Documentation routes (Phase A).** `/projects/[id]/docs` is now a real Documentation
+  Hub (coverage stats, search, filter, deep-links). `/projects/[id]/docs/[artifactId]`
+  redirects to the artifact detail with the Documentation tab preselected.
 - **No file / OpenAPI / repo import.** All modelling is manual. The UI no longer claims
   otherwise (UX honesty pass).
 - **No AI assistant.** The "Ask Minotaurus" button and sparkly topbar icons are removed.

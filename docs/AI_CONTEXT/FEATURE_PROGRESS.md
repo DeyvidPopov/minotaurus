@@ -7,14 +7,45 @@
 - Relations
 - Validation
 - Export
-- Documentation
+- Documentation (per-artifact Markdown editor)
+- **Documentation Hub (Phase A — project-wide coverage view)**
 - API Specs
 - Database Models (with auto-generated Mermaid ERD preview)
 - Diagrams (Mermaid editor with live preview, syntax status, template picker)
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## PHASE 7 — Project Team Management + Roles (current pass)
+## PHASE A — Dedicated Documentation Hub (current pass)
+- New backend endpoint `GET /api/projects/:projectId/documentation` returns a
+  documentation overview: `summary { totalArtifacts, documentedArtifacts,
+  missingDocumentation, coveragePercent }`, `documents[]` (each with title, type,
+  status, full `markdownContent`, a sanitized `excerpt`, `updatedAt`), and `missing[]`
+  (artifacts without documentation). Membership-gated, VIEWER+ can read.
+- Documentation storage is unchanged — the new endpoint reads `Artifact.documentationContent`
+  directly. No new tables, no duplicate state.
+- Frontend: `/projects/[projectId]/docs` is now a real Documentation Hub page.
+  - Header shows project name + coverage percent.
+  - Four stat cards: total artifacts / documented / missing / coverage %.
+  - Search box (matches title + excerpt) and Segmented filter (All / Documented / Missing).
+  - "Documented artifacts" cards: type chip, status badge, excerpt, updatedAt, and
+    two buttons — "Open documentation" links to the artifact detail with
+    `?tab=documentation`, "Open artifact" goes to the overview tab.
+  - "Missing documentation" list: row per undocumented artifact with an "Add
+    documentation" button that lands directly on the artifact's Documentation tab.
+  - Empty states for no artifacts / no documentation yet / all documented.
+  - Inline hint: "Run validation to detect undocumented documentation artifacts."
+  - Sidebar entry "Documentation" restored between Diagrams and Validation
+    (icon: BookOpen).
+- Artifact detail page now respects `?tab=documentation` (and `?tab=relations` /
+  `?tab=validation` / `?tab=overview`). The hash isn't used — Next.js search params drive
+  the initial tab and re-sync if the search params change.
+- `/projects/[projectId]/docs/[artifactId]` is no longer a stub — it redirects to the
+  artifact detail with the documentation tab preselected, so old bookmarks keep working.
+- Export engine is **unchanged** — `ARTIFACTS` section still inlines `documentation`
+  per artifact for every artifact whose `documentationContent` is non-empty. Verified
+  end-to-end after Phase A.
+
+## PHASE 7 — Project Team Management + Roles (previous pass)
 - New Prisma model `ProjectMember` + enum `ProjectRole` (OWNER / ARCHITECT / DEVELOPER / VIEWER).
   Migration `20260527220334_add_project_members` applied to live Postgres.
 - Shared membership helpers in `backend/src/lib/project-access.ts`:

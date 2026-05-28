@@ -2,6 +2,31 @@
 
 ## Last Completed Feature
 
+**Phase A — Dedicated Documentation Hub**:
+- New backend endpoint `GET /api/projects/:projectId/documentation` returns
+  `{ summary, documents[], missing[] }`. Membership-gated, VIEWER+ can read. Reads
+  from `Artifact.documentationContent` — no new tables, no duplicate state.
+- `/projects/[projectId]/docs` is now a real Documentation Hub: header with coverage
+  %, four stat cards (total / documented / missing / coverage), search + segmented
+  All/Documented/Missing filter, documented-artifact cards with excerpt and two
+  buttons ("Open documentation" → `?tab=documentation`; "Open artifact" → overview),
+  missing-artifacts list with "Add documentation" deep-links, empty states, and an
+  inline hint pointing to validation.
+- `/projects/[projectId]/docs/[artifactId]` stub now redirects to the artifact
+  detail with the Documentation tab preselected (preserves any old bookmarks).
+- Sidebar restored: "Documentation" entry between Diagrams and Validation
+  (icon: BookOpen).
+- Artifact detail respects `?tab=documentation` (valid tabs: overview / relations
+  / documentation / validation). Initial tab is read from the search param and
+  re-syncs if it changes.
+- Export engine is **unchanged** — `ARTIFACTS` section still inlines artifact
+  documentation. Verified post-change via a fresh JSON export.
+- Verification: 11/11 backend smoke tests pass. Manual flow: VIEWER (Ren) reading
+  the Hub → 200; non-member outsider → 403; adding docs to one artifact bumped
+  coverage from 40% → 50% on a re-fetch.
+
+## Previous feature pass
+
 **Phase 7 — Project Team Management + Roles** (multi-user collaboration):
 - New Prisma model `ProjectMember` + enum `ProjectRole` (OWNER / ARCHITECT / DEVELOPER /
   VIEWER). Migration `20260527220334_add_project_members` applied to the live Postgres.
@@ -108,7 +133,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-e746712 — *Add project team management and roles*
+_(updated by the Phase A commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 
@@ -124,8 +149,9 @@ e746712 — *Add project team management and roles*
 
 ## Current Goal
 
-AI architecture analysis — see NEXT_STEPS.md. Now that membership + roles are in
-place, AI summaries can attribute changes to specific contributors.
+**Documentation ingestion** — upload existing Markdown / OpenAPI / README files and
+turn them into documented artifacts. The Documentation Hub (Phase A) is the natural
+landing page for that flow. See NEXT_STEPS.md.
 
 ## Important Constraints
 

@@ -21,6 +21,82 @@ async function findArtifactForUser(artifactId: string, userId: string, minRole: 
   return { artifact };
 }
 
+function buildExcerpt(markdown: string, max = 220): string {
+  const trimmed = markdown
+    .replace(/^---[\s\S]*?---/m, "")
+    .replace(/^#{1,6}\s+.*$/gm, "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^[*+-]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (trimmed.length <= max) return trimmed;
+  return trimmed.slice(0, max - 1).trimEnd() + "…";
+}
+
+export async function getProjectDocumentationOverview(req: AuthedRequest, res: Response) {
+  const projectId = req.params.projectId;
+  const access = await getProjectAccess(projectId, req.user!.userId);
+  if (access.status === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
+  if (access.status !== "ok") return fail(res, 403, "FORBIDDEN", "Not a member of this project");
+
+  const artifacts = await prisma.artifact.findMany({
+    where: { projectId },
+    orderBy: [{ updatedAt: "desc" }],
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      status: true,
+      documentationContent: true,
+      updatedAt: true,
+    },
+  });
+
+  const documents = artifacts
+    .filter((a) => !!a.documentationContent && a.documentationContent.trim().length > 0)
+    .map((a) => ({
+      artifactId: a.id,
+      artifactTitle: a.title,
+      artifactType: a.type,
+      artifactStatus: a.status,
+      hasDocumentation: true,
+      markdownContent: a.documentationContent ?? "",
+      excerpt: buildExcerpt(a.documentationContent ?? ""),
+      updatedAt: a.updatedAt,
+    }));
+
+  const missing = artifacts
+    .filter((a) => !a.documentationContent || a.documentationContent.trim().length === 0)
+    .map((a) => ({
+      artifactId: a.id,
+      artifactTitle: a.title,
+      artifactType: a.type,
+      artifactStatus: a.status,
+    }));
+
+  const total = artifacts.length;
+  const documented = documents.length;
+  const coveragePercent = total === 0 ? 0 : Math.round((documented / total) * 100);
+
+  return ok(
+    res,
+    {
+      summary: {
+        totalArtifacts: total,
+        documentedArtifacts: documented,
+        missingDocumentation: missing.length,
+        coveragePercent,
+      },
+      documents,
+      missing,
+    },
+    "Documentation overview loaded",
+  );
+}
+
 export async function getDocumentation(req: AuthedRequest, res: Response) {
   const result = await findArtifactForUser(req.params.artifactId, req.user!.userId);
   if ("error" in result) {

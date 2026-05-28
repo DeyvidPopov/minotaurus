@@ -21,7 +21,9 @@ Backend:
   DEVELOPER edits artifacts/APIs/DB/diagrams/docs, VIEWER is read-only.
 - Artifacts
 - Relations
-- Documentation
+- Documentation (per-artifact Markdown editor) + **Documentation Hub** with
+  project-wide coverage stats, search, filter, and direct deep-links to the
+  artifact detail's Documentation tab via `?tab=documentation`.
 - API Specs
 - Database Models (with visual Mermaid ERD)
 - Diagrams (Mermaid editor + live preview, polished, readable labels in dark theme)

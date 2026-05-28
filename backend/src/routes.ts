@@ -4,6 +4,7 @@ import { projectsRouter } from "./modules/projects/projects.routes.js";
 import {
   artifactsRouter,
   projectArtifactsRouter,
+  projectDocumentationRouter,
 } from "./modules/artifacts/artifacts.routes.js";
 import {
   artifactRelationsRouter,
@@ -76,6 +77,7 @@ apiRouter.use("/auth", authRouter);
 
 apiRouter.use("/projects", requireAuth, projectsRouter);
 apiRouter.use("/projects/:projectId/artifacts", requireAuth, projectArtifactsRouter);
+apiRouter.use("/projects/:projectId/documentation", requireAuth, projectDocumentationRouter);
 apiRouter.use("/projects/:projectId/api-specs", requireAuth, projectApiSpecsRouter);
 apiRouter.use("/projects/:projectId/database-models", requireAuth, projectDatabaseModelsRouter);
 apiRouter.use("/projects/:projectId/diagrams", requireAuth, projectDiagramsRouter);

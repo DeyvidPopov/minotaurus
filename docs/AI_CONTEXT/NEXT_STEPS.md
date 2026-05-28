@@ -1,5 +1,16 @@
 # Next Steps
 
+Phase A (Dedicated Documentation Hub) is shipped: new
+`GET /api/projects/:projectId/documentation` overview endpoint, real
+`/projects/[projectId]/docs` page with coverage stats / search / filter / per-artifact
+"Open documentation" deep-links to the artifact detail, sidebar entry restored,
+artifact detail now honours `?tab=documentation`. Documentation storage is still
+`Artifact.documentationContent` — no schema change. 11/11 backend smoke tests pass.
+
+**Recommended next phase: documentation ingestion** — upload existing Markdown /
+OpenAPI / README files and turn them into typed artifacts with documentation.
+The Documentation Hub is the natural landing page for that flow.
+
 Phase 7 (Project Team Management + Roles) is shipped and verified end-to-end against
 the live Postgres database. ProjectMember table + four roles (OWNER/ARCHITECT/
 DEVELOPER/VIEWER) replace the per-controller `ownerId === userId` checks. Members API,

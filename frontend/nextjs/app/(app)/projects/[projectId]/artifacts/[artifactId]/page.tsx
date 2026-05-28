@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Edit, Link as LinkIcon, Trash2, X, Plug, Database, GitMerge, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -55,9 +55,16 @@ interface BackendRelation {
   description?: string;
 }
 
+const VALID_TABS = new Set(["overview", "relations", "documentation", "validation"]);
+
 export default function ArtifactDetailPage({ params }: { params: { projectId: string; artifactId: string } }) {
   const { projectId, artifactId } = params;
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTab = (() => {
+    const t = searchParams?.get("tab") ?? "";
+    return VALID_TABS.has(t) ? t : "overview";
+  })();
 
   const [a, setA] = useState<Artifact | null>(null);
   const [incoming, setIncoming] = useState<BackendRelation[]>([]);
@@ -67,7 +74,13 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
   const [linkedSpecs, setLinkedSpecs] = useState<ApiSpec[]>([]);
   const [linkedDbModels, setLinkedDbModels] = useState<DatabaseModel[]>([]);
   const [linkedDiagrams, setLinkedDiagrams] = useState<Diagram[]>([]);
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(initialTab);
+
+  useEffect(() => {
+    const t = searchParams?.get("tab") ?? "";
+    if (t && VALID_TABS.has(t) && t !== tab) setTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const [editing, setEditing] = useState(false);
   const [linking, setLinking] = useState(false);
