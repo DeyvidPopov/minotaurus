@@ -2,6 +2,33 @@
 
 ## Last Completed Feature
 
+**Ingestion Phase 1 — Ingestion Hub foundation**:
+- New Prisma model `IngestionRecord` + enums `IngestionSourceType` (MARKDOWN /
+  OPENAPI_JSON / MERMAID / SQL_SCHEMA) and `IngestionStatus` (DRAFT / PARSED /
+  CONFIRMED / FAILED). Migration `20260528062826_add_ingestion` applied to the
+  live Postgres database.
+- Backend module `src/modules/ingestion/` ships four endpoints — `GET / POST`
+  scoped under `/projects/:id/ingestion`, `GET / DELETE` on `/ingestion/:id`.
+  DEVELOPER+ for mutations, any member for reads. Create + delete both write
+  `PROJECT` VersionEvents ("Ingestion draft created" / "Ingestion draft deleted").
+- **No parsers are implemented yet** — this phase only wires the workflow shell.
+  Creating a draft records metadata (title / source name / source type) and that's
+  it; `createdRecords` is always `[]` in Phase 1.
+- Frontend: new route `/projects/[projectId]/ingestion` with project header, an
+  honest "Parsers are not implemented yet" disclaimer, four source type cards,
+  draft creation modal, ingestion history table (title / source / status / created
+  / by / actions), and a detail modal. Sidebar entry "Ingestion" sits between
+  Documentation and Validation (Download icon). VIEWERs see everything but have
+  the action buttons disabled and the API returns `INSUFFICIENT_ROLE` on bypass.
+- Export engine and validation rules are unchanged on purpose.
+- Verification: 11/11 backend smoke tests pass. curl flow: list (empty) → create
+  Markdown → create OpenAPI → list (2) → GET by id → VIEWER delete attempt → 403
+  INSUFFICIENT_ROLE → VIEWER create attempt → 403 INSUFFICIENT_ROLE → VIEWER read
+  list → 200 → OWNER delete → 200 → version history shows two CREATED + one
+  DELETED ingestion events.
+
+## Previous feature pass
+
 **Phase A — Dedicated Documentation Hub**:
 - New backend endpoint `GET /api/projects/:projectId/documentation` returns
   `{ summary, documents[], missing[] }`. Membership-gated, VIEWER+ can read. Reads
@@ -133,7 +160,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-58c17cb — *Add dedicated documentation hub*
+_(updated by the Ingestion Phase 1 commit — see `git log -1` on `main` for the exact hash)_
 
 ## Current Working State
 
@@ -149,9 +176,10 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Goal
 
-**Documentation ingestion** — upload existing Markdown / OpenAPI / README files and
-turn them into documented artifacts. The Documentation Hub (Phase A) is the natural
-landing page for that flow. See NEXT_STEPS.md.
+**Markdown ingestion parser** — wire `POST /api/ingestion/:id/parse` to accept a
+Markdown body, walk the headings, create a `DOCUMENTATION` artifact tree, populate
+`createdRecords`, and flip status `DRAFT → PARSED`. Then add a `CONFIRM` flow that
+commits the artifacts. See NEXT_STEPS.md.
 
 ## Important Constraints
 

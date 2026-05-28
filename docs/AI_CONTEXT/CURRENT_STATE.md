@@ -24,6 +24,10 @@ Backend:
 - Documentation (per-artifact Markdown editor) + **Documentation Hub** with
   project-wide coverage stats, search, filter, and direct deep-links to the
   artifact detail's Documentation tab via `?tab=documentation`.
+- **Ingestion Hub** (foundation only) — `IngestionRecord` table, draft CRUD API,
+  per-project sidebar entry, source type cards (Markdown / OpenAPI / Mermaid / SQL
+  Schema), draft form, history table, detail modal. Parsers are NOT implemented yet
+  — this phase only wires up the workflow shell.
 - API Specs
 - Database Models (with visual Mermaid ERD)
 - Diagrams (Mermaid editor + live preview, polished, readable labels in dark theme)

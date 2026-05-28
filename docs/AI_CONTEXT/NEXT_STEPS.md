@@ -1,15 +1,24 @@
 # Next Steps
 
+Ingestion Phase 1 (Ingestion Hub foundation) is shipped: new `IngestionRecord` table,
+draft CRUD API at `/api/projects/:id/ingestion` + `/api/ingestion/:id`, sidebar
+entry, Ingestion Hub page with four source type cards (Markdown / OpenAPI / Mermaid
+/ SQL Schema), draft form, history table, detail modal, and version-history
+integration. **No parsing yet** — that's deliberately the next phase. 11/11 backend
+smoke tests still pass.
+
+**Recommended next phase: Markdown ingestion parser** — accept the actual file body
+on a `POST /api/ingestion/:id/parse` endpoint, parse headings into a
+`DOCUMENTATION` artifact tree, populate `createdRecords` with the artifact IDs,
+flip status `DRAFT → PARSED`, and let the user CONFIRM to commit the artifacts.
+After that: OpenAPI JSON parser, Mermaid parser, SQL Schema parser.
+
 Phase A (Dedicated Documentation Hub) is shipped: new
 `GET /api/projects/:projectId/documentation` overview endpoint, real
 `/projects/[projectId]/docs` page with coverage stats / search / filter / per-artifact
 "Open documentation" deep-links to the artifact detail, sidebar entry restored,
 artifact detail now honours `?tab=documentation`. Documentation storage is still
 `Artifact.documentationContent` — no schema change. 11/11 backend smoke tests pass.
-
-**Recommended next phase: documentation ingestion** — upload existing Markdown /
-OpenAPI / README files and turn them into typed artifacts with documentation.
-The Documentation Hub is the natural landing page for that flow.
 
 Phase 7 (Project Team Management + Roles) is shipped and verified end-to-end against
 the live Postgres database. ProjectMember table + four roles (OWNER/ARCHITECT/

@@ -10,6 +10,7 @@ export * from "./database-models";
 export * from "./diagrams";
 export * from "./versions";
 export * from "./members";
+export * from "./ingestion";
 
 import { apiClient } from "./client";
 import type {

@@ -9,13 +9,47 @@
 - Export
 - Documentation (per-artifact Markdown editor)
 - **Documentation Hub (Phase A — project-wide coverage view)**
+- **Ingestion Hub (Ingestion Phase 1 — draft workflow foundation, parsers not yet implemented)**
 - API Specs
 - Database Models (with auto-generated Mermaid ERD preview)
 - Diagrams (Mermaid editor with live preview, syntax status, template picker)
 - Settings
 - **Project Team Management + Roles (Phase 7 — multi-user collaboration)**
 
-## PHASE A — Dedicated Documentation Hub (current pass)
+## INGESTION PHASE 1 — Ingestion Hub foundation (current pass)
+- New Prisma model `IngestionRecord` + enums `IngestionSourceType` (MARKDOWN /
+  OPENAPI_JSON / MERMAID / SQL_SCHEMA) and `IngestionStatus` (DRAFT / PARSED /
+  CONFIRMED / FAILED). Migration `20260528062826_add_ingestion` applied to the
+  live Postgres database.
+- Backend module `src/modules/ingestion/` exposes four endpoints:
+  - `GET    /api/projects/:projectId/ingestion` — list newest first; any member can read.
+  - `POST   /api/projects/:projectId/ingestion/draft` — DEVELOPER+; creates a `DRAFT`
+    record with `createdRecords: []`. Writes a `PROJECT / CREATED` VersionEvent titled
+    "Ingestion draft created" with the source type in metadata.
+  - `GET    /api/ingestion/:ingestionId` — any member of the parent project.
+  - `DELETE /api/ingestion/:ingestionId` — DEVELOPER+; writes a `PROJECT / DELETED`
+    VersionEvent titled "Ingestion draft deleted".
+- **No parsing is performed.** This phase exclusively wires up the workflow shell.
+  Source content is not stored on the record yet — only metadata (`title`, `sourceName`,
+  `sourceType`, `status`).
+- Frontend: new route `/projects/[projectId]/ingestion`.
+  - Header with project name + a clear "Parsers are not implemented yet" disclaimer.
+  - Four source type cards (Markdown / OpenAPI JSON / Mermaid / SQL Schema) with
+    icon, description, status chip ("Draft workflow ready" / "Coming next") and a
+    Start draft button.
+  - Modal form for the draft (title + optional source name).
+  - History table: title (with source name in mono), source type chip, status badge,
+    relative createdAt, created-by name, Open / Delete actions.
+  - Open opens a detail modal listing metadata + a "Parsing will be implemented in
+    the next ingestion phase" hint.
+  - VIEWERs see the page and history but the Start draft / Delete buttons are
+    disabled (and the API blocks them with `INSUFFICIENT_ROLE` if they bypass UI).
+- Sidebar entry "Ingestion" added between Documentation and Validation (Download icon).
+- Export engine **unchanged** — ingestion records are deliberately not included in
+  SSOT exports in this phase. Validation rules are unchanged too.
+- 11/11 backend smoke tests still pass.
+
+## PHASE A — Dedicated Documentation Hub (previous pass)
 - New backend endpoint `GET /api/projects/:projectId/documentation` returns a
   documentation overview: `summary { totalArtifacts, documentedArtifacts,
   missingDocumentation, coveragePercent }`, `documents[]` (each with title, type,
