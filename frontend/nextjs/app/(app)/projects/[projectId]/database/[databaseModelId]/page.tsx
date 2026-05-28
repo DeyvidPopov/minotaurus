@@ -72,8 +72,11 @@ function generateMermaidErd(
         const flags: string[] = [];
         if (f.isPrimaryKey) flags.push("PK");
         if (f.isForeignKey || f.referencesEntityId) flags.push("FK");
+        // Mermaid renders fields as two tokens — by convention type-name, but the
+        // parser doesn't validate that, so we put the human-friendly field name
+        // first and the type second.
         lines.push(
-          `    ${escapeName(f.type)} ${escapeName(f.name)}${flags.length ? " " + flags.join(",") : ""}`,
+          `    ${escapeName(f.name)} ${escapeName(f.type)}${flags.length ? " " + flags.join(",") : ""}`,
         );
       }
     }

@@ -1463,7 +1463,8 @@ function SqlSchemaImportWizard({
         const fname = (f.name || "field").replace(/[^A-Za-z0-9_]/g, "_");
         const ftype = (f.type || "text").replace(/[^A-Za-z0-9_]/g, "_") || "text";
         const flags = [f.isPrimaryKey ? "PK" : "", f.isForeignKey ? "FK" : ""].filter(Boolean).join(",");
-        lines.push(`    ${ftype} ${fname}${flags ? ` "${flags}"` : ""}`);
+        // Name first, type second — Mermaid doesn't validate which token is which.
+        lines.push(`    ${fname} ${ftype}${flags ? ` "${flags}"` : ""}`);
       }
       lines.push("  }");
     }
