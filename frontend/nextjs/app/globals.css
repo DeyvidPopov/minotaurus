@@ -223,6 +223,61 @@ body {
   background: var(--panel-hover) !important;
   color: var(--fg) !important;
 }
+
+/* Shared viewport-controls primitive — mirrors .react-flow__controls so the
+   Mermaid viewer and the React Flow graph toolbar look identical. Edit both
+   blocks together if you change the look. */
+.viewport-controls {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-sm);
+}
+.viewport-controls > button {
+  background: transparent;
+  color: var(--fg-muted);
+}
+.viewport-controls > button + button {
+  border-left: 1px solid var(--border);
+}
+.viewport-controls > button:hover:not(:disabled) {
+  background: var(--panel-hover);
+  color: var(--fg);
+}
+.viewport-controls > button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Pan/zoom viewport for Mermaid diagrams. Acts as the clipping rectangle;
+   the host inside is absolutely positioned with a CSS transform applied. */
+.mermaid-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+.mermaid-viewport.is-grabbing {
+  cursor: grabbing;
+}
+.mermaid-host--interactive {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.mermaid-host--interactive > svg {
+  display: block;
+  max-width: none;
+  max-height: none;
+  width: auto;
+  height: auto;
+}
 .react-flow__minimap {
   background: var(--panel) !important;
   border: 1px solid var(--border) !important;

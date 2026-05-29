@@ -12,7 +12,7 @@
 
 "use client";
 
-import { Plus, Minus, Maximize2 } from "lucide-react";
+import { Plus, Minus, Maximize } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -47,7 +47,7 @@ export function ViewportControls({
         <Minus size={15} strokeWidth={2.5} />
       </ControlButton>
       <ControlButton onClick={onFit} ariaLabel="Fit to view">
-        <Maximize2 size={13} strokeWidth={2.25} />
+        <Maximize size={13} strokeWidth={2.25} />
       </ControlButton>
     </div>
   );

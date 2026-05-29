@@ -1,8 +1,9 @@
 // components/mermaid-preview.tsx — safe client-side Mermaid renderer
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { ViewportControls } from "@/components/ui/viewport-controls";
 
 // Concrete font stack — Mermaid bakes this string straight into SVG
 // `font-family` attributes / inline styles, where `var(...)` does not resolve
@@ -233,9 +234,21 @@ interface Props {
   debounceMs?: number;
   /** Called after each render attempt — useful for live "Valid Mermaid" indicators */
   onStatusChange?: (status: MermaidStatus, error: string | null) => void;
-  /** Center the SVG horizontally in its container */
+  /** Center the SVG horizontally in its container (static mode only) */
   center?: boolean;
+  /**
+   * When true, wrap the rendered SVG in a pan/zoom viewport with the shared
+   * ViewportControls toolbar (matches the Knowledge Graph's React Flow chrome).
+   * The caller is responsible for giving the root a fixed height — e.g.
+   * `className="w-full h-[520px]"` — since the viewport fills its container.
+   */
+  interactive?: boolean;
 }
+
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 8;
+const ZOOM_STEP = 1.2;
+const FIT_PADDING = 0.92;
 
 export function MermaidPreview({
   source,
@@ -244,11 +257,93 @@ export function MermaidPreview({
   debounceMs = 250,
   onStatusChange,
   center = true,
+  interactive = false,
 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [labelsMissing, setLabelsMissing] = useState(false);
+  const [transform, setTransform] = useState({ scale: 1, tx: 0, ty: 0 });
+  const [grabbing, setGrabbing] = useState(false);
+
+  // Fit-to-viewport: measure the SVG's natural size against the viewport and
+  // compute a centered scale + translate. Briefly resets the host's transform
+  // so getBoundingClientRect reads the SVG's intrinsic dimensions, then
+  // restores it before committing the new transform to React state.
+  const fit = useCallback(() => {
+    const viewport = viewportRef.current;
+    const host = hostRef.current;
+    if (!viewport || !host) return;
+    const svg = host.querySelector("svg");
+    if (!svg) return;
+    const prev = host.style.transform;
+    host.style.transform = "translate(0,0) scale(1)";
+    const svgRect = svg.getBoundingClientRect();
+    const vpRect = viewport.getBoundingClientRect();
+    host.style.transform = prev;
+    if (svgRect.width === 0 || svgRect.height === 0) return;
+    const scale =
+      Math.min(vpRect.width / svgRect.width, vpRect.height / svgRect.height) *
+      FIT_PADDING;
+    const tx = (vpRect.width - svgRect.width * scale) / 2;
+    const ty = (vpRect.height - svgRect.height * scale) / 2;
+    setTransform({ scale, tx, ty });
+  }, []);
+
+  const zoomIn = useCallback(() => {
+    setTransform((t) => ({ ...t, scale: Math.min(MAX_SCALE, t.scale * ZOOM_STEP) }));
+  }, []);
+  const zoomOut = useCallback(() => {
+    setTransform((t) => ({ ...t, scale: Math.max(MIN_SCALE, t.scale / ZOOM_STEP) }));
+  }, []);
+
+  // Drag-to-pan. We attach the move/up listeners to window (not the viewport)
+  // so a drag that leaves the viewport doesn't strand the pan in mid-motion.
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    startTx: number;
+    startTy: number;
+  } | null>(null);
+
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (!interactive || e.button !== 0) return;
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        startTx: transform.tx,
+        startTy: transform.ty,
+      };
+      setGrabbing(true);
+    },
+    [interactive, transform.tx, transform.ty],
+  );
+
+  useEffect(() => {
+    if (!interactive) return;
+    const onMove = (e: MouseEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      setTransform((t) => ({
+        ...t,
+        tx: d.startTx + (e.clientX - d.startX),
+        ty: d.startTy + (e.clientY - d.startY),
+      }));
+    };
+    const onUp = () => {
+      if (!dragRef.current) return;
+      dragRef.current = null;
+      setGrabbing(false);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [interactive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -279,6 +374,12 @@ export function MermaidPreview({
           // an inline fill/opacity would falsely register as "missing".
           forceLabelVisibility(hostRef.current);
           setLabelsMissing(detectLabelsMissing(hostRef.current));
+          // Auto-fit in interactive mode so a tiny 3-node flowchart and a
+          // sprawling ER diagram both occupy the same visual footprint by
+          // default. Defer to the next frame so the SVG has layout.
+          if (interactive) {
+            requestAnimationFrame(() => fit());
+          }
         }
         setError(null);
         onStatusChange?.("ok", null);
@@ -298,7 +399,17 @@ export function MermaidPreview({
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [source, rev, debounceMs, onStatusChange]);
+  }, [source, rev, debounceMs, onStatusChange, interactive, fit]);
+
+  // Re-fit when the viewport resizes (window resize, sidebar toggle, etc.).
+  useEffect(() => {
+    if (!interactive) return;
+    const viewport = viewportRef.current;
+    if (!viewport || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(viewport);
+    return () => ro.disconnect();
+  }, [interactive, fit]);
 
   return (
     <div className={className}>
@@ -309,11 +420,36 @@ export function MermaidPreview({
         </div>
       ) : (
         <>
-          <div
-            ref={hostRef}
-            className={"mermaid-host" + (center ? " mermaid-host--centered" : "")}
-            style={{ overflow: "auto" }}
-          />
+          {interactive ? (
+            <div
+              ref={viewportRef}
+              className={"mermaid-viewport" + (grabbing ? " is-grabbing" : "")}
+              onMouseDown={onMouseDown}
+            >
+              <div
+                ref={hostRef}
+                className="mermaid-host mermaid-host--interactive"
+                style={{
+                  transform: `translate(${transform.tx}px, ${transform.ty}px) scale(${transform.scale})`,
+                }}
+              />
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
+                <ViewportControls
+                  onZoomIn={zoomIn}
+                  onZoomOut={zoomOut}
+                  onFit={fit}
+                  canZoomIn={transform.scale < MAX_SCALE}
+                  canZoomOut={transform.scale > MIN_SCALE}
+                />
+              </div>
+            </div>
+          ) : (
+            <div
+              ref={hostRef}
+              className={"mermaid-host" + (center ? " mermaid-host--centered" : "")}
+              style={{ overflow: "auto" }}
+            />
+          )}
           {labelsMissing && (
             <div
               className="mt-3 rounded-md border p-3 text-[12.5px]"

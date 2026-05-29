@@ -229,9 +229,14 @@ export default function DiagramDetailPage({
             }
             padded={false}
           >
-            <div className="p-5 bg-bg min-h-[460px] flex items-start justify-center overflow-auto">
+            <div className="bg-bg h-[520px] flex items-center justify-center">
               {source.trim() ? (
-                <MermaidPreview source={source} onStatusChange={onStatusChange} />
+                <MermaidPreview
+                  source={source}
+                  onStatusChange={onStatusChange}
+                  interactive
+                  className="w-full h-full"
+                />
               ) : (
                 <div className="text-fg-subtle text-[13px] italic">
                   No Mermaid source yet. Click <strong>Edit</strong> to write one.
@@ -274,9 +279,14 @@ export default function DiagramDetailPage({
               placeholder="flowchart TD&#10;  A --> B"
               className="min-h-[480px] bg-panel-2 border-0 border-r border-border outline-none px-4 py-3 text-[13px] font-mono leading-[1.6] resize-none"
             />
-            <div className="min-h-[480px] p-4 overflow-auto bg-bg">
+            <div className="h-[480px] bg-bg flex items-center justify-center">
               {source.trim() ? (
-                <MermaidPreview source={source} onStatusChange={onStatusChange} />
+                <MermaidPreview
+                  source={source}
+                  onStatusChange={onStatusChange}
+                  interactive
+                  className="w-full h-full"
+                />
               ) : (
                 <div className="text-fg-subtle text-[13px] italic">Add Mermaid source to see a preview.</div>
               )}
