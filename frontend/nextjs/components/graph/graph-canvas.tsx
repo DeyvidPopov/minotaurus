@@ -163,7 +163,7 @@ function Inner({
         maxZoom={2.4}
       >
         <Background gap={22} size={1} color="var(--grid-dot)" />
-        <Controls position="bottom-left" showInteractive={false} />
+        <Controls position="bottom-center" showInteractive={false} />
         <MiniMap
           position="bottom-right"
           pannable
