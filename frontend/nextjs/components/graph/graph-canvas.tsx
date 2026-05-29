@@ -229,6 +229,10 @@ function MinoNode({
     )
   }
 
+  if (nodeStyle === "shape") {
+    return <ShapeNode artifact={a} isSelected={isSelected} color={color} />
+  }
+
   return (
     <div
       className={`t-${a.type}`}
@@ -296,4 +300,331 @@ function MinoNode({
       )}
     </div>
   )
+}
+
+// ───── shape-mode node (typed glyph + label below) ─────
+const SHAPE_W = 130
+const SHAPE_H = 44
+
+function ShapeNode({
+  artifact: a,
+  isSelected,
+  color,
+}: {
+  artifact: Artifact
+  isSelected: boolean
+  color: string
+}) {
+  const stroke = isSelected ? "var(--accent)" : "var(--border-strong)"
+  const strokeW = isSelected ? 2 : 1.1
+  const fill = "var(--panel)"
+  const statusColor =
+    a.status === "DRAFT"
+      ? "var(--c-warning)"
+      : a.status === "DEPRECATED"
+        ? "var(--c-danger)"
+        : null
+
+  return (
+    <div
+      style={{
+        width: SHAPE_W,
+        height: SHAPE_H,
+        position: "relative",
+        fontFamily: "var(--font-sans)",
+      }}
+      title={a.title}
+    >
+      <Handle type="target" position={Position.Left} style={HANDLE_STYLE} />
+      <Handle type="source" position={Position.Right} style={HANDLE_STYLE} />
+      <svg
+        width={SHAPE_W}
+        height={SHAPE_H}
+        viewBox={`0 0 ${SHAPE_W} ${SHAPE_H}`}
+        style={{
+          position: "absolute",
+          inset: 0,
+          overflow: "visible",
+          pointerEvents: "none",
+        }}
+      >
+        {renderTypedShape(a.type, SHAPE_W, SHAPE_H, color, fill, stroke, strokeW)}
+        {statusColor && (
+          <circle
+            cx={SHAPE_W - 8}
+            cy={8}
+            r={4}
+            fill={statusColor}
+            stroke="var(--panel)"
+            strokeWidth={1}
+          />
+        )}
+        <text
+          x={SHAPE_W / 2}
+          y={SHAPE_H + 14}
+          textAnchor="middle"
+          fontSize={11.5}
+          fill="var(--fg)"
+          stroke="var(--bg)"
+          strokeWidth={3}
+          strokeLinejoin="round"
+          paintOrder="stroke"
+          style={{ fontFamily: "var(--font-sans)" }}
+        >
+          {truncate(a.title, 22)}
+        </text>
+      </svg>
+    </div>
+  )
+}
+
+function renderTypedShape(
+  type: Artifact["type"],
+  W: number,
+  H: number,
+  color: string,
+  fill: string,
+  stroke: string,
+  strokeW: number,
+) {
+  const common = { fill, stroke, strokeWidth: strokeW }
+
+  switch (type) {
+    case "SERVICE": {
+      const r = 8
+      return (
+        <g>
+          <rect x={0} y={0} width={W} height={H} rx={r} {...common} />
+          <path
+            d={`M ${r},0 L ${W - r},0 A ${r},${r} 0 0 1 ${W},${r} L ${W},7 L 0,7 L 0,${r} A ${r},${r} 0 0 1 ${r},0 Z`}
+            fill={color}
+          />
+          <text
+            x={W / 2}
+            y={H / 2 + 8}
+            textAnchor="middle"
+            fontSize={10.5}
+            fontWeight={600}
+            fill="var(--fg-muted)"
+            style={{ fontFamily: "var(--font-sans)" }}
+          >
+            Service
+          </text>
+        </g>
+      )
+    }
+    case "API_SPEC": {
+      const inset = W * 0.22
+      return (
+        <g>
+          <polygon
+            points={`0,${H / 2} ${inset},0 ${W - inset},0 ${W},${H / 2} ${W - inset},${H} ${inset},${H}`}
+            {...common}
+          />
+          <polygon
+            points={`${inset + 4},${H / 2 - 8} ${W - inset - 4},${H / 2 - 8} ${W - inset - 4},${H / 2 + 8} ${inset + 4},${H / 2 + 8}`}
+            fill={color}
+            fillOpacity={0.07}
+          />
+          <text
+            x={W / 2}
+            y={H / 2 + 4}
+            textAnchor="middle"
+            fontSize={11}
+            fontWeight={700}
+            fill={color}
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            API
+          </text>
+        </g>
+      )
+    }
+    case "API_ENDPOINT": {
+      return (
+        <g>
+          <rect x={0} y={0} width={W} height={H} rx={H / 2} {...common} />
+          <text
+            x={W / 2}
+            y={H / 2 + 5}
+            textAnchor="middle"
+            fontSize={13}
+            fontWeight={700}
+            fill={color}
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            {"{ }"}
+          </text>
+        </g>
+      )
+    }
+    case "DATABASE_MODEL":
+    case "DATABASE_ENTITY": {
+      const ery = 6
+      return (
+        <g>
+          <path
+            d={`M 0,${ery} L 0,${H - ery} A ${W / 2},${ery} 0 0 0 ${W},${H - ery} L ${W},${ery}`}
+            {...common}
+          />
+          <ellipse cx={W / 2} cy={ery} rx={W / 2} ry={ery} {...common} />
+          <text
+            x={W / 2}
+            y={H / 2 + 5}
+            textAnchor="middle"
+            fontSize={11}
+            fontWeight={700}
+            fill={color}
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            DB
+          </text>
+        </g>
+      )
+    }
+    case "DOCUMENTATION": {
+      const fold = 9
+      return (
+        <g>
+          <path
+            d={`M 0,0 L ${W - fold},0 L ${W},${fold} L ${W},${H} L 0,${H} Z`}
+            {...common}
+          />
+          <path
+            d={`M ${W - fold},0 L ${W - fold},${fold} L ${W},${fold}`}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={strokeW}
+          />
+          <line
+            x1={10}
+            y1={H / 2 - 4}
+            x2={W - 14}
+            y2={H / 2 - 4}
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+          <line
+            x1={10}
+            y1={H / 2 + 4}
+            x2={W - 22}
+            y2={H / 2 + 4}
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+        </g>
+      )
+    }
+    case "DIAGRAM": {
+      return (
+        <g>
+          <rect x={0} y={0} width={W} height={H} rx={6} {...common} />
+          <polygon
+            points={`${W / 2 - 16},${H / 2} ${W / 2 - 4},${H / 2 - 10} ${W / 2 + 8},${H / 2} ${W / 2 - 4},${H / 2 + 10}`}
+            fill={color}
+            fillOpacity={0.6}
+          />
+          <polygon
+            points={`${W / 2 - 2},${H / 2} ${W / 2 + 10},${H / 2 - 10} ${W / 2 + 22},${H / 2} ${W / 2 + 10},${H / 2 + 10}`}
+            fill={color}
+            fillOpacity={0.3}
+          />
+        </g>
+      )
+    }
+    case "REQUIREMENT": {
+      return (
+        <g>
+          <polygon
+            points={`${W / 2},0 ${W},${H / 2} ${W / 2},${H} 0,${H / 2}`}
+            {...common}
+          />
+          <text
+            x={W / 2}
+            y={H / 2 + 4}
+            textAnchor="middle"
+            fontSize={10.5}
+            fontWeight={700}
+            fill={color}
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            REQ
+          </text>
+        </g>
+      )
+    }
+    case "SECURITY_POLICY": {
+      return (
+        <g>
+          <path
+            d={`M ${W / 2},0 L ${W},6 L ${W},${H * 0.55} Q ${W},${H} ${W / 2},${H} Q 0,${H} 0,${H * 0.55} L 0,6 Z`}
+            {...common}
+          />
+          <path
+            d={`M ${W / 2 - 7},${H / 2 - 1} L ${W / 2 - 1},${H / 2 + 5} L ${W / 2 + 8},${H / 2 - 5}`}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+      )
+    }
+    case "ENVIRONMENT": {
+      const bodyTop = 8
+      return (
+        <g>
+          <rect
+            x={0}
+            y={bodyTop}
+            width={W}
+            height={H - bodyTop}
+            rx={(H - bodyTop) / 2}
+            {...common}
+          />
+          <circle cx={W * 0.32} cy={6} r={5} fill={color} fillOpacity={0.7} />
+          <circle cx={W * 0.46} cy={3} r={3.5} fill={color} fillOpacity={0.5} />
+          <text
+            x={W / 2}
+            y={H / 2 + 8}
+            textAnchor="middle"
+            fontSize={11}
+            fontWeight={700}
+            fill={color}
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            ENV
+          </text>
+        </g>
+      )
+    }
+    case "EXTERNAL_SYSTEM": {
+      const skew = 10
+      return (
+        <g>
+          <polygon
+            points={`${skew},0 ${W},0 ${W - skew},${H} 0,${H}`}
+            {...common}
+            strokeDasharray="4 3"
+          />
+          <text
+            x={W / 2}
+            y={H / 2 + 4}
+            textAnchor="middle"
+            fontSize={10.5}
+            fontWeight={700}
+            fill={color}
+            style={{ fontFamily: "var(--font-mono)" }}
+          >
+            EXT
+          </text>
+        </g>
+      )
+    }
+    default:
+      return <rect x={0} y={0} width={W} height={H} rx={8} {...common} />
+  }
 }

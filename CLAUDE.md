@@ -125,6 +125,14 @@ Every CUD across the platform (artifacts, relations, API specs, endpoints, DB mo
 - Theme / density / sidebar mode / accent / graph node style live in a Zustand "tweaks" store in `components/providers.tsx` and persist to `localStorage`. React Flow node positions also persist per-project in `localStorage` — not on the server.
 - Standalone routes `/projects/[id]/docs` and `/projects/[id]/docs/[id]` are intentionally stubbed. Per-artifact Markdown lives inside the artifact detail page's Documentation tab; the project-wide Documentation Hub uses `?tab=documentation` deep-links into it.
 
+### Viewport chrome (graph + Mermaid)
+
+The Knowledge Graph uses React Flow's native `<Controls>` (horizontal, `position="bottom-center"`); the Mermaid viewer uses the [`ViewportControls`](frontend/nextjs/components/ui/viewport-controls.tsx) primitive. Both share a single visual contract via the `.react-flow__controls` and `.viewport-controls` blocks in [app/globals.css](frontend/nextjs/app/globals.css) — edit both blocks together when changing the chrome. `ViewportControls` is headless: the caller owns positioning and the zoom/pan state.
+
+[`MermaidPreview`](frontend/nextjs/components/mermaid-preview.tsx) has an `interactive` prop (default `false`). Interactive mode wraps the SVG in a pan/zoom viewport with auto-fit on render and `ViewportControls` mounted bottom-center; it requires a fixed-size parent (caller passes `className="w-full h-full"` inside a sized container). Static callers — gallery thumbnails, ingestion preview, export preview, DB ERD — keep the default so thumbnail layouts don't break.
+
+`.mermaid-host--interactive` deliberately omits `will-change: transform`. Adding it back composites the SVG to a GPU texture at its source resolution; zooming then bilinearly upscales the bitmap → pixelated diagrams. The current setup forces re-rasterization of the vector on each transform → crisp output.
+
 ## Conventions (from `docs/AI_CONTEXT/ARCHITECTURE_RULES.md`)
 
 - Thin controllers — push non-trivial logic into `<feature>.engine.ts`.

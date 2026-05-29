@@ -45,6 +45,31 @@ const ACTION_COLOR: Record<VersionAction, string> = {
   EXPORTED: "#a78bfa",
 };
 
+const ACTION_VERB: Record<VersionAction, string> = {
+  CREATED: "created",
+  UPDATED: "updated",
+  DELETED: "deleted",
+  LINKED: "linked",
+  UNLINKED: "unlinked",
+  VALIDATED: "validated",
+  EXPORTED: "exported",
+};
+
+// Entities where the stored `title` repeats information already in the verb +
+// entity-type line (e.g. relations are "source → target"). Keep the layout
+// consistent with the dashboard's Recent changes widget.
+const HIDE_SECONDARY_TITLE = new Set<VersionEntityType>(["RELATION"]);
+
+function entityTypeLabel(t: VersionEntityType): string {
+  return t.toLowerCase().replace(/_/g, " ");
+}
+
+function authorFirstName(event: VersionEvent): string {
+  const full = event.triggeredByName?.trim();
+  if (!full) return "Someone";
+  return full.split(/\s+/)[0];
+}
+
 const ENTITY_ICON: Record<VersionEntityType, React.ReactNode> = {
   PROJECT: <Box size={14} />,
   ARTIFACT: <Box size={14} />,
@@ -163,21 +188,32 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
 function EventRow({ event, projectId }: { event: VersionEvent; projectId: string }) {
   const c = ACTION_COLOR[event.action];
   const targetHref = entityHref(projectId, event);
+  const initials = event.triggeredByInitials?.trim() || "?";
+  const fullName = event.triggeredByName?.trim() || "Unknown user";
+  const showTitle = !HIDE_SECONDARY_TITLE.has(event.entityType) && !!event.title.trim();
   return (
-    <li className="flex items-start gap-3 px-3.5 py-3 hover:bg-panel-hover transition-colors">
-      <div
-        className="w-7 h-7 rounded-md grid place-items-center shrink-0"
+    <li className="flex items-center gap-3 px-3.5 py-3 hover:bg-panel-hover transition-colors">
+      <span
+        className="inline-grid place-items-center rounded-full text-[10.5px] font-semibold shrink-0"
         style={{
+          width: 28,
+          height: 28,
           color: c,
           background: `color-mix(in srgb, ${c} 14%, transparent)`,
           border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`,
         }}
-        title={event.entityType}
+        title={fullName}
+        aria-label={fullName}
       >
-        {ENTITY_ICON[event.entityType]}
-      </div>
+        {initials}
+      </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="text-[13.5px] leading-tight truncate">
+          <strong className="text-fg font-semibold">{authorFirstName(event)}</strong>{" "}
+          <span className="text-fg-muted">{ACTION_VERB[event.action]}</span>{" "}
+          <span className="font-mono text-fg-muted">{entityTypeLabel(event.entityType)}</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap mt-1">
           <span
             className="inline-flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded font-mono font-bold leading-none"
             style={{
@@ -188,11 +224,16 @@ function EventRow({ event, projectId }: { event: VersionEvent; projectId: string
           >
             {ACTION_ICON[event.action]} {event.action}
           </span>
-          <Badge mono>{event.entityType}</Badge>
-          <span className="text-[13.5px] font-medium truncate">{event.title}</span>
+          <Badge mono>
+            {ENTITY_ICON[event.entityType]}
+            {event.entityType}
+          </Badge>
+          {showTitle && (
+            <span className="text-[13px] font-medium truncate">{event.title}</span>
+          )}
         </div>
         {event.description && (
-          <div className="text-[12.5px] text-fg-muted mt-0.5 truncate">{event.description}</div>
+          <div className="text-[12.5px] text-fg-muted mt-1 truncate">{event.description}</div>
         )}
       </div>
       <div className="text-[11.5px] text-fg-subtle font-mono shrink-0 flex flex-col items-end gap-1">
