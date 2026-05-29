@@ -1,21 +1,28 @@
 // components/graph/graph-canvas.tsx — React Flow-powered knowledge graph
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactFlow, {
   Background,
+  BaseEdge,
   Controls,
+  EdgeLabelRenderer,
   MiniMap,
   MarkerType,
   Handle,
   Position,
+  getSmoothStepPath,
+  useNodes,
+  useReactFlow,
   type Node,
   type Edge,
+  type EdgeProps,
   type NodeProps,
   ReactFlowProvider,
   ConnectionMode,
 } from "reactflow"
 import "reactflow/dist/style.css"
+import { getSmartEdge } from "@tisoap/react-flow-smart-edge"
 import { TYPE_INFO, EDGE_COLOR } from "@/lib/mock-data"
 import type { Artifact, Relation } from "@/lib/types"
 import { truncate } from "@/lib/utils"
@@ -31,6 +38,7 @@ interface Props {
   fitView?: boolean
   height?: string | number
   draggable?: boolean
+  showMiniMap?: boolean
 }
 
 export function GraphCanvas(props: Props) {
@@ -52,6 +60,7 @@ function Inner({
   fitView = true,
   height = "100%",
   draggable = true,
+  showMiniMap = true,
 }: Props) {
   // Position overrides (drag persistence)
   const [positions, setPositions] = useState<
@@ -75,6 +84,10 @@ function Inner({
     [storageKey],
   )
 
+  // Tracks the most recently dragged node so we can keep it visually on top
+  // after the drag ends (during the drag React Flow already elevates it).
+  const [lastDraggedId, setLastDraggedId] = useState<string | null>(null)
+
   const visible = useMemo(
     () => artifacts.filter((a) => !typeFilter || typeFilter.has(a.type)),
     [artifacts, typeFilter],
@@ -91,9 +104,10 @@ function Inner({
           data: { artifact: a, nodeStyle, isSelected: selectedId === a.id },
           selected: selectedId === a.id,
           draggable,
+          zIndex: lastDraggedId === a.id ? 1 : 0,
         }
       }),
-    [visible, positions, nodeStyle, selectedId, draggable],
+    [visible, positions, nodeStyle, selectedId, draggable, lastDraggedId],
   )
 
   const visibleIds = useMemo(() => new Set(visible.map((v) => v.id)), [visible])
@@ -101,49 +115,103 @@ function Inner({
     () =>
       relations
         .filter((r) => visibleIds.has(r.source) && visibleIds.has(r.target))
-        .map((r) => ({
-          id: r.id,
-          source: r.source,
-          target: r.target,
-          type: "smoothstep",
-          animated: false,
-          style: {
-            stroke: EDGE_COLOR[r.type] || "#94a3b8",
-            strokeWidth: 1.4,
-            opacity: 0.7,
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: EDGE_COLOR[r.type] || "#94a3b8",
-            width: 16,
-            height: 16,
-          },
-          data: { type: r.type },
-          label: r.type,
-          labelStyle: {
-            fontSize: 10,
-            fill: "var(--fg-muted)",
-            fontFamily: "var(--font-mono)",
-          },
-          labelBgStyle: { fill: "var(--panel)", fillOpacity: 0.85 },
-          labelBgPadding: [3, 4] as [number, number],
-          labelBgBorderRadius: 3,
-        })),
+        .map((r) => {
+          const color = EDGE_COLOR[r.type] || "#94a3b8"
+          return {
+            id: r.id,
+            source: r.source,
+            target: r.target,
+            type: "labeledSmoothStep",
+            animated: false,
+            style: {
+              stroke: color,
+              strokeWidth: 1.4,
+              opacity: 0.7,
+            },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color,
+              width: 16,
+              height: 16,
+            },
+            data: { type: r.type, color },
+            label: r.type,
+          }
+        }),
     [relations, visibleIds],
+  )
+
+  // ── drop-time collision resolution ──
+  // Drag is unrestricted (so it never feels "stuck" against the React Flow drag
+  // delta), but on release we push the dropped node out of any overlap along
+  // the axis of least intrusion. Iterates a few times so cascading pushes
+  // (3+ nodes packed together) still converge.
+  const reactFlow = useReactFlow()
+  const resolveDropPosition = useCallback(
+    (id: string, startX: number, startY: number, w: number, h: number) => {
+      if (!w || !h) return { x: startX, y: startY }
+      const all = reactFlow.getNodes().filter((n) => n.id !== id)
+      let x = startX
+      let y = startY
+      for (let iter = 0; iter < 16; iter++) {
+        let pushed = false
+        for (const n of all) {
+          const nw = n.width ?? 0
+          const nh = n.height ?? 0
+          if (!nw || !nh) continue
+          const ax2 = x + w
+          const ay2 = y + h
+          const bx2 = n.position.x + nw
+          const by2 = n.position.y + nh
+          if (
+            x < bx2 &&
+            ax2 > n.position.x &&
+            y < by2 &&
+            ay2 > n.position.y
+          ) {
+            const dx = x + w / 2 - (n.position.x + nw / 2)
+            const dy = y + h / 2 - (n.position.y + nh / 2)
+            const overlapX = w / 2 + nw / 2 - Math.abs(dx)
+            const overlapY = h / 2 + nh / 2 - Math.abs(dy)
+            if (overlapX < overlapY) {
+              x += (dx >= 0 ? 1 : -1) * overlapX
+            } else {
+              y += (dy >= 0 ? 1 : -1) * overlapY
+            }
+            pushed = true
+          }
+        }
+        if (!pushed) break
+      }
+      return { x, y }
+    },
+    [reactFlow],
   )
 
   const onNodeDragStop = useCallback(
     (_: unknown, node: Node) => {
+      const w = node.width ?? 0
+      const h = node.height ?? 0
+      const resolved = resolveDropPosition(
+        node.id,
+        node.position.x,
+        node.position.y,
+        w,
+        h,
+      )
+      if (resolved.x !== node.position.x || resolved.y !== node.position.y) {
+        reactFlow.setNodes((ns) =>
+          ns.map((n) => (n.id === node.id ? { ...n, position: resolved } : n)),
+        )
+      }
+      setLastDraggedId(node.id)
       setPositions((prev) => {
-        const next = {
-          ...prev,
-          [node.id]: { x: node.position.x, y: node.position.y },
-        }
+        const next = { ...prev, [node.id]: resolved }
         persist(next)
         return next
       })
     },
-    [persist],
+    [persist, reactFlow, resolveDropPosition],
   )
 
   return (
@@ -152,6 +220,7 @@ function Inner({
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         connectionMode={ConnectionMode.Loose}
         onNodeClick={(_, n) => onSelect?.(n.data.artifact)}
         onPaneClick={() => onSelect?.(null)}
@@ -164,17 +233,19 @@ function Inner({
       >
         <Background gap={22} size={1} color="var(--grid-dot)" />
         <Controls position="bottom-center" showInteractive={false} />
-        <MiniMap
-          position="bottom-right"
-          pannable
-          zoomable
-          nodeColor={(n) =>
-            TYPE_INFO[(n.data.artifact as Artifact).type]?.color || "#94a3b8"
-          }
-          nodeStrokeWidth={0}
-          maskColor="rgba(0,0,0,.4)"
-          style={{ width: 180, height: 120 }}
-        />
+        {showMiniMap && (
+          <MiniMap
+            position="bottom-right"
+            pannable
+            zoomable
+            nodeColor={(n) =>
+              TYPE_INFO[(n.data.artifact as Artifact).type]?.color || "#94a3b8"
+            }
+            nodeStrokeWidth={0}
+            maskColor="rgba(0,0,0,.4)"
+            style={{ width: 180, height: 120 }}
+          />
+        )}
       </ReactFlow>
     </div>
   )
@@ -183,6 +254,124 @@ function Inner({
 // ───── custom node types ─────
 const NODE_TYPES = {
   minoNode: MinoNode,
+}
+
+// ───── custom edge types ─────
+// LabeledSmoothStepEdge: routes around intervening nodes via @tisoap/react-flow-smart-edge
+// (with a smoothstep fallback when no corridor is found), and renders the label through
+// React Flow's EdgeLabelRenderer portal so it sits above the nodes layer. Label position
+// is measured from the actual SVG path (getPointAtLength at len/2) so it lands on the
+// visible body of the edge instead of a routing waypoint.
+type LabeledEdgeData = { type?: string; color?: string }
+
+function LabeledSmoothStepEdge({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style,
+  markerEnd,
+  data,
+  label,
+}: EdgeProps<LabeledEdgeData>) {
+  const nodes = useNodes()
+  const color = data?.color || "#94a3b8"
+
+  const smart = getSmartEdge({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+    nodes,
+    options: { nodePadding: 12, gridRatio: 12 },
+  })
+
+  let edgePath: string
+  let fallbackLabelX: number
+  let fallbackLabelY: number
+  if (smart) {
+    edgePath = smart.svgPathString
+    fallbackLabelX = smart.edgeCenterX
+    fallbackLabelY = smart.edgeCenterY
+  } else {
+    const [p, lx, ly] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      borderRadius: 6,
+    })
+    edgePath = p
+    fallbackLabelX = lx
+    fallbackLabelY = ly
+  }
+
+  const pathRef = useRef<SVGPathElement | null>(null)
+  const [labelPt, setLabelPt] = useState<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const el = pathRef.current
+    if (!el) return
+    try {
+      const len = el.getTotalLength()
+      if (!Number.isFinite(len) || len <= 0) {
+        setLabelPt(null)
+        return
+      }
+      const pt = el.getPointAtLength(len / 2)
+      setLabelPt({ x: pt.x, y: pt.y })
+    } catch {
+      setLabelPt(null)
+    }
+  }, [edgePath])
+
+  const labelX = labelPt?.x ?? fallbackLabelX
+  const labelY = labelPt?.y ?? fallbackLabelY
+
+  return (
+    <>
+      <BaseEdge path={edgePath} style={style} markerEnd={markerEnd} />
+      <path
+        ref={pathRef}
+        d={edgePath}
+        fill="none"
+        stroke="none"
+        style={{ pointerEvents: "none" }}
+      />
+      {label != null && labelPt != null && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: "absolute",
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+              fontSize: 10,
+              fontFamily: "var(--font-mono)",
+              color: "var(--fg-muted)",
+              background: "var(--bg)",
+              border: `1px solid ${color}33`,
+              borderRadius: 3,
+              padding: "1px 4px",
+              lineHeight: 1.2,
+            }}
+          >
+            {label}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  )
+}
+
+const EDGE_TYPES = {
+  labeledSmoothStep: LabeledSmoothStepEdge,
 }
 
 // Hide React Flow's default handle dot — we only need the connection anchor, not the visual.

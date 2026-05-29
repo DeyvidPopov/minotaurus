@@ -199,6 +199,11 @@ body {
 .react-flow__attribution {
   display: none;
 }
+/* Force the edge-label portal above the nodes layer so labels can't be occluded
+   by node DOM when a routed edge passes through one. */
+.react-flow__edgelabel-renderer {
+  z-index: 10;
+}
 .react-flow__controls {
   background: var(--panel) !important;
   border: 1px solid var(--border) !important;

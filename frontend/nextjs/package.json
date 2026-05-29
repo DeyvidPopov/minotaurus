@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.0",
+    "@tisoap/react-flow-smart-edge": "^3.0.0",
     "clsx": "2.1.1",
     "lucide-react": "0.451.0",
     "mermaid": "^10.9.1",
