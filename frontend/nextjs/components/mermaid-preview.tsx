@@ -291,12 +291,29 @@ export function MermaidPreview({
     setTransform({ scale, tx, ty });
   }, []);
 
-  const zoomIn = useCallback(() => {
-    setTransform((t) => ({ ...t, scale: Math.min(MAX_SCALE, t.scale * ZOOM_STEP) }));
+  // Zoom around the viewport center: keep the content point currently under
+  // the center pinned to the center as scale changes. Without this, our
+  // `transform-origin: 0 0` makes the diagram drift toward the top-left on
+  // every zoom step.
+  const zoomBy = useCallback((factor: number) => {
+    setTransform((t) => {
+      const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, t.scale * factor));
+      if (nextScale === t.scale) return t;
+      const viewport = viewportRef.current;
+      if (!viewport) return { ...t, scale: nextScale };
+      const rect = viewport.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const ratio = nextScale / t.scale;
+      return {
+        scale: nextScale,
+        tx: cx - (cx - t.tx) * ratio,
+        ty: cy - (cy - t.ty) * ratio,
+      };
+    });
   }, []);
-  const zoomOut = useCallback(() => {
-    setTransform((t) => ({ ...t, scale: Math.max(MIN_SCALE, t.scale / ZOOM_STEP) }));
-  }, []);
+  const zoomIn = useCallback(() => zoomBy(ZOOM_STEP), [zoomBy]);
+  const zoomOut = useCallback(() => zoomBy(1 / ZOOM_STEP), [zoomBy]);
 
   // Drag-to-pan. We attach the move/up listeners to window (not the viewport)
   // so a drag that leaves the viewport doesn't strand the pan in mid-motion.

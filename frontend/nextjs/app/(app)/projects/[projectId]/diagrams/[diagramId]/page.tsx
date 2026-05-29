@@ -157,8 +157,13 @@ export default function DiagramDetailPage({
           <div className="flex-1" />
           <Button icon={<Minimize2 size={13} />} onClick={() => setFullscreen(false)}>Exit fullscreen</Button>
         </div>
-        <div className="flex-1 overflow-auto p-6 bg-panel-2">
-          <MermaidPreview source={source} onStatusChange={onStatusChange} />
+        <div className="flex-1 bg-panel-2 min-h-0">
+          <MermaidPreview
+            source={source}
+            onStatusChange={onStatusChange}
+            interactive
+            className="w-full h-full"
+          />
         </div>
       </div>
     );
