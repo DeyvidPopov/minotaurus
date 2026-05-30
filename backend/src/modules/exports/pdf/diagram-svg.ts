@@ -130,10 +130,18 @@ function recolorForPrint(body: string): string {
 
   // 3. Neutralize any remaining near-black / near-white inline fills that would
   //    be invisible on white, and ensure text is dark.
-  //    - text/tspan: force readable dark fill.
-  out = out.replace(/(<(?:text|tspan)\b)([^>]*?)>/gi, (_m, head: string, attrs: string) => {
-    const cleaned = setAttr(removeAttr(attrs, "fill"), "fill", PRINT.text);
-    return `${head}${cleaned}>`;
+  //    - text/tspan: force readable dark fill, and vertically center labels.
+  //      Mermaid centers node labels assuming the browser's default baseline;
+  //      svg-to-pdfkit places the baseline AT the y coordinate, so text drifts
+  //      upward. Adding dominant-baseline="central" when absent recenters it
+  //      without overriding any baseline Mermaid set explicitly.
+  out = out.replace(/(<text\b)([^>]*?)>/gi, (_m, head: string, attrs: string) => {
+    let a = setAttr(removeAttr(attrs, "fill"), "fill", PRINT.text);
+    if (!hasAttr(a, "dominant-baseline")) a = setAttr(a, "dominant-baseline", "central");
+    return `${head}${a}>`;
+  });
+  out = out.replace(/(<tspan\b)([^>]*?)>/gi, (_m, head: string, attrs: string) => {
+    return `${head}${setAttr(removeAttr(attrs, "fill"), "fill", PRINT.text)}>`;
   });
 
   // 4. Shape elements (rect/polygon/circle/ellipse/path) with NO fill attribute
@@ -151,9 +159,12 @@ function recolorForPrint(body: string): string {
       a = setAttr(removeAttr(a, "fill"), "fill", PRINT.edge);
       a = setAttr(removeAttr(a, "stroke"), "stroke", PRINT.edge);
     } else {
-      // Node-ish shape: ensure a visible light fill + dark border.
+      // Node-ish shape (rect, polygon, ellipse, circle, or a container path such
+      // as a database cylinder): light fill + dark border, same as rectangles.
+      // (Edge/arrow paths were already handled above, so a path here is a node
+      // container — it must NOT be filled with the dark border color.)
       if (!hasAttr(a, "fill") || isDarkOrBlack(getAttr(a, "fill"))) {
-        a = setAttr(removeAttr(a, "fill"), "fill", tag === "path" ? PRINT.nodeBorder : PRINT.nodeFill);
+        a = setAttr(removeAttr(a, "fill"), "fill", PRINT.nodeFill);
       }
       if (!hasAttr(a, "stroke") || isDarkOrBlack(getAttr(a, "stroke"))) {
         a = setAttr(removeAttr(a, "stroke"), "stroke", PRINT.nodeBorder);

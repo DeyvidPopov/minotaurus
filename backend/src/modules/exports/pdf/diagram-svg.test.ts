@@ -125,6 +125,36 @@ test("edge paths get a visible stroke and stay unfilled", () => {
   assert.match(edge, /fill="none"/i, "edge must remain unfilled");
 });
 
+test("database cylinder (container path) gets a LIGHT fill, not the dark border color", () => {
+  // Mermaid renders DB cylinders as <path class="basic label-container">.
+  const svg =
+    '<svg viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" width="120" height="60">' +
+    '<g class="node"><path class="basic label-container" d="M0,5 a30,5 0 0,0 60,0 a30,5 0 0,0 -60,0 l0,40 a30,5 0 0,0 60,0 l0,-40"/>' +
+    '<text>User Database</text></g></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  const pathTag = /<path\b[^>]*class="[^"]*label-container[^"]*"[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(pathTag, /fill="#f8fafc"/i, "cylinder must use the light node fill");
+  assert.doesNotMatch(pathTag, /fill="#334155"/i, "cylinder must not be filled with the dark border color");
+  assert.match(pathTag, /stroke="#334155"/i, "cylinder border must be visible");
+});
+
+test("text labels get a central baseline for vertical centering (when absent)", () => {
+  const n = normalizeMermaidSvgForPdf(DARK_CAPTURED)!;
+  const textTag = /<text\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(textTag, /dominant-baseline="central"/i, "label must be vertically centered");
+  assert.match(textTag, /fill="#0f172a"/i, "label must stay dark");
+});
+
+test("does not override an explicit dominant-baseline Mermaid already set", () => {
+  const svg =
+    '<svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg" width="100" height="50">' +
+    '<text dominant-baseline="hanging" x="10" y="10">X</text></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  const textTag = /<text\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(textTag, /dominant-baseline="hanging"/i, "existing baseline must be preserved");
+  assert.doesNotMatch(textTag, /dominant-baseline="central"/i, "must not add a second baseline");
+});
+
 test("recoloring is deterministic", () => {
   const a = normalizeMermaidSvgForPdf(DARK_CAPTURED)!.svg;
   const b = normalizeMermaidSvgForPdf(DARK_CAPTURED)!.svg;
