@@ -161,21 +161,43 @@ test("label-background rect (no width) is NOT drawn as a box next to the label",
   assert.doesNotMatch(rectTag, /stroke=/i, "label-bg rect must have no border");
 });
 
-test("a SIZED rect inside <g class=label> stays invisible (edge-label background)", () => {
-  // In some captures the edge-label background rect IS sized (e.g. 19x20), so a
-  // no-width guard misses it. Any rect inside a label group is a text bg.
+test("a SIZED rect inside <g class=label> gets a white, recentred, borderless background", () => {
+  // The edge-label background rect masks connector lines behind the text. It
+  // must be white (not transparent, not node-grey), have no border, and be
+  // recentred on the origin to match the recentred text.
   const svg =
     '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" width="200" height="80">' +
     '<g class="edgeLabel"><g class="label" transform="translate(0,0)">' +
-    '<rect rx="0" ry="0" width="19.2" height="20.8"></rect>' +
+    '<rect rx="0" ry="0" width="20" height="20"></rect>' +
     '<text><tspan x="0">yes</tspan></text></g></g></svg>';
   const n = normalizeMermaidSvgForPdf(svg)!;
   const rectTag = /<rect\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
-  assert.match(rectTag, /fill="none"/i, "sized label-bg rect must be transparent");
-  assert.match(rectTag, /stroke="none"/i, "sized label-bg rect must have no visible border");
+  assert.match(rectTag, /fill="#ffffff"/i, "label-bg rect must be white to mask lines");
+  assert.match(rectTag, /stroke="none"/i, "label-bg rect must have no border");
+  assert.match(rectTag, /\bx="-11"/i, "rect must be recentred on the origin (x=-(w/2)-1)");
   assert.doesNotMatch(rectTag, /#f8fafc/i, "must not be filled like a node");
-  // and the label is centered
-  assert.match(n.svg, /<text[^>]*text-anchor="middle"/i);
+  assert.match(n.svg, /<text[^>]*text-anchor="middle"/i, "label stays centered");
+});
+
+test("zero-size label placeholder rect stays invisible (no white speck)", () => {
+  const svg =
+    '<svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg" width="100" height="50">' +
+    '<g class="label" transform="translate(0,0)"><rect width="0" height="0"></rect>' +
+    '<text><tspan x="0">x</tspan></text></g></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  const rectTag = /<rect\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(rectTag, /fill="none"/i, "empty placeholder must stay transparent");
+});
+
+test("ER relationship label box is white with no border (masks the relation line)", () => {
+  const svg =
+    '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" width="200" height="80">' +
+    '<rect class="er relationshipLabelBox" x="80" y="30" width="40" height="16"></rect>' +
+    '<text class="er relationshipLabel" x="100" y="38">places</text></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  const box = /<rect class="er relationshipLabelBox"[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(box, /fill="#ffffff"/i, "ER label box must be white");
+  assert.doesNotMatch(box, /stroke=/i, "ER label box must have no border");
 });
 
 test("a node rect WITH width still gets a light fill + border", () => {

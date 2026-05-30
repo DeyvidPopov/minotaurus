@@ -168,17 +168,28 @@ function recolorForPrint(body: string): string {
     return `<g class="label"${g}>${body}</g>`;
   });
 
-  // 3b. Neutralize text-background rects inside label groups. Mermaid puts an
-  //     auto-sized <rect> behind each node/edge label as a background; in this
-  //     capture they are sized (e.g. 19.2x19.2), so the no-width guard in the
-  //     shape pass misses them and they were drawn as a small filled box beside
-  //     the text ("yes []", "no []"). A <rect> inside <g class="label"> is
+  // 3b. Give text-background rects inside label groups a WHITE fill so connector
+  //     lines don't show through behind the text. Mermaid puts an auto-sized
+  //     <rect> behind each node/edge label; a <rect> inside <g class="label"> is
   //     ALWAYS a text background (node containers are siblings of the label
-  //     group, never inside it), so make every such rect invisible regardless
-  //     of size. Runs before the shape pass, which then leaves fill="none" be.
+  //     group, never inside it). Since step 3 re-centred the text on the group
+  //     origin, we re-centre the rect too (x=-w/2, y=-h/2) so the white panel
+  //     sits behind the text. Zero-size placeholders stay invisible. Runs before
+  //     the shape pass, which then leaves the explicit fill be.
   out = out.replace(/<g class="label"([^>]*)>([\s\S]*?)<\/g>/gi, (_m, gAttrs: string, inner: string) => {
     const body = inner.replace(/<rect\b([^>]*?)(\/?)>/gi, (_r, ra: string, sc: string) => {
-      const a = setAttr(removeAttr(removeAttr(ra, "fill"), "stroke"), "fill", "none");
+      const w = Number(getAttr(ra, "width")) || 0;
+      const h = Number(getAttr(ra, "height")) || 0;
+      let a = removeAttr(removeAttr(ra, "fill"), "stroke");
+      if (w > 0 && h > 0) {
+        // Re-centre on the origin and pad slightly so glyphs aren't crowded.
+        a = setAttr(removeAttr(a, "x"), "x", String(-(w / 2) - 1));
+        a = setAttr(removeAttr(a, "y"), "y", String(-(h / 2)));
+        a = setAttr(removeAttr(a, "width"), "width", String(w + 2));
+        a = setAttr(a, "fill", PRINT.white);
+      } else {
+        a = setAttr(a, "fill", "none");
+      }
       return `<rect${a} stroke="none"${sc}>`;
     });
     return `<g class="label"${gAttrs}>${body}</g>`;
@@ -197,10 +208,16 @@ function recolorForPrint(body: string): string {
   //    edge paths a stroke. Heuristic by class, defaulting safely.
   out = out.replace(/<(rect|polygon|circle|ellipse|path)\b([^>]*?)(\/?)>/gi, (_m, tag: string, attrs: string, selfClose: string) => {
     const cls = (/(?:^|\s)class\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] || "").toLowerCase();
+    const isLabelBox = /label.?box|labelbkg|edgelabel/.test(cls); // e.g. ER "relationshipLabelBox"
     const isEdge = /(edgepath|flowchart-link|link|relation|messageline|transition)/.test(cls);
     const isArrow = /(arrowhead|marker)/.test(cls) || /marker-end|marker-start/.test(attrs);
     let a = attrs;
-    if (isEdge) {
+    if (isLabelBox) {
+      // A relationship/edge label background (already correctly sized/placed):
+      // fill white so connector lines don't bleed through the text, no border.
+      a = setAttr(removeAttr(a, "fill"), "fill", PRINT.white);
+      a = removeAttr(a, "stroke");
+    } else if (isEdge) {
       a = setAttr(removeAttr(a, "stroke"), "stroke", PRINT.edge);
       if (!hasAttr(a, "fill")) a = setAttr(a, "fill", "none");
     } else if (isArrow) {
