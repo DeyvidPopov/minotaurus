@@ -168,6 +168,22 @@ function recolorForPrint(body: string): string {
     return `<g class="label"${g}>${body}</g>`;
   });
 
+  // 3b. Neutralize text-background rects inside label groups. Mermaid puts an
+  //     auto-sized <rect> behind each node/edge label as a background; in this
+  //     capture they are sized (e.g. 19.2x19.2), so the no-width guard in the
+  //     shape pass misses them and they were drawn as a small filled box beside
+  //     the text ("yes []", "no []"). A <rect> inside <g class="label"> is
+  //     ALWAYS a text background (node containers are siblings of the label
+  //     group, never inside it), so make every such rect invisible regardless
+  //     of size. Runs before the shape pass, which then leaves fill="none" be.
+  out = out.replace(/<g class="label"([^>]*)>([\s\S]*?)<\/g>/gi, (_m, gAttrs: string, inner: string) => {
+    const body = inner.replace(/<rect\b([^>]*?)(\/?)>/gi, (_r, ra: string, sc: string) => {
+      const a = setAttr(removeAttr(removeAttr(ra, "fill"), "stroke"), "fill", "none");
+      return `<rect${a} stroke="none"${sc}>`;
+    });
+    return `<g class="label"${gAttrs}>${body}</g>`;
+  });
+
   // 4. Force readable dark fill on all label text (after centering).
   out = out.replace(/(<text\b)([^>]*?)>/gi, (_m, head: string, attrs: string) => {
     return `${head}${setAttr(removeAttr(attrs, "fill"), "fill", PRINT.text)}>`;

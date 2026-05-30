@@ -161,6 +161,23 @@ test("label-background rect (no width) is NOT drawn as a box next to the label",
   assert.doesNotMatch(rectTag, /stroke=/i, "label-bg rect must have no border");
 });
 
+test("a SIZED rect inside <g class=label> stays invisible (edge-label background)", () => {
+  // In some captures the edge-label background rect IS sized (e.g. 19x20), so a
+  // no-width guard misses it. Any rect inside a label group is a text bg.
+  const svg =
+    '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" width="200" height="80">' +
+    '<g class="edgeLabel"><g class="label" transform="translate(0,0)">' +
+    '<rect rx="0" ry="0" width="19.2" height="20.8"></rect>' +
+    '<text><tspan x="0">yes</tspan></text></g></g></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  const rectTag = /<rect\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(rectTag, /fill="none"/i, "sized label-bg rect must be transparent");
+  assert.match(rectTag, /stroke="none"/i, "sized label-bg rect must have no visible border");
+  assert.doesNotMatch(rectTag, /#f8fafc/i, "must not be filled like a node");
+  // and the label is centered
+  assert.match(n.svg, /<text[^>]*text-anchor="middle"/i);
+});
+
 test("a node rect WITH width still gets a light fill + border", () => {
   // Guard the boundary: the width check must not strip real node containers.
   const svg =
