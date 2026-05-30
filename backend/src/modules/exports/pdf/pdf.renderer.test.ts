@@ -79,6 +79,33 @@ test("renders a valid PDF for an empty project (no crash, fallback branding)", a
   assert.ok(isPdf(buf));
 });
 
+test("section composition: DIAGRAMS-only PDF is far smaller than a full export", async () => {
+  const analysis = analyzeExportSnapshot(richProject);
+  const full = await renderArchitecturePdf({
+    content: richProject,
+    analysis,
+    meta: { ...META, sections: ["ARTIFACTS", "RELATIONS", "API_SPECS", "DATABASE_MODELS", "DIAGRAMS", "VALIDATION", "VERSION_HISTORY", "TEAM"] },
+  });
+  const diagramsOnly = await renderArchitecturePdf({
+    content: richProject,
+    analysis,
+    meta: { ...META, sections: ["DIAGRAMS"] },
+  });
+  assert.ok(isPdf(diagramsOnly));
+  assert.ok(
+    diagramsOnly.length < full.length,
+    `diagrams-only (${diagramsOnly.length}) should be smaller than full (${full.length})`,
+  );
+});
+
+test("section composition stays deterministic per scope", async () => {
+  const analysis = analyzeExportSnapshot(richProject);
+  const meta = { ...META, sections: ["DIAGRAMS"] };
+  const a = await renderArchitecturePdf({ content: richProject, analysis, meta });
+  const b = await renderArchitecturePdf({ content: richProject, analysis, meta });
+  assert.ok(a.equals(b), "same scope must render byte-identical");
+});
+
 test("embeds a captured diagram SVG and stays deterministic", async () => {
   const analysis = analyzeExportSnapshot(richProject);
   const a = await renderArchitecturePdf({ content: richProject, analysis, meta: META });

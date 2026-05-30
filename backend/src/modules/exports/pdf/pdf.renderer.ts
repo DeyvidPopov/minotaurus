@@ -39,6 +39,7 @@ import {
   subhead,
 } from "./pdf.theme.js";
 import { fitDiagram, normalizeMermaidSvgForPdf } from "./diagram-svg.js";
+import { buildReportPlan, type ReportPlan } from "./report-plan.js";
 
 // Deterministic, rule-keyed recommendations (static text — not AI).
 const RECOMMENDATIONS: Record<string, string> = {
@@ -111,21 +112,29 @@ function buildDocDefinition(input: RenderInput): TDocumentDefinitions {
   const { analysis, content, meta } = input;
   const projectName = safe(content.project?.name || "Untitled Project");
 
+  // Composition: decide which sections render from the selected export scope.
+  const plan = buildReportPlan(meta.sections, analysis, content);
+  const inc = plan.include;
+
+  // Cover + Contents always. Each remaining section is gated by the plan, so
+  // the auto TOC (tocItem on rendered section headers) lists exactly what is
+  // rendered — no empty pages, no phantom TOC rows.
   const content_: Content[] = [
-    ...cover(input, projectName),
+    ...cover(input, projectName, plan),
     { toc: { title: { text: "Contents", style: "h1", margin: [0, 0, 0, 12] } } },
-    ...executiveSummary(analysis, content),
-    ...healthDashboard(analysis),
-    ...narrative(analysis, content),
-    ...documentationCoverage(analysis),
-    ...graphInsights(analysis),
-    ...risks(analysis),
-    ...validationFindings(analysis, content),
-    ...traceability(analysis, content),
-    ...governance(analysis),
-    ...versionHistory(content),
-    ...exportMetadata(analysis, meta),
-    ...appendix(content),
+    ...(inc.executiveSummary ? executiveSummary(analysis, content) : []),
+    ...(inc.healthDashboard ? healthDashboard(analysis) : []),
+    ...(inc.narrative ? narrative(analysis, content) : []),
+    ...(inc.documentationCoverage ? documentationCoverage(analysis) : []),
+    ...(inc.graphInsights ? graphInsights(analysis) : []),
+    ...(inc.diagrams ? diagramsSection(content) : []),
+    ...(inc.risks ? risks(analysis) : []),
+    ...(inc.validationFindings ? validationFindings(analysis, content) : []),
+    ...(inc.traceability ? traceability(analysis, content) : []),
+    ...(inc.governance ? governance(analysis) : []),
+    ...(inc.versionHistory ? versionHistory(content) : []),
+    ...exportMetadata(analysis, meta, plan),
+    ...(inc.appendix ? appendix(content, plan) : []),
   ];
 
   return {
@@ -134,7 +143,7 @@ function buildDocDefinition(input: RenderInput): TDocumentDefinitions {
     defaultStyle: { font: "Helvetica", fontSize: 9.5, color: COLORS.body },
     styles: STYLES,
     info: {
-      title: `${projectName} - Architecture Intelligence Report`,
+      title: `${projectName} - ${plan.reportTitle}`,
       author: "MINOTAURUS.dev",
       creator: "MINOTAURUS.dev Export Engine V2",
       subject: "Single Source of Truth architecture report",
@@ -145,7 +154,7 @@ function buildDocDefinition(input: RenderInput): TDocumentDefinitions {
         : {
             columns: [
               { text: projectName, style: "runhead" },
-              { text: "Architecture Intelligence Report", style: "runhead", alignment: "right" },
+              { text: plan.reportTitle, style: "runhead", alignment: "right" },
             ],
             margin: [40, 22, 40, 0],
           },
@@ -165,19 +174,21 @@ function buildDocDefinition(input: RenderInput): TDocumentDefinitions {
 
 // ────────────────────────────── 1. cover ──────────────────────────────
 
-function cover(input: RenderInput, projectName: string): Content[] {
-  const { analysis, content } = input;
+function cover(input: RenderInput, projectName: string, plan: ReportPlan): Content[] {
+  const { analysis, content, meta } = input;
   const score = analysis.health.score;
   const scoreColorVal = score == null ? COLORS.muted : GRADE_COLOR[analysis.health.grade] ?? COLORS.ink;
   const relationCount = Object.values(analysis.connectivity.relationMix).reduce((s, n) => s + n, 0);
+  const diagramCount = asArray(content.diagrams).length;
+  const sectionsLine = meta.sections.length ? meta.sections.join(", ") : "All available";
 
   const out: Content[] = [
     { text: "", margin: [0, 70, 0, 0] },
     // Centered logo mark.
     logoBlock(),
-    // Centered wordmark + titles.
+    // Centered wordmark + titles. Title adapts to export scope.
     { text: "MINOTAURUS", fontSize: 22, bold: true, color: COLORS.ink, alignment: "center", margin: [0, 16, 0, 2], characterSpacing: 2 },
-    { text: "Architecture Intelligence Report", fontSize: 13, color: COLORS.accent, alignment: "center" },
+    { text: plan.reportTitle, fontSize: 13, color: COLORS.accent, alignment: "center" },
     { text: "Single Source of Truth", fontSize: 10.5, color: COLORS.muted, alignment: "center", margin: [0, 2, 0, 24] },
     {
       canvas: [{ type: "line", x1: 120, y1: 0, x2: CONTENT_WIDTH - 120, y2: 0, lineWidth: 0.75, lineColor: COLORS.border }],
@@ -185,27 +196,40 @@ function cover(input: RenderInput, projectName: string): Content[] {
     },
     { text: safe(projectName), fontSize: 24, bold: true, color: COLORS.ink, alignment: "center", margin: [0, 0, 0, 4] },
     { text: `Generated ${fmtDate(analysis.meta.generatedAt)}`, fontSize: 10, color: COLORS.muted, alignment: "center", margin: [0, 0, 0, 4] },
-    {
-      text: score == null ? "Architecture Health: N/A" : `Architecture Health  ${score}/100  -  ${safe(analysis.health.label)} (${safe(analysis.health.grade)})`,
+  ];
+
+  // Health line only when health is part of the export scope.
+  if (plan.cover.showHealth) {
+    out.push({
+      text: score == null
+        ? "Architecture Health: N/A"
+        : `Architecture Health  ${score}/100  -  ${safe(analysis.health.label)} (${safe(analysis.health.grade)})`,
       fontSize: 11,
       bold: true,
       color: scoreColorVal,
       alignment: "center",
       margin: [0, 0, 0, 28],
-    },
-  ];
-
-  // Headline KPI cards: Health / Coverage / Relations / Findings.
-  if (!analysis.meta.emptyProject) {
-    out.push(
-      cardRow([
-        { label: "Health Score", value: num(score), valueColor: scoreColorVal, caption: `Grade ${safe(analysis.health.grade)}` },
-        { label: "Documentation", value: pct(analysis.documentation.coveragePct), caption: `${analysis.documentation.documentedCount}/${analysis.documentation.total} documented` },
-        { label: "Relations", value: String(relationCount), caption: `${analysis.connectivity.orphanCount} orphan(s)` },
-        { label: "Findings", value: String(analysis.validation.openCount), caption: "open" },
-      ]),
-    );
+    });
+  } else {
+    out.push({ text: "", margin: [0, 0, 0, 18] });
   }
+
+  // Headline KPI cards — only those within the export scope.
+  const cards: { label: string; value: string; valueColor?: string; caption?: string }[] = [];
+  if (plan.cover.showHealth) cards.push({ label: "Health Score", value: num(score), valueColor: scoreColorVal, caption: `Grade ${safe(analysis.health.grade)}` });
+  if (plan.cover.showDocumented) cards.push({ label: "Documentation", value: pct(analysis.documentation.coveragePct), caption: `${analysis.documentation.documentedCount}/${analysis.documentation.total} documented` });
+  if (plan.cover.showRelations) cards.push({ label: "Relations", value: String(relationCount), caption: `${analysis.connectivity.orphanCount} orphan(s)` });
+  if (plan.cover.showFindings) cards.push({ label: "Findings", value: String(analysis.validation.openCount), caption: "open" });
+  if (plan.cover.showDiagramCount) cards.push({ label: "Diagrams", value: String(diagramCount), caption: "rendered" });
+  if (cards.length > 0) out.push(cardRow(cards));
+
+  // Scope summary for diagrams-only / focused exports.
+  out.push({
+    text: `Selected Sections: ${safe(sectionsLine)}`,
+    style: "small",
+    alignment: "center",
+    margin: [0, 14, 0, 0],
+  });
 
   out.push({ text: "", pageBreak: "after" });
   return out;
@@ -891,18 +915,21 @@ function versionHistory(content: ExportSnapshot): Content[] {
 
 // ────────────────────────────── 13. export metadata ──────────────────────────────
 
-function exportMetadata(a: AnalysisResult, meta: RenderInput["meta"]): Content[] {
+function exportMetadata(a: AnalysisResult, meta: RenderInput["meta"], plan: ReportPlan): Content[] {
   const out: Content[] = [section("Export Metadata")];
-  out.push(
-    kvTable([
-      ["Export ID", safe(meta.id || "N/A")],
-      ["Project ID", safe(a.meta.projectId || "N/A")],
-      ["Format", safe(meta.format || "PDF")],
-      ["Generated", fmtDate(a.meta.generatedAt)],
-      ["Sections", meta.sections.length ? safe(meta.sections.join(", ")) : "All available"],
-      ["Health score", a.health.score == null ? "N/A" : `${a.health.score}/100 (${safe(a.health.grade)})`],
-    ]),
-  );
+  const rows: [string, string][] = [
+    ["Export ID", safe(meta.id || "N/A")],
+    ["Project ID", safe(a.meta.projectId || "N/A")],
+    ["Format", safe(meta.format || "PDF")],
+    ["Report type", safe(plan.reportTitle)],
+    ["Generated", fmtDate(a.meta.generatedAt)],
+    ["Selected Sections", meta.sections.length ? safe(meta.sections.join(", ")) : "All available"],
+  ];
+  // Only show the health score when it was within the export scope.
+  if (plan.cover.showHealth) {
+    rows.push(["Health score", a.health.score == null ? "N/A" : `${a.health.score}/100 (${safe(a.health.grade)})`]);
+  }
+  out.push(kvTable(rows));
   out.push(
     note("This report is generated from a persisted SSOT snapshot and deterministic analysis metrics. The same snapshot always produces the same analysis."),
   );
@@ -911,190 +938,192 @@ function exportMetadata(a: AnalysisResult, meta: RenderInput["meta"]): Content[]
 
 // ────────────────────────────── 14. appendix ──────────────────────────────
 
-function appendix(content: ExportSnapshot): Content[] {
+// Primary "Diagram Inventory" section (promoted from the appendix). Shows each
+// diagram's title, type, rendered vector, and Mermaid source. Rendered when the
+// export scope includes DIAGRAMS.
+function diagramsSection(content: ExportSnapshot): Content[] {
+  const diagrams = asArray<NonNullable<ExportSnapshot["diagrams"]>[number]>(content.diagrams);
+  const out: Content[] = [section("Diagram Inventory", "Rendered diagrams with their Mermaid source.")];
+  if (diagrams.length === 0) {
+    out.push(note("No diagrams found in this project."));
+    return out;
+  }
+  for (const d of diagrams) {
+    const dd = d as { title?: string; id: string; type?: string; mermaidSource?: string; renderedSvg?: string | null };
+    out.push({ text: `${safe(dd.title ?? dd.id)}  (${safe(dd.type ?? "")})`, style: "h3", margin: [0, 8, 0, 3] });
+    const normalized = normalizeMermaidSvgForPdf(dd.renderedSvg);
+    if (normalized) {
+      const inner = CONTENT_WIDTH - 18;
+      const fitDims = fitDiagram(normalized.width, normalized.height, inner, DIAGRAM_MAX_HEIGHT);
+      out.push({
+        table: { widths: ["*"], body: [[{ svg: normalized.svg, width: fitDims.width, height: fitDims.height, alignment: "center" }]] },
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => COLORS.border,
+          vLineColor: () => COLORS.border,
+          paddingLeft: () => 9,
+          paddingRight: () => 9,
+          paddingTop: () => 9,
+          paddingBottom: () => 9,
+          fillColor: () => COLORS.white,
+        },
+        margin: [0, 0, 0, 4],
+      });
+    } else if (dd.renderedSvg) {
+      out.push(note("Rendered diagram unavailable for embedding; showing source."));
+    }
+    const src = (dd.mermaidSource ?? "").trim();
+    if (!src) out.push(note("No Mermaid source."));
+    else {
+      if (normalized) out.push({ text: "Mermaid source", style: "caption", bold: true, color: COLORS.muted, margin: [0, 2, 0, 2] });
+      out.push({
+        table: { widths: ["*"], body: [[{ text: safe(src), style: "tdMono", fontSize: 7 }]] },
+        layout: {
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => COLORS.border,
+          vLineColor: () => COLORS.border,
+          paddingLeft: () => 6,
+          paddingRight: () => 6,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
+          fillColor: () => COLORS.panel,
+        },
+        margin: [0, 0, 0, 8],
+      });
+    }
+  }
+  return out;
+}
+
+function appendix(content: ExportSnapshot, plan: ReportPlan): Content[] {
   const out: Content[] = [section("Appendix", "Raw supporting data from the SSOT snapshot.")];
+  const inc = plan.include;
+  let first = true; // first subhead has 0 top margin
+  const sub = (title: string): Content => {
+    const c = subhead(title, first ? 0 : 14);
+    first = false;
+    return c;
+  };
 
   const artifacts = asArray<NonNullable<ExportSnapshot["artifacts"]>[number]>(content.artifacts);
   const apiSpecs = asArray<NonNullable<ExportSnapshot["apiSpecs"]>[number]>(content.apiSpecs);
   const databaseModels = asArray<NonNullable<ExportSnapshot["databaseModels"]>[number]>(content.databaseModels);
-  const diagrams = asArray<NonNullable<ExportSnapshot["diagrams"]>[number]>(content.diagrams);
   const issues = asArray<NonNullable<ExportSnapshot["validationIssues"]>[number]>(content.validationIssues);
 
-  // A. Artifact register
-  out.push(subhead("A. Artifact register", 0));
-  if (artifacts.length === 0) out.push(note("No artifacts."));
-  else
-    out.push(
-      dataTable(
-        [
-          { header: "Title", width: "*" },
-          { header: "Type", width: 100 },
-          { header: "Status", width: 60 },
-          { header: "Doc", width: 30, align: "center" },
-        ],
-        artifacts.map((x) => [
-          safe(x.title ?? x.id),
-          safe(x.type ?? ""),
-          safe(x.status ?? ""),
-          hasDoc(x) ? "Y" : "-",
-        ]),
-      ),
-    );
+  // Each subsection appears only when its section is part of the export scope.
+  // (Diagrams have their own primary "Diagram Inventory" section, not here.)
 
-  // B. API catalog
-  out.push(subhead("B. API catalog"));
-  if (apiSpecs.length === 0) out.push(note("No API specs."));
-  else
-    for (const s of apiSpecs) {
-      out.push({ text: safe(s.title ?? s.id), style: "h3", margin: [0, 6, 0, 2] });
-      const eps = asArray<NonNullable<NonNullable<ExportSnapshot["apiSpecs"]>[number]["endpoints"]>[number]>(s.endpoints);
-      if (eps.length === 0) out.push(note("No endpoints."));
-      else
-        out.push(
-          dataTable(
-            [
-              { header: "Method", width: 50 },
-              { header: "Path", width: "*", mono: true },
-              { header: "Auth", width: 40 },
-            ],
-            eps.map((e) => [
-              safe((e as { method?: string }).method ?? ""),
-              safe((e as { path?: string }).path ?? ""),
-              (e as { requiresAuth?: boolean }).requiresAuth ? "Yes" : "No",
-            ]),
-          ),
-        );
-    }
-
-  // C. Database catalog
-  out.push(subhead("C. Database catalog"));
-  if (databaseModels.length === 0) out.push(note("No database models."));
-  else
-    for (const m of databaseModels) {
-      const mm = m as { title?: string; id: string; databaseType?: string; entities?: unknown[] };
-      out.push({ text: `${safe(mm.title ?? mm.id)}  (${safe(mm.databaseType ?? "")})`, style: "h3", margin: [0, 6, 0, 2] });
-      const entities = asArray<{ name?: string; fields?: unknown[] }>(mm.entities);
-      if (entities.length === 0) out.push(note("No entities."));
-      else
-        for (const en of entities) {
-          const fields = asArray<{ name?: string; type?: string; isPrimaryKey?: boolean; isForeignKey?: boolean; referencesEntityName?: string | null }>(en.fields);
-          out.push({ text: safe(en.name ?? ""), bold: true, fontSize: 8.5, margin: [0, 3, 0, 1] });
-          if (fields.length === 0) out.push(note("No fields."));
-          else
-            out.push(
-              dataTable(
-                [
-                  { header: "Field", width: 130, mono: true },
-                  { header: "Type", width: 90, mono: true },
-                  { header: "Key", width: 50 },
-                  { header: "References", width: "*" },
-                ],
-                fields.map((f) => [
-                  safe(f.name ?? ""),
-                  safe(f.type ?? ""),
-                  f.isPrimaryKey ? "PK" : f.isForeignKey ? "FK" : "",
-                  f.referencesEntityName ? `-> ${safe(f.referencesEntityName)}` : "",
-                ]),
-              ),
-            );
-        }
-    }
-
-  // D. Diagram inventory — rendered diagram (when captured) + Mermaid source.
-  out.push(subhead("D. Diagram inventory"));
-  if (diagrams.length === 0) out.push(note("No diagrams."));
-  else
-    for (const d of diagrams) {
-      const dd = d as { title?: string; id: string; type?: string; mermaidSource?: string; renderedSvg?: string | null };
-      out.push({ text: `${safe(dd.title ?? dd.id)}  (${safe(dd.type ?? "")})`, style: "h3", margin: [0, 8, 0, 3] });
-
-      // Rendered diagram (vector) when a valid, embeddable SVG was captured.
-      // Normalize first so pdfmake measures the real diagram size (not a single
-      // child node), then fit to content width with an explicit width/height.
-      const normalized = normalizeMermaidSvgForPdf(dd.renderedSvg);
-      if (normalized) {
-        const inner = CONTENT_WIDTH - 18; // minus card padding
-        const fitDims = fitDiagram(normalized.width, normalized.height, inner, DIAGRAM_MAX_HEIGHT);
-        out.push({
-          table: {
-            widths: ["*"],
-            body: [
-              [
-                {
-                  svg: normalized.svg,
-                  width: fitDims.width,
-                  height: fitDims.height,
-                  alignment: "center",
-                },
-              ],
-            ],
-          },
-          layout: {
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => COLORS.border,
-            vLineColor: () => COLORS.border,
-            paddingLeft: () => 9,
-            paddingRight: () => 9,
-            paddingTop: () => 9,
-            paddingBottom: () => 9,
-            fillColor: () => COLORS.white,
-          },
-          margin: [0, 8, 0, 4],
-        });
-      } else if (dd.renderedSvg) {
-        // SVG present but not embeddable (e.g. foreignObject labels) — be honest.
-        out.push(note("Rendered diagram unavailable for embedding; showing source."));
-      }
-
-      // Mermaid source — always shown (never removed), labeled when paired with a render.
-      const src = (dd.mermaidSource ?? "").trim();
-      if (!src) {
-        out.push(note("No Mermaid source."));
-      } else {
-        if (normalized) out.push({ text: "Mermaid source", style: "caption", bold: true, color: COLORS.muted, margin: [0, 2, 0, 2] });
-        out.push({
-          table: { widths: ["*"], body: [[{ text: safe(src), style: "tdMono", fontSize: 7 }]] },
-          layout: {
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => COLORS.border,
-            vLineColor: () => COLORS.border,
-            paddingLeft: () => 6,
-            paddingRight: () => 6,
-            paddingTop: () => 5,
-            paddingBottom: () => 5,
-            fillColor: () => COLORS.panel,
-          },
-          margin: [0, 0, 0, 8],
-        });
-      }
-    }
-
-  // E. Validation register (all statuses)
-  out.push(subhead("E. Validation register"));
-  if (issues.length === 0) out.push(note("No validation issues recorded."));
-  else {
-    const titleMap = buildArtifactTitleMap(content);
-    out.push(
-      dataTable(
-        [
-          { header: "Severity", width: 54 },
-          { header: "Category", width: 76 },
-          { header: "Status", width: 54 },
-          { header: "Message", width: "*" },
-          { header: "Artifact", width: 90 },
-        ],
-        issues.map((v) => [
-          safe(v.severity ?? ""),
-          safe(v.category ?? ""),
-          safe(v.status ?? ""),
-          safe(v.message ?? ""),
-          titleMap.get(v.artifactId ?? "") ?? safe(v.artifactId ?? ""),
-        ]),
-      ),
-    );
+  if (inc.appendixArtifacts) {
+    out.push(sub("Artifact register"));
+    if (artifacts.length === 0) out.push(note("No artifacts."));
+    else
+      out.push(
+        dataTable(
+          [
+            { header: "Title", width: "*" },
+            { header: "Type", width: 100 },
+            { header: "Status", width: 60 },
+            { header: "Doc", width: 30, align: "center" },
+          ],
+          artifacts.map((x) => [
+            safe(x.title ?? x.id),
+            safe(x.type ?? ""),
+            safe(x.status ?? ""),
+            hasDoc(x) ? "Y" : "-",
+          ]),
+        ),
+      );
   }
+
+  if (inc.appendixApi) {
+    out.push(sub("API catalog"));
+    if (apiSpecs.length === 0) out.push(note("No API specs."));
+    else
+      for (const s of apiSpecs) {
+        out.push({ text: safe(s.title ?? s.id), style: "h3", margin: [0, 6, 0, 2] });
+        const eps = asArray<NonNullable<NonNullable<ExportSnapshot["apiSpecs"]>[number]["endpoints"]>[number]>(s.endpoints);
+        if (eps.length === 0) out.push(note("No endpoints."));
+        else
+          out.push(
+            dataTable(
+              [
+                { header: "Method", width: 50 },
+                { header: "Path", width: "*", mono: true },
+                { header: "Auth", width: 40 },
+              ],
+              eps.map((e) => [
+                safe((e as { method?: string }).method ?? ""),
+                safe((e as { path?: string }).path ?? ""),
+                (e as { requiresAuth?: boolean }).requiresAuth ? "Yes" : "No",
+              ]),
+            ),
+          );
+      }
+  }
+
+  if (inc.appendixDb) {
+    out.push(sub("Database catalog"));
+    if (databaseModels.length === 0) out.push(note("No database models."));
+    else
+      for (const m of databaseModels) {
+        const mm = m as { title?: string; id: string; databaseType?: string; entities?: unknown[] };
+        out.push({ text: `${safe(mm.title ?? mm.id)}  (${safe(mm.databaseType ?? "")})`, style: "h3", margin: [0, 6, 0, 2] });
+        const entities = asArray<{ name?: string; fields?: unknown[] }>(mm.entities);
+        if (entities.length === 0) out.push(note("No entities."));
+        else
+          for (const en of entities) {
+            const fields = asArray<{ name?: string; type?: string; isPrimaryKey?: boolean; isForeignKey?: boolean; referencesEntityName?: string | null }>(en.fields);
+            out.push({ text: safe(en.name ?? ""), bold: true, fontSize: 8.5, margin: [0, 3, 0, 1] });
+            if (fields.length === 0) out.push(note("No fields."));
+            else
+              out.push(
+                dataTable(
+                  [
+                    { header: "Field", width: 130, mono: true },
+                    { header: "Type", width: 90, mono: true },
+                    { header: "Key", width: 50 },
+                    { header: "References", width: "*" },
+                  ],
+                  fields.map((f) => [
+                    safe(f.name ?? ""),
+                    safe(f.type ?? ""),
+                    f.isPrimaryKey ? "PK" : f.isForeignKey ? "FK" : "",
+                    f.referencesEntityName ? `-> ${safe(f.referencesEntityName)}` : "",
+                  ]),
+                ),
+              );
+          }
+      }
+  }
+
+  if (inc.appendixValidation) {
+    out.push(sub("Validation register"));
+    if (issues.length === 0) out.push(note("No validation issues recorded."));
+    else {
+      const titleMap = buildArtifactTitleMap(content);
+      out.push(
+        dataTable(
+          [
+            { header: "Severity", width: 54 },
+            { header: "Category", width: 76 },
+            { header: "Status", width: 54 },
+            { header: "Message", width: "*" },
+            { header: "Artifact", width: 90 },
+          ],
+          issues.map((v) => [
+            safe(v.severity ?? ""),
+            safe(v.category ?? ""),
+            safe(v.status ?? ""),
+            safe(v.message ?? ""),
+            titleMap.get(v.artifactId ?? "") ?? safe(v.artifactId ?? ""),
+          ]),
+        ),
+      );
+    }
+  }
+
   return out;
 }
 
