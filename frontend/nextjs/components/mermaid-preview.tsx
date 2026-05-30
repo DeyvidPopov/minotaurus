@@ -223,6 +223,27 @@ function detectLabelsMissing(host: HTMLDivElement): boolean {
   return true;
 }
 
+/**
+ * Render a Mermaid source to standalone SVG markup for export embedding.
+ * Reuses the shared `htmlLabels:false` init so labels are native <text> — the
+ * only form the backend PDF (pdfmake) can embed; <foreignObject> text is
+ * dropped there. Returns null on any failure so the caller falls back to source.
+ * Browser-only (Mermaid needs a DOM); never throws.
+ */
+export async function renderMermaidToSvg(source: string): Promise<string | null> {
+  const trimmed = (source || "").trim();
+  if (!trimmed || typeof window === "undefined") return null;
+  try {
+    const mermaid = await getMermaid();
+    const id = "mmd-export-" + Math.random().toString(36).slice(2, 10);
+    const { svg } = await mermaid.render(id, trimmed);
+    if (!svg || /<foreignObject[\s>]/i.test(svg)) return null;
+    return svg;
+  } catch {
+    return null;
+  }
+}
+
 export type MermaidStatus = "idle" | "pending" | "ok" | "error";
 
 interface Props {

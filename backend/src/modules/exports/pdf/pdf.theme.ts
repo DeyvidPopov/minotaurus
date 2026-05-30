@@ -246,3 +246,115 @@ export function severityChip(severity: string): Content {
   const color = SEVERITY_COLOR[severity] ?? COLORS.muted;
   return { text: safe(severity), bold: true, fontSize: 8, color };
 }
+
+// ────────────────────────────── V2 visual builders ──────────────────────────────
+
+export interface StatCard {
+  label: string;
+  value: string;
+  valueColor?: string;
+  caption?: string;
+}
+
+/**
+ * A single bordered metric card (label on top, large value, optional caption).
+ * Returned as a table cell so it composes inside `cardRow`/`cardGrid`.
+ */
+function statCardCell(c: StatCard): Content {
+  return {
+    table: {
+      widths: ["*"],
+      heights: [44],
+      body: [
+        [
+          {
+            stack: [
+              { text: safe(c.label).toUpperCase(), style: "metricLabel" },
+              { text: safe(c.value), style: "metricValue", color: c.valueColor ?? COLORS.ink, margin: [0, 3, 0, 0] },
+              ...(c.caption ? [{ text: safe(c.caption), style: "caption", margin: [0, 2, 0, 0] }] : []),
+            ],
+          },
+        ],
+      ],
+    },
+    layout: cardLayout,
+  } as Content;
+}
+
+/** A single row of equal-width stat cards. */
+export function cardRow(cards: StatCard[]): Content {
+  if (cards.length === 0) return { text: "" };
+  return {
+    columns: cards.map(statCardCell),
+    columnGap: 8,
+    margin: [0, 0, 0, 8],
+  } as Content;
+}
+
+/**
+ * Cards laid out in a grid that wraps every `perRow` columns. Trailing slots in
+ * the final row are padded with invisible spacers so widths stay uniform.
+ */
+export function cardGrid(cards: StatCard[], perRow = 4): Content {
+  if (cards.length === 0) return { text: "" };
+  const rows: Content[] = [];
+  for (let i = 0; i < cards.length; i += perRow) {
+    const slice = cards.slice(i, i + perRow);
+    const cols: Content[] = slice.map(statCardCell);
+    while (cols.length < perRow) cols.push({ text: "" }); // pad for uniform width
+    rows.push({ columns: cols, columnGap: 8, margin: [0, 0, 0, 8] });
+  }
+  return { stack: rows };
+}
+
+/**
+ * A finding rendered as a card (not a table row): a thin severity-colored bar,
+ * the rule id + finding text, and a deterministic recommendation beneath.
+ */
+export function findingCard(opts: {
+  severity: string;
+  ruleId: string;
+  finding: string;
+  recommendation: string;
+}): Content {
+  const color = SEVERITY_COLOR[opts.severity] ?? COLORS.muted;
+  return {
+    table: {
+      widths: [3, "*"],
+      body: [
+        [
+          { text: "", fillColor: color, margin: [0, 0, 0, 0] },
+          {
+            stack: [
+              {
+                columns: [
+                  { text: safe(opts.ruleId), style: "h3", width: "*" },
+                  { text: safe(opts.severity), bold: true, fontSize: 7.5, color, width: "auto" },
+                ],
+              },
+              { text: safe(opts.finding), style: "td", margin: [0, 3, 0, 0] },
+              {
+                text: [
+                  { text: "Recommendation  ", style: "caption", bold: true, color: COLORS.muted },
+                  { text: safe(opts.recommendation), style: "small" },
+                ],
+                margin: [0, 4, 0, 0],
+              },
+            ],
+          },
+        ],
+      ],
+    },
+    layout: {
+      hLineWidth: (i: number, node) => (i === 0 || i === (node.table.body?.length ?? 0) ? 0.5 : 0),
+      vLineWidth: () => 0,
+      hLineColor: () => COLORS.border,
+      paddingLeft: (i: number) => (i === 0 ? 0 : 9),
+      paddingRight: () => 9,
+      paddingTop: () => 7,
+      paddingBottom: () => 7,
+      fillColor: (_r: number, _n, colIndex: number) => (colIndex === 0 ? color : COLORS.panel),
+    },
+    margin: [0, 0, 0, 6],
+  } as Content;
+}

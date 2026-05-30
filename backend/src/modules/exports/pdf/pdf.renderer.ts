@@ -17,9 +17,12 @@ import type { AnalysisResult, ExportSnapshot, RiskFinding } from "../analysis/an
 import { MINOTAURUS_LOGO_DATA_URI, MINOTAURUS_LOGO_SVG } from "./logo.js";
 import {
   bar,
+  cardGrid,
+  cardRow,
   COLORS,
   CONTENT_WIDTH,
   dataTable,
+  findingCard,
   FONTS,
   GRADE_COLOR,
   kvTable,
@@ -35,6 +38,7 @@ import {
   STYLES,
   subhead,
 } from "./pdf.theme.js";
+import { prepareDiagramSvg } from "./diagram-svg.js";
 
 // Deterministic, rule-keyed recommendations (static text — not AI).
 const RECOMMENDATIONS: Record<string, string> = {
@@ -158,53 +162,56 @@ function buildDocDefinition(input: RenderInput): TDocumentDefinitions {
 // ────────────────────────────── 1. cover ──────────────────────────────
 
 function cover(input: RenderInput, projectName: string): Content[] {
-  const { analysis, content, meta } = input;
-  const logo = logoBlock();
+  const { analysis, content } = input;
   const score = analysis.health.score;
-  const scoreLine =
-    score == null
-      ? "Architecture Health: N/A (insufficient data)"
-      : `Architecture Health: ${score}/100 (${safe(analysis.health.label)}, grade ${safe(analysis.health.grade)})`;
+  const scoreColorVal = score == null ? COLORS.muted : GRADE_COLOR[analysis.health.grade] ?? COLORS.ink;
+  const relationCount = Object.values(analysis.connectivity.relationMix).reduce((s, n) => s + n, 0);
 
-  const sectionsLine = meta.sections.length ? meta.sections.join(", ") : "All available";
-
-  return [
-    { text: "", margin: [0, 90, 0, 0] },
-    logo,
-    { text: projectName, fontSize: 26, bold: true, color: COLORS.ink, margin: [0, 28, 0, 4] },
-    { text: "Architecture Intelligence Report", fontSize: 14, color: COLORS.accent },
-    { text: "Single Source of Truth", fontSize: 11, color: COLORS.muted, margin: [0, 2, 0, 26] },
+  const out: Content[] = [
+    { text: "", margin: [0, 70, 0, 0] },
+    // Centered logo mark.
+    logoBlock(),
+    // Centered wordmark + titles.
+    { text: "MINOTAURUS", fontSize: 22, bold: true, color: COLORS.ink, alignment: "center", margin: [0, 16, 0, 2], characterSpacing: 2 },
+    { text: "Architecture Intelligence Report", fontSize: 13, color: COLORS.accent, alignment: "center" },
+    { text: "Single Source of Truth", fontSize: 10.5, color: COLORS.muted, alignment: "center", margin: [0, 2, 0, 24] },
     {
-      canvas: [{ type: "line", x1: 0, y1: 0, x2: CONTENT_WIDTH, y2: 0, lineWidth: 1, lineColor: COLORS.border }],
-      margin: [0, 0, 0, 18],
+      canvas: [{ type: "line", x1: 120, y1: 0, x2: CONTENT_WIDTH - 120, y2: 0, lineWidth: 0.75, lineColor: COLORS.border }],
+      margin: [0, 0, 0, 22],
     },
+    { text: safe(projectName), fontSize: 24, bold: true, color: COLORS.ink, alignment: "center", margin: [0, 0, 0, 4] },
+    { text: `Generated ${fmtDate(analysis.meta.generatedAt)}`, fontSize: 10, color: COLORS.muted, alignment: "center", margin: [0, 0, 0, 4] },
     {
-      text: scoreLine,
+      text: score == null ? "Architecture Health: N/A" : `Architecture Health  ${score}/100  -  ${safe(analysis.health.label)} (${safe(analysis.health.grade)})`,
       fontSize: 11,
       bold: true,
-      color: score == null ? COLORS.muted : GRADE_COLOR[analysis.health.grade] ?? COLORS.ink,
-      margin: [0, 0, 0, 18],
+      color: scoreColorVal,
+      alignment: "center",
+      margin: [0, 0, 0, 28],
     },
-    kvTable([
-      ["Generated", fmtDate(analysis.meta.generatedAt)],
-      ["Project ID", safe(content.project?.id || analysis.meta.projectId || "N/A")],
-      ["Export ID", safe(meta.id || "N/A")],
-      ["Sections", safe(sectionsLine)],
-    ]),
-    { text: "", pageBreak: "after" },
   ];
+
+  // Headline KPI cards: Health / Coverage / Relations / Findings.
+  if (!analysis.meta.emptyProject) {
+    out.push(
+      cardRow([
+        { label: "Health Score", value: num(score), valueColor: scoreColorVal, caption: `Grade ${safe(analysis.health.grade)}` },
+        { label: "Documentation", value: pct(analysis.documentation.coveragePct), caption: `${analysis.documentation.documentedCount}/${analysis.documentation.total} documented` },
+        { label: "Relations", value: String(relationCount), caption: `${analysis.connectivity.orphanCount} orphan(s)` },
+        { label: "Findings", value: String(analysis.validation.openCount), caption: "open" },
+      ]),
+    );
+  }
+
+  out.push({ text: "", pageBreak: "after" });
+  return out;
 }
 
 function logoBlock(): Content {
-  if (MINOTAURUS_LOGO_SVG) return { svg: MINOTAURUS_LOGO_SVG, width: 150 };
-  if (MINOTAURUS_LOGO_DATA_URI) return { image: MINOTAURUS_LOGO_DATA_URI, width: 150 };
+  if (MINOTAURUS_LOGO_SVG) return { svg: MINOTAURUS_LOGO_SVG, width: 96, alignment: "center" };
+  if (MINOTAURUS_LOGO_DATA_URI) return { image: MINOTAURUS_LOGO_DATA_URI, width: 96, alignment: "center" };
   // Fallback text branding — never blocks rendering.
-  return {
-    stack: [
-      { text: "MINOTAURUS.dev", fontSize: 20, bold: true, color: COLORS.ink },
-      { text: "Architecture Intelligence Report", fontSize: 9, color: COLORS.muted, margin: [0, 1, 0, 0] },
-    ],
-  };
+  return { text: "MINOTAURUS.dev", fontSize: 20, bold: true, color: COLORS.ink, alignment: "center" };
 }
 
 // ────────────────────────────── 3. executive summary ──────────────────────────────
@@ -280,8 +287,8 @@ function healthDashboard(a: AnalysisResult): Content[] {
   }
 
   out.push(
-    metricCards([
-      { label: "Overall health", value: `${num(a.health.score)}/100`, valueColor: GRADE_COLOR[a.health.grade] },
+    cardRow([
+      { label: "Overall Health", value: `${num(a.health.score)}`, valueColor: GRADE_COLOR[a.health.grade], caption: "/ 100" },
       { label: "Grade", value: safe(a.health.grade), valueColor: GRADE_COLOR[a.health.grade] },
       { label: "Assessment", value: safe(a.health.label) },
     ]),
@@ -289,36 +296,41 @@ function healthDashboard(a: AnalysisResult): Content[] {
 
   out.push(subhead("Dimension scores"));
   const s = a.health.subScores;
-  const rows: Array<[string, number, string]> = [
-    ["Documentation", s.documentation, `${pct(a.documentation.coveragePct)} of artifacts documented`],
-    ["Connectivity", s.connectivity, `${a.connectivity.orphanCount} orphan(s), avg degree ${num(a.connectivity.avgDegree)}`],
-    ["Traceability", s.traceability, `${pct(a.traceability.requirementCoverage)} requirements implemented`],
-    ["Validation", s.validation, `${a.validation.openCount} open finding(s)`],
-    ["Governance", s.governance, `${a.governance.signals.filter((x) => x.passed).length}/4 checks passed`],
-  ];
-
+  // Each dimension as a metric card.
   out.push(
-    dataTable(
+    cardGrid(
       [
-        { header: "Dimension", width: 90 },
-        { header: "Score", width: 34, align: "right" },
-        { header: "", width: 160 },
-        { header: "Detail", width: "*" },
+        { label: "Documentation", value: num(s.documentation), valueColor: scoreColor(s.documentation), caption: pctW(a.health.weights.documentation) + " weight" },
+        { label: "Connectivity", value: num(s.connectivity), valueColor: scoreColor(s.connectivity), caption: pctW(a.health.weights.connectivity) + " weight" },
+        { label: "Traceability", value: num(s.traceability), valueColor: scoreColor(s.traceability), caption: pctW(a.health.weights.traceability) + " weight" },
+        { label: "Validation", value: num(s.validation), valueColor: scoreColor(s.validation), caption: pctW(a.health.weights.validation) + " weight" },
+        { label: "Governance", value: num(s.governance), valueColor: scoreColor(s.governance), caption: pctW(a.health.weights.governance) + " weight" },
       ],
-      rows.map(([label, value, detail]) => [
-        label,
-        String(value),
-        bar(value, 100, scoreColor(value)),
-        { text: safe(detail), style: "small" } as Content,
-      ]),
+      5,
     ),
   );
 
+  // Deterministic explanation per dimension, kept underneath the cards.
+  out.push(subhead("How each dimension was scored", 8));
+  const explain: Array<[string, string]> = [
+    ["Documentation", `${pct(a.documentation.coveragePct)} of artifacts documented (${a.documentation.documentedCount}/${a.documentation.total}).`],
+    ["Connectivity", `${a.connectivity.orphanCount} orphan(s); average degree ${num(a.connectivity.avgDegree)}; ${a.connectivity.overCoupled.length} over-coupled.`],
+    ["Traceability", `${pct(a.traceability.requirementCoverage)} of requirements implemented; ${pct(a.traceability.resourceLinkage)} resource linkage.`],
+    ["Validation", `${a.validation.openCount} open finding(s); weighted severity ${a.validation.weightedIssues}.`],
+    ["Governance", `${a.governance.signals.filter((x) => x.passed).length}/4 governance checks passed.`],
+  ];
+  out.push({
+    ul: explain.map(([k, v]) => ({
+      text: [{ text: `${k}: `, bold: true, color: COLORS.body }, { text: safe(v) }],
+      style: "small",
+      margin: [0, 1, 0, 1],
+    })),
+  });
+
   out.push(
     note(
-      `Weights: documentation ${pctW(a.health.weights.documentation)}, connectivity ${pctW(a.health.weights.connectivity)}, ` +
-        `traceability ${pctW(a.health.weights.traceability)}, validation ${pctW(a.health.weights.validation)}, ` +
-        `governance ${pctW(a.health.weights.governance)}. Composite is the weighted average of the dimension scores.`,
+      `Composite is the weighted average of the five dimension scores (weights shown on each card). ` +
+        `Scores are produced by the deterministic analysis engine; the same snapshot always yields the same scores.`,
     ),
   );
   return out;
@@ -482,13 +494,46 @@ function graphInsights(a: AnalysisResult): Content[] {
   const c = a.connectivity;
   const out: Content[] = [section("Knowledge Graph Insights")];
 
+  const relationCount = Object.values(c.relationMix).reduce((s, n) => s + n, 0);
+  const topHub = c.hubs[0];
+  const mixEntries = Object.entries(c.relationMix).sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));
+  const topRelationType = mixEntries[0];
+
+  // Visual insight cards (not just tables).
   out.push(
-    metricCards([
-      { label: "Avg degree", value: num(c.avgDegree) },
-      { label: "Orphans", value: String(c.orphanCount) },
-      { label: "Over-coupled", value: String(c.overCoupled.length) },
-      { label: "Hubs", value: String(c.hubs.length) },
-    ]),
+    cardGrid(
+      [
+        { label: "Relation Count", value: String(relationCount), caption: `avg degree ${num(c.avgDegree)}` },
+        {
+          label: "Most Connected Artifact",
+          value: topHub ? String(topHub.degree) : "0",
+          caption: topHub ? safe(topHub.title) : "none",
+        },
+        {
+          label: "Top Dependency Hub",
+          value: topHub ? safe(topHub.title) : "none",
+          caption: topHub ? `${topHub.degree} relations` : undefined,
+        },
+        {
+          label: "Orphans",
+          value: String(c.orphanCount),
+          valueColor: c.orphanCount > 0 ? SEVERITY_COLOR.WARNING : COLORS.ink,
+          caption: "no relations",
+        },
+        {
+          label: "Over-Coupled Components",
+          value: String(c.overCoupled.length),
+          valueColor: c.overCoupled.length > 0 ? SEVERITY_COLOR.INFO : COLORS.ink,
+          caption: "exceed threshold",
+        },
+        {
+          label: "Dominant Relation",
+          value: topRelationType ? String(topRelationType[1]) : "0",
+          caption: topRelationType ? safe(topRelationType[0]) : "none",
+        },
+      ],
+      3,
+    ),
   );
 
   out.push(subhead("Relation mix"));
@@ -558,27 +603,32 @@ function risks(a: AnalysisResult): Content[] {
     return out;
   }
 
-  const counts = SEVERITY_ORDER.map((s) => `${s}: ${a.risks.filter((r) => r.severity === s).length}`).join("    ");
-  out.push({ text: safe(counts), style: "small", margin: [0, 0, 0, 8] });
+  // Severity summary as cards.
+  out.push(
+    cardRow(
+      SEVERITY_ORDER.map((sev) => ({
+        label: sev,
+        value: String(a.risks.filter((r) => r.severity === sev).length),
+        valueColor: SEVERITY_COLOR[sev] ?? COLORS.ink,
+      })),
+    ),
+  );
 
+  // Each finding as a card, grouped by severity.
   for (const sev of SEVERITY_ORDER) {
     const group = a.risks.filter((r) => r.severity === sev);
     if (group.length === 0) continue;
     out.push(subhead(`${sev} (${group.length})`));
-    out.push(
-      dataTable(
-        [
-          { header: "Rule", width: 130 },
-          { header: "Finding", width: "*" },
-          { header: "Recommendation", width: 170 },
-        ],
-        group.map((r: RiskFinding) => [
-          r.ruleId,
-          r.message,
-          RECOMMENDATIONS[r.ruleId] ?? "Review and remediate.",
-        ]),
-      ),
-    );
+    for (const r of group as RiskFinding[]) {
+      out.push(
+        findingCard({
+          severity: r.severity,
+          ruleId: r.ruleId,
+          finding: r.message,
+          recommendation: RECOMMENDATIONS[r.ruleId] ?? "Review and remediate.",
+        }),
+      );
+    }
   }
   return out;
 }
@@ -946,16 +996,46 @@ function appendix(content: ExportSnapshot): Content[] {
         }
     }
 
-  // D. Diagram inventory (+ mermaid source)
+  // D. Diagram inventory — rendered diagram (when captured) + Mermaid source.
   out.push(subhead("D. Diagram inventory"));
   if (diagrams.length === 0) out.push(note("No diagrams."));
   else
     for (const d of diagrams) {
-      const dd = d as { title?: string; id: string; type?: string; mermaidSource?: string };
-      out.push({ text: `${safe(dd.title ?? dd.id)}  (${safe(dd.type ?? "")})`, style: "h3", margin: [0, 6, 0, 2] });
+      const dd = d as { title?: string; id: string; type?: string; mermaidSource?: string; renderedSvg?: string | null };
+      out.push({ text: `${safe(dd.title ?? dd.id)}  (${safe(dd.type ?? "")})`, style: "h3", margin: [0, 8, 0, 3] });
+
+      // Rendered diagram (vector) when a valid, embeddable SVG was captured.
+      const prepared = prepareDiagramSvg(dd.renderedSvg);
+      if (prepared) {
+        out.push({
+          table: {
+            widths: ["*"],
+            body: [[{ svg: prepared.svg, fit: [CONTENT_WIDTH - 18, 320], alignment: "center" }]],
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => COLORS.border,
+            vLineColor: () => COLORS.border,
+            paddingLeft: () => 9,
+            paddingRight: () => 9,
+            paddingTop: () => 9,
+            paddingBottom: () => 9,
+            fillColor: () => COLORS.white,
+          },
+          margin: [0, 0, 0, 4],
+        });
+      } else if (dd.renderedSvg) {
+        // SVG present but not embeddable (e.g. foreignObject labels) — be honest.
+        out.push(note("Rendered diagram unavailable for embedding; showing source."));
+      }
+
+      // Mermaid source — always shown (never removed), labeled when paired with a render.
       const src = (dd.mermaidSource ?? "").trim();
-      if (!src) out.push(note("No Mermaid source."));
-      else
+      if (!src) {
+        out.push(note("No Mermaid source."));
+      } else {
+        if (prepared) out.push({ text: "Mermaid source", style: "caption", bold: true, color: COLORS.muted, margin: [0, 2, 0, 2] });
         out.push({
           table: { widths: ["*"], body: [[{ text: safe(src), style: "tdMono", fontSize: 7 }]] },
           layout: {
@@ -969,8 +1049,9 @@ function appendix(content: ExportSnapshot): Content[] {
             paddingBottom: () => 5,
             fillColor: () => COLORS.panel,
           },
-          margin: [0, 0, 0, 6],
+          margin: [0, 0, 0, 8],
         });
+      }
     }
 
   // E. Validation register (all statuses)

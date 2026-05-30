@@ -33,7 +33,18 @@ const richProject: ExportSnapshot = {
     { id: "s1", title: "Order API", description: "d", artifactId: "a2", endpoints: [{ id: "e1", summary: "List", requiresAuth: true } as never] },
   ],
   databaseModels: [{ id: "m1", title: "Order DB", description: "d", artifactId: "a2" }],
-  diagrams: [{ id: "d1", title: "Flow", type: "FLOWCHART", description: "", artifactId: "a2" }],
+  diagrams: [
+    {
+      id: "d1",
+      title: "Flow",
+      type: "FLOWCHART",
+      description: "",
+      artifactId: "a2",
+      mermaidSource: "flowchart TD\n A[Client] --> B[Order Service]",
+      renderedSvg:
+        '<svg xmlns="http://www.w3.org/2000/svg" width="220" height="90"><rect x="0" y="0" width="220" height="90" fill="#eef"/><text x="20" y="48" font-size="13">Order Service</text></svg>',
+    },
+  ],
   validationIssues: [
     { id: "i1", artifactId: "a2", severity: "CRITICAL", category: "SECURITY", message: "Public auth endpoint", status: "OPEN" },
     { id: "i2", artifactId: "a4", severity: "WARNING", category: "ARCHITECTURE", message: "Deprecated in use", status: "OPEN" },
@@ -66,6 +77,35 @@ test("renders a valid PDF for an empty project (no crash, fallback branding)", a
   const analysis = analyzeExportSnapshot(empty);
   const buf = await renderArchitecturePdf({ content: empty, analysis, meta: { ...META, sections: [] } });
   assert.ok(isPdf(buf));
+});
+
+test("embeds a captured diagram SVG and stays deterministic", async () => {
+  const analysis = analyzeExportSnapshot(richProject);
+  const a = await renderArchitecturePdf({ content: richProject, analysis, meta: META });
+  // The diagram fixture carries renderedSvg; embedding it must not break determinism.
+  const b = await renderArchitecturePdf({ content: richProject, analysis, meta: META });
+  assert.ok(isPdf(a));
+  assert.ok(a.equals(b), "embedded-SVG render must be byte-identical across runs");
+});
+
+test("falls back to source when captured SVG is not embeddable (foreignObject)", async () => {
+  const snap: ExportSnapshot = {
+    ...richProject,
+    diagrams: [
+      {
+        id: "d1",
+        title: "Flow",
+        type: "FLOWCHART",
+        mermaidSource: "flowchart TD\n A --> B",
+        // foreignObject text is dropped by pdfmake -> must fall back to source.
+        renderedSvg:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><foreignObject x="0" y="0" width="100" height="50"><div xmlns="http://www.w3.org/1999/xhtml">x</div></foreignObject></svg>',
+      },
+    ],
+  };
+  const analysis = analyzeExportSnapshot(snap);
+  const buf = await renderArchitecturePdf({ content: snap, analysis, meta: META });
+  assert.ok(isPdf(buf)); // renders without crashing; source block is shown instead
 });
 
 test("renders with unicode/odd characters in titles without throwing", async () => {

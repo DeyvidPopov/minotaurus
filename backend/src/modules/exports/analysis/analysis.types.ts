@@ -67,6 +67,14 @@ export interface SnapshotDiagram {
   mermaidSource?: string;
   description?: string;
   artifactId?: string | null;
+  /**
+   * Optional pre-rendered SVG markup, captured client-side at export-create
+   * time (Mermaid renders only in a browser DOM). Frozen into the snapshot so
+   * the PDF stays a pure function of stored bytes. When present and valid, the
+   * renderer embeds it as vector; otherwise it falls back to the source block.
+   * Must be `<text>`-based (htmlLabels:false) — pdfmake drops <foreignObject>.
+   */
+  renderedSvg?: string | null;
 }
 
 export interface SnapshotIssue {

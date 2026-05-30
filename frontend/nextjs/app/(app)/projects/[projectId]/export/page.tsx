@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { diagramsApi } from "@/lib/api/diagrams";
+import { renderMermaidToSvg } from "@/components/mermaid-preview";
 import { ExportPreview, type ExportPreviewModel } from "@/components/export-preview";
 import type { ExportFormat } from "@/lib/types";
 
@@ -66,12 +68,31 @@ export default function ExportPage({ params }: { params: { projectId: string } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // For PDF, render each diagram's Mermaid to SVG in-browser (Mermaid needs a
+  // DOM) so the backend can embed real vector diagrams deterministically.
+  // Best-effort: any diagram that fails simply falls back to its source block.
+  const captureDiagramSvgs = async (): Promise<Record<string, string>> => {
+    const out: Record<string, string> = {};
+    try {
+      const diagrams = await diagramsApi.list(projectId);
+      const rendered = await Promise.all(
+        diagrams.map(async (d) => ({ id: d.id, svg: await renderMermaidToSvg(d.mermaidSource) })),
+      );
+      for (const r of rendered) if (r.svg) out[r.id] = r.svg;
+    } catch {
+      /* non-fatal — export proceeds with source-only diagrams */
+    }
+    return out;
+  };
+
   const create = async () => {
     setBusy(true);
     try {
+      const diagramSvgs = format === "PDF" ? await captureDiagramSvgs() : undefined;
       const created = await apiClient.post<{ id: string }>(`/projects/${projectId}/export`, {
         format,
         sections: Array.from(picked),
+        ...(diagramSvgs && Object.keys(diagramSvgs).length > 0 ? { diagramSvgs } : {}),
       });
       toast.success("Export created");
       await load();

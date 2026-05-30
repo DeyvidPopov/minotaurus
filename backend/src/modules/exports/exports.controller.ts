@@ -10,10 +10,28 @@ import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 import { analyzeExportSnapshot } from "./analysis/metrics.engine.js";
 import { renderArchitecturePdf } from "./pdf/pdf.renderer.js";
 
+// `diagramSvgs` is an optional map of diagramId -> client-rendered SVG markup.
+// Mermaid only renders in a browser DOM, so the frontend captures the SVG at
+// export time; the backend freezes it into the persisted snapshot so the PDF
+// stays deterministic. Bounded to keep payloads sane.
+const MAX_SVG_LEN = 1_500_000;
 const createSchema = z.object({
   format: z.enum(EXPORT_FORMATS as [(typeof EXPORT_FORMATS)[number], ...(typeof EXPORT_FORMATS)[number][]]),
   sections: z.array(z.string()).optional().default(["ARTIFACTS", "RELATIONS"]),
+  diagramSvgs: z.record(z.string(), z.string().max(MAX_SVG_LEN)).optional(),
 });
+
+// Inject captured SVGs into the assembled snapshot's diagrams (presentation
+// data only — does not touch buildExportContent / SSOT assembly).
+function attachDiagramSvgs(content: unknown, svgs?: Record<string, string>): unknown {
+  if (!svgs || !content || typeof content !== "object") return content;
+  const c = content as { diagrams?: Array<{ id?: string; renderedSvg?: string | null }> };
+  if (!Array.isArray(c.diagrams)) return content;
+  for (const d of c.diagrams) {
+    if (d && d.id && typeof svgs[d.id] === "string") d.renderedSvg = svgs[d.id];
+  }
+  return content;
+}
 
 async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
   const a = await getProjectAccess(projectId, userId);
@@ -31,12 +49,16 @@ export async function createExport(req: AuthedRequest, res: Response) {
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
   const content = await buildExportContent(projectId, parsed.data.format, parsed.data.sections);
+  // PDF embeds rendered diagrams; merge any client-captured SVGs (other formats
+  // ignore them — Markdown returns a string, JSON keeps the field harmlessly).
+  const finalContent =
+    parsed.data.format === "PDF" ? attachDiagramSvgs(content, parsed.data.diagramSvgs) : content;
   const exportRow = await prisma.exportPackage.create({
     data: {
       projectId,
       format: parsed.data.format,
       sections: parsed.data.sections,
-      content: content as Prisma.InputJsonValue,
+      content: finalContent as Prisma.InputJsonValue,
       createdById: req.user!.userId,
     },
   });
