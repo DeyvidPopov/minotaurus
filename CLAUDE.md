@@ -22,13 +22,14 @@ npm start                # tsx (no watcher)
 npm run build            # prisma generate && tsc -p tsconfig.json  → dist/
 npm run seed             # tsx scripts/seed-demo.ts — wipes + reseeds demo dataset
 npm run test:api         # bash scripts/test-api.sh — full HTTP smoke pass (needs backend running)
+npm run test:unit        # node --import tsx --test "src/**/*.test.ts" — pure-logic unit tests
 npm run prisma:generate  # regenerate Prisma client
 npm run prisma:migrate   # prisma migrate dev (interactive)
 npm run prisma:reset     # prisma migrate reset --force (DESTRUCTIVE)
 npm run prisma:studio    # Prisma Studio GUI
 ```
 
-No unit-test framework — `scripts/test-api.sh` is the only automated coverage. To run a single endpoint, hit it with `curl` (patterns in `backend/API_TEST_EXAMPLES.md`).
+Two test layers: `scripts/test-api.sh` is the HTTP smoke pass, and `test:unit` runs Node's built-in test runner (`node:test` + `node:assert`, no Jest/Vitest) over `*.test.ts` files for pure-logic modules — currently the Export Engine V2 analysis engine and PDF SVG normalizer. New pure engines should ship a colocated `*.test.ts`. To run a single endpoint, hit it with `curl` (patterns in `backend/API_TEST_EXAMPLES.md`).
 
 ### Frontend (`cd frontend/nextjs`)
 
@@ -118,6 +119,33 @@ Every CUD across the platform (artifacts, relations, API specs, endpoints, DB mo
 
 `modules/ingestion/` has one controller plus four parser engines (`markdown`, `openapi`, `mermaid`, `sql`). Flow: draft → parse → confirm. Confirm uses the same artifact / API spec / diagram / DB model creation paths as the regular controllers (including the artifact title check) so ingestion never bypasses validation. Ingestion is an audit log — deleting an `IngestionRecord` does **not** cascade-delete the resources it produced (no FK on the join). UI copy reflects this ("Remove log" vs "Delete draft").
 
+### Export Engine V2 (SSOT export + PDF report)
+
+Three layers, strictly separated — each consumes the previous and never reaches back:
+
+```
+buildExportContent(projectId, format, sections)   ← SSOT assembly (single source)
+        ↓ persisted to ExportPackage.content (Json)
+analyzeExportSnapshot(content) → AnalysisResult    ← deterministic analysis (pure)
+        ↓
+renderArchitecturePdf({content, analysis, meta})   ← PDF presentation (pure)
+```
+
+- **SSOT assembly** — `modules/exports/exports.engine.ts:buildExportContent` is the **only** place export data is assembled. JSON returns the payload object; MARKDOWN returns a string; PDF/ZIP get the same object. Do not duplicate this assembly anywhere; the analysis and PDF layers read its output, never the DB.
+- **Analysis engine** — `modules/exports/analysis/` (`metrics.engine.ts` + `analysis.constants.ts` + `analysis.types.ts`). `analyzeExportSnapshot(content)` is a **pure, deterministic** function: no I/O, no Prisma, no `Date.now()` (the only time reference is `snapshot.generatedAt`), no AI. Same snapshot ⇒ deep-equal `AnalysisResult`. It computes health score (weighted composite), documentation coverage, connectivity, traceability, governance, validation, and rule-keyed risks. All weights/thresholds live in `analysis.constants.ts`. This is the foundation any future AI analysis must build on — keep it independent of the renderer.
+- **PDF renderer** — `modules/exports/pdf/` on `pdfmake` (standard-14 fonts, no embedded TTF, **no headless browser**). `pdf.renderer.ts` is presentation-only: it reads numbers from `AnalysisResult`, never recomputes a score. Determinism is pinned by overriding pdfkit's `CreationDate`/`ModDate` and the file `_id` from the snapshot identity (otherwise every render differs). Missing logo → text fallback (`pdf/logo.ts`, the MINOTAURUS mark as inline SVG).
+- **Download** — `GET /exports/:exportId/download` (`exports.controller.ts:downloadExport`, registered **before** the `:exportId` catch-all). PDF is rendered on demand from the persisted snapshot and streamed `application/pdf`; JSON/MARKDOWN stream the stored content. Create still requires `ARCHITECT`+; download mirrors read access.
+
+**Diagrams in the PDF (the fiddly part — `pdf/diagram-svg.ts`).** Mermaid only renders in a browser, so the **frontend captures each diagram's SVG at export-create time** (`renderMermaidToSvg` in `mermaid-preview.tsx`, using `htmlLabels:false` so labels are native `<text>`) and POSTs a `diagramSvgs` map; the controller freezes it into the snapshot's `diagrams[].renderedSvg`. At render time `normalizeMermaidSvgForPdf` rewrites that SVG for `pdfmake`'s bundled `svg-to-pdfkit`, which has real limitations that drove a series of fixes — **understand these before touching that file**:
+
+- **Sizing**: `SVGMeasure` reads the first non-percentage `width=` in the document; Mermaid's root is `width="100%"`, so it would match a child `<rect width=…>` and render the whole diagram compressed. Fix: rewrite the root `<svg>` with explicit numeric width/height from the viewBox.
+- **`<foreignObject>` is silently dropped** → such SVG is rejected and falls back to the Mermaid source block (which is **always shown** beneath the rendered diagram regardless).
+- **Contrast**: the frontend captures a dark UI theme; `svg-to-pdfkit` resolves CSS by specificity with no `!important`, so the `<style>` block is stripped and colors are rewritten at the string level to the print palette (`PRINT` constants).
+- **`stroke-dasharray:"1,0"`** crashes pdfkit's `dash()` → invalid (non-positive) dasharrays are stripped.
+- **Labels**: node/edge labels are recentred on their group origin (`text-anchor=middle`, `dominant-baseline=central`); their background `<rect>` is filled **white** (recentred to match) to mask connector lines; `<line>` lifelines get a visible stroke + 1pt min width.
+
+Everything here is presentation-only — **never** change scoring, `AnalysisResult`, the SSOT assembly, or the JSON/Markdown outputs to fix a PDF rendering issue. `pdf/*.test.ts` and `analysis/*.test.ts` are the determinism contract; run `test:unit` after edits.
+
 ### Frontend shell
 
 - `app/(app)/layout.tsx` wraps every workspace route with `AuthProvider` + `AppShell` (Sidebar + Topbar). `app/(auth)/` is the unauthenticated tree (login / register).
@@ -162,6 +190,7 @@ The Knowledge Graph uses React Flow's native `<Controls>` (horizontal, `position
 - Thin controllers — push non-trivial logic into `<feature>.engine.ts`.
 - Frontend pages import typed wrappers from `lib/api/`; do not call `fetch` directly and do not duplicate DTO types (use `lib/types.ts`).
 - Validation is rule-based and deterministic. Do not introduce AI-generated validation logic.
+- Export Engine V2 is layered: SSOT assembly → analysis → PDF. The analysis engine and PDF renderer are pure and deterministic (no AI, no `Date.now()`). Don't recompute scores in the renderer or assemble SSOT data outside `buildExportContent`.
 - `ArtifactRelation` is the graph source of truth — don't add a parallel "links" table or emit non-artifact nodes from the graph endpoint.
 - Postgres is the source of truth (since Phase 6). The old `backend/src/db/data.json` JSON store is gone — don't reintroduce it.
 
