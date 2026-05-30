@@ -90,8 +90,11 @@ const PRINT = {
   nodeFill: "#f8fafc",
   nodeBorder: "#334155",
   edge: "#475569",
+  lifeline: "#94a3b8", // sequence lifelines — visible but lighter than edges
   white: "#ffffff",
 } as const;
+
+const MIN_STROKE_WIDTH = 1; // pt; Mermaid emits 0.5px lifelines that vanish on print
 
 // Dark-theme colors the frontend bakes in (mermaid-preview themeVariables +
 // forceLabelVisibility), mapped to print-readable equivalents. Case-insensitive.
@@ -109,6 +112,13 @@ const COLOR_REMAP: Array<[RegExp, string]> = [
   // Edges / lines -> readable edge.
   [/#9aa3ad/gi, PRINT.edge],
   [/#5f8fb8/gi, PRINT.nodeBorder],
+  // Faint mid-grey Mermaid uses for sequence actor labels / man-lines -> dark.
+  [/#999999\b/gi, PRINT.text],
+  [/#999\b/gi, PRINT.text],
+  // "grey"/"gray" keyword strokes (e.g. actor-man-line style="stroke:grey")
+  // -> edge color. Scoped to stroke contexts so plain label text is untouched.
+  [/stroke:\s*gr[ae]y/gi, `stroke:${PRINT.edge}`],
+  [/stroke\s*=\s*"gr[ae]y"/gi, `stroke="${PRINT.edge}"`],
 ];
 
 function recolorForPrint(body: string): string {
@@ -203,6 +213,23 @@ function recolorForPrint(body: string): string {
     return `<${tag}${a}${selfClose}>`;
   });
 
+  // 6. <line> elements — sequence lifelines and message lines. Mermaid emits
+  //    these as faint grey (stroke="#999" + inline style "stroke: grey") at
+  //    0.5px, which vanishes on a white page. svg-to-pdfkit resolves the inline
+  //    style stroke BEFORE the attribute, so we must strip the style stroke,
+  //    then set a visible stroke and a minimum width. Lifelines (carry a `name`
+  //    or an "actor" id) get a lighter slate; message/relation lines get the
+  //    edge color.
+  out = out.replace(/<line\b([^>]*?)(\/?)>/gi, (_m, attrs: string, selfClose: string) => {
+    const cls = (/(?:^|\s)class\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] || "").toLowerCase();
+    const isLifeline = /\bname=/i.test(attrs) || /actor/i.test(/(?:^|\s)id\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] || "");
+    const color = isLifeline && !/message/.test(cls) ? PRINT.lifeline : PRINT.edge;
+    let a = stripStyleStroke(attrs);
+    a = setAttr(removeAttr(a, "stroke"), "stroke", color);
+    a = setAttr(removeAttr(a, "stroke-width"), "stroke-width", String(MIN_STROKE_WIDTH));
+    return `<line${a}${selfClose}>`;
+  });
+
   return out;
 }
 
@@ -218,6 +245,22 @@ function removeAttr(attrs: string, name: string): string {
 function setAttr(attrs: string, name: string, value: string): string {
   const sep = attrs.length && !attrs.startsWith(" ") ? " " : "";
   return `${attrs}${sep} ${name}="${value}"`;
+}
+
+/**
+ * Remove stroke / stroke-width declarations from an inline style="…" attribute.
+ * svg-to-pdfkit resolves inline-style color before the presentation attribute,
+ * so a leftover `style="stroke: grey"` would defeat a stroke attribute we set.
+ */
+function stripStyleStroke(attrs: string): string {
+  return attrs.replace(/style\s*=\s*"([^"]*)"/i, (_m, css: string) => {
+    const cleaned = css
+      .replace(/(?:^|;)\s*stroke\s*:[^;]*/gi, "")
+      .replace(/(?:^|;)\s*stroke-width\s*:[^;]*/gi, "")
+      .replace(/^;+|;+$/g, "")
+      .trim();
+    return cleaned ? `style="${cleaned}"` : "";
+  });
 }
 function isDarkOrBlack(color: string): boolean {
   const c = color.trim().toLowerCase();

@@ -125,6 +125,28 @@ test("edge paths get a visible stroke and stay unfilled", () => {
   assert.match(edge, /fill="none"/i, "edge must remain unfilled");
 });
 
+// Sequence-diagram lifelines: faint grey, ultra-thin, with an overriding inline
+// style — must become visible (the reported "lines are not seeable" bug).
+const SEQ_LIFELINE =
+  '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" width="200" height="200">' +
+  '<line id="actor10" x1="75" y1="5" x2="75" y2="190" name="User" stroke="#999" stroke-width="0.5px" style="stroke: grey; stroke-width: 0.5px;"></line>' +
+  '<text fill="#999" x="75" y="200">User</text></svg>';
+
+test("sequence lifeline becomes a visible stroke with a usable width", () => {
+  const n = normalizeMermaidSvgForPdf(SEQ_LIFELINE)!;
+  const line = /<line\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(line, /stroke="#94a3b8"/i, "lifeline must get a visible stroke");
+  assert.match(line, /stroke-width="1"/i, "lifeline must get a usable width");
+  assert.doesNotMatch(line, /stroke:\s*grey/i, "overriding inline-style stroke must be stripped");
+  assert.doesNotMatch(line, /#999/i, "faint grey must be gone from the lifeline");
+});
+
+test("no faint #999 / grey strokes survive anywhere", () => {
+  const n = normalizeMermaidSvgForPdf(SEQ_LIFELINE)!;
+  assert.doesNotMatch(n.svg, /#999\b/i, "no #999 anywhere");
+  assert.doesNotMatch(n.svg, /stroke:\s*gr[ae]y/i, "no grey-keyword strokes anywhere");
+});
+
 test("label-background rect (no width) is NOT drawn as a box next to the label", () => {
   // Mermaid edge labels are <g class="edgeLabel"><g class="label"><rect/><text/>.
   // The unsized <rect> is a text background the browser grows; in PDF it must
