@@ -38,7 +38,7 @@ import {
   STYLES,
   subhead,
 } from "./pdf.theme.js";
-import { prepareDiagramSvg } from "./diagram-svg.js";
+import { fitDiagram, normalizeMermaidSvgForPdf } from "./diagram-svg.js";
 
 // Deterministic, rule-keyed recommendations (static text — not AI).
 const RECOMMENDATIONS: Record<string, string> = {
@@ -55,6 +55,10 @@ const RECOMMENDATIONS: Record<string, string> = {
 };
 
 const SEVERITY_ORDER = ["CRITICAL", "ERROR", "WARNING", "INFO"];
+
+// Max height (pt) an embedded diagram may occupy before it is scaled down to
+// fit. A4 content height is ~742pt; this leaves room for the heading + source.
+const DIAGRAM_MAX_HEIGHT = 560;
 
 const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
@@ -1005,12 +1009,25 @@ function appendix(content: ExportSnapshot): Content[] {
       out.push({ text: `${safe(dd.title ?? dd.id)}  (${safe(dd.type ?? "")})`, style: "h3", margin: [0, 8, 0, 3] });
 
       // Rendered diagram (vector) when a valid, embeddable SVG was captured.
-      const prepared = prepareDiagramSvg(dd.renderedSvg);
-      if (prepared) {
+      // Normalize first so pdfmake measures the real diagram size (not a single
+      // child node), then fit to content width with an explicit width/height.
+      const normalized = normalizeMermaidSvgForPdf(dd.renderedSvg);
+      if (normalized) {
+        const inner = CONTENT_WIDTH - 18; // minus card padding
+        const fitDims = fitDiagram(normalized.width, normalized.height, inner, DIAGRAM_MAX_HEIGHT);
         out.push({
           table: {
             widths: ["*"],
-            body: [[{ svg: prepared.svg, fit: [CONTENT_WIDTH - 18, 320], alignment: "center" }]],
+            body: [
+              [
+                {
+                  svg: normalized.svg,
+                  width: fitDims.width,
+                  height: fitDims.height,
+                  alignment: "center",
+                },
+              ],
+            ],
           },
           layout: {
             hLineWidth: () => 0.5,
@@ -1023,7 +1040,7 @@ function appendix(content: ExportSnapshot): Content[] {
             paddingBottom: () => 9,
             fillColor: () => COLORS.white,
           },
-          margin: [0, 0, 0, 4],
+          margin: [0, 8, 0, 4],
         });
       } else if (dd.renderedSvg) {
         // SVG present but not embeddable (e.g. foreignObject labels) — be honest.
@@ -1035,7 +1052,7 @@ function appendix(content: ExportSnapshot): Content[] {
       if (!src) {
         out.push(note("No Mermaid source."));
       } else {
-        if (prepared) out.push({ text: "Mermaid source", style: "caption", bold: true, color: COLORS.muted, margin: [0, 2, 0, 2] });
+        if (normalized) out.push({ text: "Mermaid source", style: "caption", bold: true, color: COLORS.muted, margin: [0, 2, 0, 2] });
         out.push({
           table: { widths: ["*"], body: [[{ text: safe(src), style: "tdMono", fontSize: 7 }]] },
           layout: {
