@@ -128,23 +128,45 @@ function recolorForPrint(body: string): string {
   //    leftover inline styles) to the print palette.
   for (const [re, to] of COLOR_REMAP) out = out.replace(re, to);
 
-  // 3. Neutralize any remaining near-black / near-white inline fills that would
-  //    be invisible on white, and ensure text is dark.
-  //    - text/tspan: force readable dark fill, and vertically center labels.
-  //      Mermaid centers node labels assuming the browser's default baseline;
-  //      svg-to-pdfkit places the baseline AT the y coordinate, so text drifts
-  //      upward. Adding dominant-baseline="central" when absent recenters it
-  //      without overriding any baseline Mermaid set explicitly.
+  // 3. Center single-line labels on their node. Mermaid wraps each node label in
+  //    <g class="label" transform="translate(x, y)"> containing a single
+  //    <tspan dy="1em" x="0">, and relies on the browser to (a) offset the group
+  //    by the measured text size and (b) apply text-anchor:middle via its
+  //    <style> block. We strip that style for contrast and svg-to-pdfkit does no
+  //    text measurement, so labels anchor at the node origin and overflow right,
+  //    sitting too low. A node group's origin IS the geometric center of its
+  //    shape, so for a single-line label we pin the label group to that origin
+  //    (translate(0,0)), drop the tspan dy, force tspan x="0", and set
+  //    text-anchor="middle" + dominant-baseline="central" — exact centering,
+  //    independent of font metrics. Multi-line labels (ER rows, class members)
+  //    are left untouched so their per-line dy/x spacing survives.
+  out = out.replace(/<g class="label"([^>]*)>([\s\S]*?)<\/g>/gi, (m, gAttrs: string, inner: string) => {
+    if ((inner.match(/<tspan\b/gi) || []).length !== 1) return m; // only single-line
+    const g = gAttrs.replace(/translate\(\s*[\d.-]+\s*,\s*[\d.-]+\s*\)/i, "translate(0, 0)");
+    let body = inner.replace(/(<tspan\b[^>]*?)\s+dy="[^"]*"/i, "$1");
+    // Anchor the tspan at x=0 (node center).
+    body = body.replace(/<tspan\b([^>]*?)>/i, (_t, ta: string) =>
+      `<tspan${setAttr(removeAttr(ta, "x"), "x", "0")}>`,
+    );
+    // Center the text horizontally + vertically on the origin.
+    body = body.replace(/<text\b([^>]*?)>/i, (_t, ta: string) => {
+      let a = ta;
+      if (!/text-anchor/i.test(a)) a = setAttr(a, "text-anchor", "middle");
+      if (!/dominant-baseline/i.test(a)) a = setAttr(a, "dominant-baseline", "central");
+      return `<text${a}>`;
+    });
+    return `<g class="label"${g}>${body}</g>`;
+  });
+
+  // 4. Force readable dark fill on all label text (after centering).
   out = out.replace(/(<text\b)([^>]*?)>/gi, (_m, head: string, attrs: string) => {
-    let a = setAttr(removeAttr(attrs, "fill"), "fill", PRINT.text);
-    if (!hasAttr(a, "dominant-baseline")) a = setAttr(a, "dominant-baseline", "central");
-    return `${head}${a}>`;
+    return `${head}${setAttr(removeAttr(attrs, "fill"), "fill", PRINT.text)}>`;
   });
   out = out.replace(/(<tspan\b)([^>]*?)>/gi, (_m, head: string, attrs: string) => {
     return `${head}${setAttr(removeAttr(attrs, "fill"), "fill", PRINT.text)}>`;
   });
 
-  // 4. Shape elements (rect/polygon/circle/ellipse/path) with NO fill attribute
+  // 5. Shape elements (rect/polygon/circle/ellipse/path) with NO fill attribute
   //    would render black in pdfmake. Give nodes a light fill + border; give
   //    edge paths a stroke. Heuristic by class, defaulting safely.
   out = out.replace(/<(rect|polygon|circle|ellipse|path)\b([^>]*?)(\/?)>/gi, (_m, tag: string, attrs: string, selfClose: string) => {

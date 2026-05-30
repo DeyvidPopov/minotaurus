@@ -138,21 +138,31 @@ test("database cylinder (container path) gets a LIGHT fill, not the dark border 
   assert.match(pathTag, /stroke="#334155"/i, "cylinder border must be visible");
 });
 
-test("text labels get a central baseline for vertical centering (when absent)", () => {
-  const n = normalizeMermaidSvgForPdf(DARK_CAPTURED)!;
-  const textTag = /<text\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
-  assert.match(textTag, /dominant-baseline="central"/i, "label must be vertically centered");
-  assert.match(textTag, /fill="#0f172a"/i, "label must stay dark");
+// Mermaid's native single-line node-label idiom — what the centering targets.
+const MERMAID_LABEL =
+  '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" width="200" height="80">' +
+  '<g class="node" transform="translate(100, 40)"><rect class="label-container" x="-60" y="-20" width="120" height="40"/>' +
+  '<g class="label" transform="translate(0, -10.4)"><text><tspan dy="1em" x="0">API Gateway</tspan></text></g></g></svg>';
+
+test("centers a single-line label: pins group to origin, anchors middle + central, drops dy", () => {
+  const n = normalizeMermaidSvgForPdf(MERMAID_LABEL)!;
+  assert.match(n.svg, /<g class="label"[^>]*transform="translate\(0, 0\)"/i, "label group must sit on the node origin");
+  assert.doesNotMatch(n.svg, /dy="1em"/i, "single-line tspan dy must be dropped");
+  assert.match(n.svg, /<text[^>]*text-anchor="middle"/i, "text must be horizontally centered");
+  assert.match(n.svg, /<text[^>]*dominant-baseline="central"/i, "text must be vertically centered");
+  assert.match(n.svg, /<tspan[^>]*\bx="0"/i, "tspan must be anchored at the node center (x=0)");
+  assert.match(n.svg, /<text[^>]*fill="#0f172a"/i, "label must stay dark");
 });
 
-test("does not override an explicit dominant-baseline Mermaid already set", () => {
+test("does NOT collapse multi-line labels (preserves per-line dy spacing)", () => {
   const svg =
-    '<svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg" width="100" height="50">' +
-    '<text dominant-baseline="hanging" x="10" y="10">X</text></svg>';
+    '<svg viewBox="0 0 200 90" xmlns="http://www.w3.org/2000/svg" width="200" height="90">' +
+    '<g class="label" transform="translate(0, -14)"><text>' +
+    '<tspan dy="1em" x="0">Line one</tspan><tspan dy="1.1em" x="0">Line two</tspan></text></g></svg>';
   const n = normalizeMermaidSvgForPdf(svg)!;
-  const textTag = /<text\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
-  assert.match(textTag, /dominant-baseline="hanging"/i, "existing baseline must be preserved");
-  assert.doesNotMatch(textTag, /dominant-baseline="central"/i, "must not add a second baseline");
+  assert.match(n.svg, /dy="1em"/i, "multi-line dy must be preserved");
+  assert.match(n.svg, /dy="1.1em"/i, "multi-line dy must be preserved");
+  assert.doesNotMatch(n.svg, /dominant-baseline="central"/i, "multi-line labels must not be re-centered");
 });
 
 test("recoloring is deterministic", () => {
