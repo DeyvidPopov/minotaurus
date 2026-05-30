@@ -130,3 +130,29 @@ test("recoloring is deterministic", () => {
   const b = normalizeMermaidSvgForPdf(DARK_CAPTURED)!.svg;
   assert.equal(a, b);
 });
+
+// ── invalid stroke-dasharray (pdfkit dash() crash) ──
+
+test("strips a zero-valued stroke-dasharray attribute (pdfkit would crash)", () => {
+  const svg =
+    '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" width="100" height="50">' +
+    '<path class="flowchart-link" stroke-dasharray="1, 0" d="M10,10 L50,50" fill="none"/></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  assert.doesNotMatch(n.svg, /stroke-dasharray/i, "invalid dasharray must be removed");
+});
+
+test("strips a zero stroke-dasharray in inline style form", () => {
+  const svg =
+    '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" width="100" height="50">' +
+    '<path class="flowchart-link" style="stroke-dasharray:0;stroke:#999" d="M10,10 L50,50"/></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  assert.doesNotMatch(n.svg, /stroke-dasharray/i, "invalid inline dasharray must be removed");
+});
+
+test("keeps a valid positive stroke-dasharray", () => {
+  const svg =
+    '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" width="100" height="50">' +
+    '<path class="flowchart-link" stroke-dasharray="4 2" d="M10,10 L50,50" fill="none"/></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  assert.match(n.svg, /stroke-dasharray="4 2"/i, "valid dasharray must be preserved");
+});

@@ -117,6 +117,13 @@ function recolorForPrint(body: string): string {
   // 1. Remove Mermaid's <style> blocks entirely (dark theme + id-specificity).
   out = out.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
 
+  // 1b. Strip invalid stroke-dasharray values. Mermaid emits dasharrays like
+  //     "1, 0" on solid edges/markers; pdfkit's dash() throws on a zero/negative
+  //     length ("lengths must be numeric and greater than zero"), aborting the
+  //     whole render. Drop any dasharray that isn't all-positive — those edges
+  //     simply render solid, which is what we want on print anyway.
+  out = stripInvalidDashArrays(out);
+
   // 2. Remap known dark-theme colors wherever they appear (attributes or
   //    leftover inline styles) to the print palette.
   for (const [re, to] of COLOR_REMAP) out = out.replace(re, to);
@@ -184,6 +191,38 @@ function isDarkOrBlack(color: string): boolean {
     return 0.299 * r + 0.587 * g + 0.114 * b < 90;
   }
   return false;
+}
+
+/** True when every entry of a dasharray value is a finite number > 0. */
+function dashArrayIsValid(value: string): boolean {
+  const parts = value.trim().split(/[\s,]+/).filter(Boolean);
+  if (parts.length === 0) return false;
+  return parts.every((p) => {
+    const n = Number(p);
+    return Number.isFinite(n) && n > 0;
+  });
+}
+
+/**
+ * Remove stroke-dasharray declarations whose values aren't strictly positive.
+ * pdfkit's dash() throws on a zero/negative length, which aborts the whole PDF
+ * render. Covers both the `stroke-dasharray="…"` attribute and the
+ * `style="…stroke-dasharray:…"` inline form. Affected edges render solid.
+ */
+function stripInvalidDashArrays(svg: string): string {
+  let out = svg;
+  // Attribute form: stroke-dasharray="1, 0"
+  out = out.replace(/\sstroke-dasharray\s*=\s*"([^"]*)"/gi, (m, v: string) =>
+    dashArrayIsValid(v) ? m : "",
+  );
+  out = out.replace(/\sstroke-dasharray\s*=\s*'([^']*)'/gi, (m, v: string) =>
+    dashArrayIsValid(v) ? m : "",
+  );
+  // Inline-style form: style="…; stroke-dasharray: 1, 0; …"
+  out = out.replace(/stroke-dasharray\s*:\s*([^;"']*)\s*;?/gi, (m, v: string) =>
+    dashArrayIsValid(v) ? m : "",
+  );
+  return out;
 }
 
 /**
