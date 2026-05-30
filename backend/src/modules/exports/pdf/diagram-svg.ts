@@ -180,6 +180,14 @@ function recolorForPrint(body: string): string {
     } else if (isArrow) {
       a = setAttr(removeAttr(a, "fill"), "fill", PRINT.edge);
       a = setAttr(removeAttr(a, "stroke"), "stroke", PRINT.edge);
+    } else if (tag === "rect" && !hasAttr(a, "width")) {
+      // A <rect> with no width is a LABEL-BACKGROUND placeholder, not a node.
+      // Mermaid wraps edge/node labels in <g class="label"> with an unsized
+      // <rect> that the browser grows to the measured text; svg-to-pdfkit does
+      // no such measurement, so giving it a fill/border drew a small empty box
+      // beside every label ("yes []", "places []", etc). Leave it invisible.
+      a = setAttr(removeAttr(a, "fill"), "fill", "none");
+      a = removeAttr(a, "stroke");
     } else {
       // Node-ish shape (rect, polygon, ellipse, circle, or a container path such
       // as a database cylinder): light fill + dark border, same as rectangles.

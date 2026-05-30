@@ -125,6 +125,31 @@ test("edge paths get a visible stroke and stay unfilled", () => {
   assert.match(edge, /fill="none"/i, "edge must remain unfilled");
 });
 
+test("label-background rect (no width) is NOT drawn as a box next to the label", () => {
+  // Mermaid edge labels are <g class="edgeLabel"><g class="label"><rect/><text/>.
+  // The unsized <rect> is a text background the browser grows; in PDF it must
+  // stay invisible, not become a small bordered box beside "yes"/"places"/etc.
+  const svg =
+    '<svg viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" width="200" height="80">' +
+    '<g class="edgeLabels"><g class="edgeLabel"><g class="label" transform="translate(0,0)">' +
+    "<rect></rect><text><tspan x=\"0\">yes</tspan></text></g></g></g></svg>";
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  const rectTag = /<rect\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(rectTag, /fill="none"/i, "label-bg rect must be transparent");
+  assert.doesNotMatch(rectTag, /stroke=/i, "label-bg rect must have no border");
+});
+
+test("a node rect WITH width still gets a light fill + border", () => {
+  // Guard the boundary: the width check must not strip real node containers.
+  const svg =
+    '<svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg" width="100" height="50">' +
+    '<g class="node"><rect class="label-container" x="0" y="0" width="100" height="50"/><text>X</text></g></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  const rectTag = /<rect\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(rectTag, /fill="#f8fafc"/i, "sized node rect must keep its light fill");
+  assert.match(rectTag, /stroke="#334155"/i, "sized node rect must keep its border");
+});
+
 test("database cylinder (container path) gets a LIGHT fill, not the dark border color", () => {
   // Mermaid renders DB cylinders as <path class="basic label-container">.
   const svg =
