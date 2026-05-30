@@ -13,6 +13,7 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "seed": "tsx scripts/seed-demo.ts",
     "test:api": "bash scripts/test-api.sh",
+    "test:unit": "node --import tsx --test \"src/**/*.test.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:reset": "prisma migrate reset --force",
@@ -25,6 +26,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "pdfmake": "^0.2.23",
     "prisma": "^5.22.0",
     "zod": "^3.23.8"
   },
@@ -34,6 +36,7 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.12.12",
+    "@types/pdfmake": "^0.2.13",
     "tsx": "^4.11.0",
     "typescript": "^5.4.5"
   }

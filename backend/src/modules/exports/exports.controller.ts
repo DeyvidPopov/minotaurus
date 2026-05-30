@@ -7,6 +7,8 @@ import type { AuthedRequest } from "../../middleware/auth.js";
 import { EXPORT_FORMATS, buildExportContent } from "./exports.engine.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
+import { analyzeExportSnapshot } from "./analysis/metrics.engine.js";
+import { renderArchitecturePdf } from "./pdf/pdf.renderer.js";
 
 const createSchema = z.object({
   format: z.enum(EXPORT_FORMATS as [(typeof EXPORT_FORMATS)[number], ...(typeof EXPORT_FORMATS)[number][]]),
@@ -90,4 +92,57 @@ export async function getExport(req: AuthedRequest, res: Response) {
   const access = await projectAccess(exp.projectId, req.user!.userId);
   if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
   return ok(res, exp, "OK");
+}
+
+function safeFilename(s: string): string {
+  return (s || "export").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "export";
+}
+
+// GET /exports/:exportId/download — streams the export as a downloadable file.
+// PDF is rendered on demand from the persisted SSOT snapshot (Export Engine V2);
+// JSON/MARKDOWN stream the stored content verbatim. Read access mirrors getExport.
+export async function downloadExport(req: AuthedRequest, res: Response) {
+  const exp = await prisma.exportPackage.findUnique({ where: { id: req.params.exportId } });
+  if (!exp) return fail(res, 404, "NOT_FOUND", "Export not found");
+  const access = await projectAccess(exp.projectId, req.user!.userId);
+  if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
+
+  const base = safeFilename(`export-${exp.id}`);
+
+  if (exp.format === "PDF") {
+    const analysis = analyzeExportSnapshot(exp.content);
+    let pdf: Buffer;
+    try {
+      pdf = await renderArchitecturePdf({
+        content: (exp.content && typeof exp.content === "object" ? exp.content : {}) as never,
+        analysis,
+        meta: {
+          id: exp.id,
+          format: exp.format,
+          sections: exp.sections,
+          createdAt: exp.createdAt.toISOString(),
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "PDF generation failed";
+      return fail(res, 500, "PDF_RENDER_FAILED", message);
+    }
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${base}.pdf"`);
+    res.setHeader("Content-Length", String(pdf.length));
+    return res.end(pdf);
+  }
+
+  if (exp.format === "MARKDOWN") {
+    const body = typeof exp.content === "string" ? exp.content : String(exp.content ?? "");
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${base}.md"`);
+    return res.end(body);
+  }
+
+  // JSON (and ZIP fallback) — stream the stored snapshot as JSON.
+  const json = JSON.stringify(exp.content ?? {}, null, 2);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${base}.json"`);
+  return res.end(json);
 }

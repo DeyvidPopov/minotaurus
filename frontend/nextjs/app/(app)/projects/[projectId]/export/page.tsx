@@ -100,8 +100,35 @@ export default function ExportPage({ params }: { params: { projectId: string } }
     }
   };
 
-  const download = () => {
+  // PDF is rendered server-side (Export Engine V2) and streamed through the
+  // authenticated download route. JSON/Markdown keep the local-blob behavior.
+  const downloadFromServer = async (id: string, ext: string) => {
+    const base =
+      process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "/api";
+    const token = typeof window !== "undefined" ? localStorage.getItem("mino:token") : null;
+    const res = await fetch(`${base}/exports/${id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `export-${id}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const download = async () => {
     if (!preview) return;
+    if (preview.format === "PDF") {
+      try {
+        await downloadFromServer(preview.id, "pdf");
+      } catch {
+        toast.error("Could not download PDF");
+      }
+      return;
+    }
     const isMarkdown = preview.format === "MARKDOWN";
     const body = isMarkdown
       ? String(preview.content ?? "")
@@ -139,8 +166,9 @@ export default function ExportPage({ params }: { params: { projectId: string } }
                 className="w-full bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px]">
                 <option value="JSON">JSON</option>
                 <option value="MARKDOWN">Markdown</option>
+                <option value="PDF">PDF — Architecture Intelligence Report</option>
               </select>
-              <p className="text-[11.5px] text-fg-subtle mt-1">PDF and ZIP are accepted by the API but rendered as JSON content in this MVP.</p>
+              <p className="text-[11.5px] text-fg-subtle mt-1">PDF generates a presentation-grade architecture report. Download it from the preview panel below.</p>
             </div>
           </div>
           <div>
