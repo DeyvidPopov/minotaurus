@@ -64,7 +64,126 @@ export function normalizeMermaidSvgForPdf(raw: string | null | undefined): Norma
     `<svg ${kept} viewBox="${viewBox}" width="${width}" height="${height}" ` +
     `preserveAspectRatio="xMidYMid meet">`;
 
-  return { svg: rebuilt + body, width, height };
+  const printBody = recolorForPrint(body);
+
+  return { svg: rebuilt + printBody, width, height };
+}
+
+// ────────────────────────────── contrast normalization ──────────────────────────────
+//
+// The frontend captures Mermaid with a DARK UI theme (dark node fills, light
+// text), which is washed out on a white PDF page. svg-to-pdfkit resolves color
+// from `<style>` before the presentation attribute but has NO `!important` and
+// uses specificity — Mermaid's own id-scoped rules (e.g. `#id .node rect`) beat
+// any injected plain-class rule, and shapes with no fill attribute fall through
+// to black. So CSS injection is unreliable here (verified empirically).
+//
+// Instead we rewrite the SVG at the string level:
+//   1. delete Mermaid's <style> block (its dark theme + high-specificity rules),
+//   2. remap dark theme fills/strokes/text colors to the report palette,
+//   3. give shape elements that have NO fill/stroke an explicit readable one so
+//      they don't inherit black.
+// This produces exact, deterministic PDF colors (proven via content-stream ops).
+
+const PRINT = {
+  text: "#0f172a",
+  nodeFill: "#f8fafc",
+  nodeBorder: "#334155",
+  edge: "#475569",
+  white: "#ffffff",
+} as const;
+
+// Dark-theme colors the frontend bakes in (mermaid-preview themeVariables +
+// forceLabelVisibility), mapped to print-readable equivalents. Case-insensitive.
+const COLOR_REMAP: Array<[RegExp, string]> = [
+  // Light text on dark UI -> dark text on white.
+  [/#e6e8ec/gi, PRINT.text],
+  // Node/cluster dark fills -> light fill.
+  [/#1a1d24/gi, PRINT.nodeFill],
+  [/#15171c/gi, PRINT.nodeFill],
+  [/#0e1014/gi, PRINT.white],
+  [/#111318/gi, PRINT.nodeFill],
+  // Borders -> readable border.
+  [/#2a2e36/gi, PRINT.nodeBorder],
+  [/#3a3f48/gi, PRINT.nodeBorder],
+  // Edges / lines -> readable edge.
+  [/#9aa3ad/gi, PRINT.edge],
+  [/#5f8fb8/gi, PRINT.nodeBorder],
+];
+
+function recolorForPrint(body: string): string {
+  let out = body;
+
+  // 1. Remove Mermaid's <style> blocks entirely (dark theme + id-specificity).
+  out = out.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
+
+  // 2. Remap known dark-theme colors wherever they appear (attributes or
+  //    leftover inline styles) to the print palette.
+  for (const [re, to] of COLOR_REMAP) out = out.replace(re, to);
+
+  // 3. Neutralize any remaining near-black / near-white inline fills that would
+  //    be invisible on white, and ensure text is dark.
+  //    - text/tspan: force readable dark fill.
+  out = out.replace(/(<(?:text|tspan)\b)([^>]*?)>/gi, (_m, head: string, attrs: string) => {
+    const cleaned = setAttr(removeAttr(attrs, "fill"), "fill", PRINT.text);
+    return `${head}${cleaned}>`;
+  });
+
+  // 4. Shape elements (rect/polygon/circle/ellipse/path) with NO fill attribute
+  //    would render black in pdfmake. Give nodes a light fill + border; give
+  //    edge paths a stroke. Heuristic by class, defaulting safely.
+  out = out.replace(/<(rect|polygon|circle|ellipse|path)\b([^>]*?)(\/?)>/gi, (_m, tag: string, attrs: string, selfClose: string) => {
+    const cls = (/(?:^|\s)class\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] || "").toLowerCase();
+    const isEdge = /(edgepath|flowchart-link|link|relation|messageline|transition)/.test(cls);
+    const isArrow = /(arrowhead|marker)/.test(cls) || /marker-end|marker-start/.test(attrs);
+    let a = attrs;
+    if (isEdge) {
+      a = setAttr(removeAttr(a, "stroke"), "stroke", PRINT.edge);
+      if (!hasAttr(a, "fill")) a = setAttr(a, "fill", "none");
+    } else if (isArrow) {
+      a = setAttr(removeAttr(a, "fill"), "fill", PRINT.edge);
+      a = setAttr(removeAttr(a, "stroke"), "stroke", PRINT.edge);
+    } else {
+      // Node-ish shape: ensure a visible light fill + dark border.
+      if (!hasAttr(a, "fill") || isDarkOrBlack(getAttr(a, "fill"))) {
+        a = setAttr(removeAttr(a, "fill"), "fill", tag === "path" ? PRINT.nodeBorder : PRINT.nodeFill);
+      }
+      if (!hasAttr(a, "stroke") || isDarkOrBlack(getAttr(a, "stroke"))) {
+        a = setAttr(removeAttr(a, "stroke"), "stroke", PRINT.nodeBorder);
+      }
+    }
+    return `<${tag}${a}${selfClose}>`;
+  });
+
+  return out;
+}
+
+function hasAttr(attrs: string, name: string): boolean {
+  return new RegExp(`\\b${name}\\s*=`, "i").test(attrs);
+}
+function getAttr(attrs: string, name: string): string {
+  return new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, "i").exec(attrs)?.[1] ?? "";
+}
+function removeAttr(attrs: string, name: string): string {
+  return attrs.replace(new RegExp(`\\s*\\b${name}\\s*=\\s*"[^"]*"`, "gi"), "");
+}
+function setAttr(attrs: string, name: string, value: string): string {
+  const sep = attrs.length && !attrs.startsWith(" ") ? " " : "";
+  return `${attrs}${sep} ${name}="${value}"`;
+}
+function isDarkOrBlack(color: string): boolean {
+  const c = color.trim().toLowerCase();
+  if (!c || c === "none") return false;
+  if (c === "black" || c === "#000" || c === "#000000" || c === "rgb(0,0,0)") return true;
+  const hex = /^#([0-9a-f]{6})$/.exec(c);
+  if (hex) {
+    const r = parseInt(hex[1].slice(0, 2), 16);
+    const g = parseInt(hex[1].slice(2, 4), 16);
+    const b = parseInt(hex[1].slice(4, 6), 16);
+    // Treat as "dark" if luminance is low (would be unreadable on white).
+    return 0.299 * r + 0.587 * g + 0.114 * b < 90;
+  }
+  return false;
 }
 
 /**

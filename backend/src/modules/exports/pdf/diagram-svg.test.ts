@@ -75,3 +75,58 @@ test("fitDiagram is deterministic for the seeded 8-node flowchart shape", () => 
   const b = fitDiagram(900, 620, 497, 560);
   assert.deepEqual(a, b);
 });
+
+// ── contrast normalization ──
+
+const DARK_CAPTURED =
+  '<svg viewBox="0 0 200 80" style="max-width:200px" xmlns="http://www.w3.org/2000/svg" width="100%" id="mmd">' +
+  '<style>#mmd .node rect{fill:#1a1d24;stroke:#2a2e36;}#mmd .flowchart-link{stroke:#9aa3ad;}</style>' +
+  '<g class="edgePaths"><path class="edgePath flowchart-link" d="M10,10 L50,50" fill="none"/></g>' +
+  '<g class="node"><rect x="10" y="10" width="180" height="60"/><text fill="#e6e8ec" x="100" y="44">API Gateway</text></g>' +
+  "</svg>";
+
+test("strips Mermaid <style> block", () => {
+  const n = normalizeMermaidSvgForPdf(DARK_CAPTURED);
+  assert.ok(n);
+  assert.doesNotMatch(n!.svg, /<style/i, "dark-theme style block must be removed");
+});
+
+test("remaps dark theme colors to the print palette", () => {
+  const n = normalizeMermaidSvgForPdf(DARK_CAPTURED)!;
+  // Dark fills/text/edges gone.
+  assert.doesNotMatch(n.svg, /#1a1d24/i, "dark node fill must be remapped");
+  assert.doesNotMatch(n.svg, /#e6e8ec/i, "light text must be remapped");
+  assert.doesNotMatch(n.svg, /#9aa3ad/i, "faint edge must be remapped");
+  // Print palette present.
+  assert.match(n.svg, /#0f172a/i, "dark readable text expected");
+  assert.match(n.svg, /#334155/i, "node border expected");
+});
+
+test("text elements get a dark readable fill", () => {
+  const n = normalizeMermaidSvgForPdf(DARK_CAPTURED)!;
+  const textTag = /<text\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(textTag, /fill="#0f172a"/i, "text must be dark");
+});
+
+test("node rect without a fill gets a light fill + border (not black)", () => {
+  const svg =
+    '<svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg" width="100" height="50">' +
+    '<g class="node"><rect x="0" y="0" width="100" height="50"/><text>X</text></g></svg>';
+  const n = normalizeMermaidSvgForPdf(svg)!;
+  const rectTag = /<rect\b[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(rectTag, /fill="#f8fafc"/i, "node fill must be light");
+  assert.match(rectTag, /stroke="#334155"/i, "node border must be visible");
+});
+
+test("edge paths get a visible stroke and stay unfilled", () => {
+  const n = normalizeMermaidSvgForPdf(DARK_CAPTURED)!;
+  const edge = /<path\b[^>]*class="[^"]*flowchart-link[^"]*"[^>]*>/i.exec(n.svg)?.[0] ?? "";
+  assert.match(edge, /stroke="#475569"/i, "edge stroke must be visible");
+  assert.match(edge, /fill="none"/i, "edge must remain unfilled");
+});
+
+test("recoloring is deterministic", () => {
+  const a = normalizeMermaidSvgForPdf(DARK_CAPTURED)!.svg;
+  const b = normalizeMermaidSvgForPdf(DARK_CAPTURED)!.svg;
+  assert.equal(a, b);
+});
