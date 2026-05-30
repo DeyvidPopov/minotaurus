@@ -127,11 +127,35 @@ Every CUD across the platform (artifacts, relations, API specs, endpoints, DB mo
 
 ### Viewport chrome (graph + Mermaid)
 
-The Knowledge Graph uses React Flow's native `<Controls>` (horizontal, `position="bottom-center"`); the Mermaid viewer uses the [`ViewportControls`](frontend/nextjs/components/ui/viewport-controls.tsx) primitive. Both share a single visual contract via the `.react-flow__controls` and `.viewport-controls` blocks in [app/globals.css](frontend/nextjs/app/globals.css) — edit both blocks together when changing the chrome. `ViewportControls` is headless: the caller owns positioning and the zoom/pan state.
+The Knowledge Graph uses React Flow's native `<Controls>` (horizontal, `position="bottom-center"`) and a custom `LabeledSmoothStepEdge` — see "Knowledge graph rendering" below. The Mermaid viewer uses the [`ViewportControls`](frontend/nextjs/components/ui/viewport-controls.tsx) primitive. Both share a single visual contract via the `.react-flow__controls` and `.viewport-controls` blocks in [app/globals.css](frontend/nextjs/app/globals.css) — edit both blocks together when changing the chrome. `ViewportControls` is headless: the caller owns positioning and the zoom/pan state.
 
 [`MermaidPreview`](frontend/nextjs/components/mermaid-preview.tsx) has an `interactive` prop (default `false`). Interactive mode wraps the SVG in a pan/zoom viewport with auto-fit on render and `ViewportControls` mounted bottom-center; it requires a fixed-size parent (caller passes `className="w-full h-full"` inside a sized container). Static callers — gallery thumbnails, ingestion preview, export preview, DB ERD — keep the default so thumbnail layouts don't break.
 
 `.mermaid-host--interactive` deliberately omits `will-change: transform`. Adding it back composites the SVG to a GPU texture at its source resolution; zooming then bilinearly upscales the bitmap → pixelated diagrams. The current setup forces re-rasterization of the vector on each transform → crisp output.
+
+### Knowledge graph rendering (edges, layout, persistence)
+
+[`components/graph/graph-canvas.tsx`](frontend/nextjs/components/graph/graph-canvas.tsx) is React Flow plus four custom layers; changes to any one need to stay aware of the others.
+
+**1. Edges — `LabeledSmoothStepEdge` (custom edge type).** All edges render through this component instead of React Flow's built-in `smoothstep`:
+
+- **Routing**: `getSmartEdge` from `@tisoap/react-flow-smart-edge` pathfinds around intervening nodes. Pinned to **v3** — v4 is for `@xyflow/react` 12 and is not compatible with `reactflow` 11. Falls back to `getSmoothStepPath` when no corridor is found, so an edge is always drawn.
+- **Label placement**: a duplicate invisible `<path>` is rendered with a ref, then `getPointAtLength(len/2)` returns the **arc-length midpoint**. `getSmartEdge`'s `edgeCenterX/Y` is the middle *waypoint* of the routed path and lands far from the visible center when segments are uneven. Label state starts `null` so the label never flashes at a wrong position before measurement.
+- **Label DOM**: rendered through `<EdgeLabelRenderer>` (a React Flow portal above the nodes layer) instead of the edge SVG (below nodes). A defensive `.react-flow__edgelabel-renderer { z-index: 10 }` in [`app/globals.css`](frontend/nextjs/app/globals.css) keeps it above nodes even if React Flow's internal DOM order changes.
+- Edge color travels on `data.color`; the edge component reads it from there so the label border can tint to match the relation type.
+
+**2. Layout — [`lib/graph-layout.ts`](frontend/nextjs/lib/graph-layout.ts).** Dagre LR/TB auto-layout, wired into `GraphCanvas` via two props that *both* defer to persisted drag positions per-node:
+
+- `autoLayout="LR"|"TB"` — used by the artifact-detail mini-graph (a focused 1-hop subgraph) so neighbors line up cleanly.
+- `relayoutSignal: number` — a parent-owned counter; incrementing it (from a toolbar button) wipes saved drag positions and re-runs dagre. The full project graph page's "Relayout" toolbar button drives this.
+
+**3. Position persistence + cross-view sync.** Drag positions persist to `localStorage` under `mino:graph:<storageKey>`. The **dashboard mini-graph and the full project graph share the same `storageKey` (`project:${projectId}`)**, so dragging in either view updates positions in the other on the next mount. Don't accidentally re-namespace one without the other. The artifact-detail subgraph and landing hero have no `storageKey` by design.
+
+**4. Drag behaviors.** Three non-trivial bits in `GraphCanvas`:
+
+- **Drop-time collision resolution**: dragging itself is unrestricted; on `onNodeDragStop` an iterative AABB push-out (≤16 passes) slides the dropped node out of any overlap along the axis of least intrusion. **Do not** try this live during `onNodeDrag` — `setNodes` inside the drag loop fights React Flow's internal drag delta and the node feels stuck.
+- **Last-dragged on top**: `lastDraggedId` state assigns `zIndex: 1` to the most recently dropped node so it stays above the others; React Flow already elevates the actively-dragged one, so the transition is seamless.
+- **`highlightSelected` prop** controls whether `selectedId` paints the blue accent border. Off on the artifact-detail mini-graph because the focal node is already implied by the page route.
 
 ## Conventions (from `docs/AI_CONTEXT/ARCHITECTURE_RULES.md`)
 

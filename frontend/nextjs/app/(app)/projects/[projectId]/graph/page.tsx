@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Link as LinkIcon } from "lucide-react";
+import { RefreshCw, Link as LinkIcon, LayoutGrid } from "lucide-react";
 import { toast } from "sonner";
 import { ARTIFACT_TYPES, EDGE_COLOR } from "@/lib/mock-data";
 import type { Artifact, ArtifactType, Project, Relation, RelationType } from "@/lib/types";
@@ -40,6 +40,7 @@ export default function GraphPage({ params }: { params: { projectId: string } })
   const [selected, setSelected] = useState<Artifact | null>(null);
   const [search, setSearch] = useState("");
   const [running, setRunning] = useState(false);
+  const [relayoutSignal, setRelayoutSignal] = useState(0);
 
   const load = async () => {
     try {
@@ -112,6 +113,13 @@ export default function GraphPage({ params }: { params: { projectId: string } })
           { value: "color", label: "Color" },
           { value: "minimal", label: "Minimal" },
         ]} />
+        <Button
+          icon={<LayoutGrid size={14} />}
+          onClick={() => setRelayoutSignal((n) => n + 1)}
+          title="Auto-arrange nodes left → right"
+        >
+          Relayout
+        </Button>
         <Button icon={<RefreshCw size={14} />} onClick={runValidation} disabled={running}>
           {running ? "Validating…" : "Validate"}
         </Button>
@@ -140,6 +148,7 @@ export default function GraphPage({ params }: { params: { projectId: string } })
               typeFilter={typeFilter}
               nodeStyle={graphNodeStyle}
               storageKey={`project:${projectId}`}
+              relayoutSignal={relayoutSignal}
             />
             <GraphLegend typeFilter={typeFilter} onToggle={toggleType} counts={counts} />
           </>

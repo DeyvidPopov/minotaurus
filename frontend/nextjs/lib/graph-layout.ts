@@ -1,9 +1,14 @@
 // lib/graph-layout.ts — dagre-based auto-layout for the knowledge graph.
 //
-// Used by the full-page knowledge graph to spread artifacts out so edge labels
-// don't stack on top of each other. The mini-graph keeps its own circular
-// layout (no dagre call) since it's a deliberately constrained "1 + neighbors"
-// view.
+// Used by GraphCanvas in two ways:
+//   1. autoLayout="LR" prop — currently the artifact detail subgraph (a fresh
+//      1-hop view that wants a clean left→right arrangement).
+//   2. relayoutSignal counter — the full project graph's "Relayout" button
+//      increments it to wipe drag positions and re-run dagre.
+// Persisted drag positions (storageKey) always override the layout per-node,
+// so user adjustments survive. The project dashboard mini-graph and the full
+// project graph now share a single storageKey, so dragging in one persists
+// to the other on next mount.
 
 import dagre from "dagre"
 import type { Artifact, Relation } from "./types"
@@ -58,7 +63,7 @@ export function computeDagreLayout(
 
   // Dagre returns node centers; React Flow positions are top-left.
   const out: Record<string, { x: number; y: number }> = {}
-  g.nodes().forEach((id) => {
+  g.nodes().forEach((id: string) => {
     const n = g.node(id)
     if (n) out[id] = { x: n.x - width / 2, y: n.y - height / 2 }
   })

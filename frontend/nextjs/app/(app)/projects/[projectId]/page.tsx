@@ -149,7 +149,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
                 No artifacts yet — create one to start building the graph.
               </div>
             ) : (
-              <GraphCanvas artifacts={artifacts} relations={relations} nodeStyle="color" storageKey={`project:${projectId}:mini`} showMiniMap={false} />
+              <GraphCanvas artifacts={artifacts} relations={relations} nodeStyle="color" storageKey={`project:${projectId}`} showMiniMap={false} />
             )}
           </div>
         </Card>

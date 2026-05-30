@@ -210,7 +210,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
                     No relations yet. Use Link to connect this artifact to another.
                   </div>
                 ) : (
-                  <GraphCanvas artifacts={subgraph.nodes} relations={subgraph.rels} selectedId={a.id} nodeStyle="color" draggable={false} fitView />
+                  <GraphCanvas artifacts={subgraph.nodes} relations={subgraph.rels} selectedId={a.id} nodeStyle="color" draggable={false} fitView highlightSelected={false} showMiniMap={false} autoLayout="LR" />
                 )}
               </div>
             </Card>

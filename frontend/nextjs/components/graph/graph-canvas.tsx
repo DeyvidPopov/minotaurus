@@ -26,6 +26,7 @@ import { getSmartEdge } from "@tisoap/react-flow-smart-edge"
 import { TYPE_INFO, EDGE_COLOR } from "@/lib/mock-data"
 import type { Artifact, Relation } from "@/lib/types"
 import { truncate } from "@/lib/utils"
+import { computeDagreLayout } from "@/lib/graph-layout"
 
 interface Props {
   artifacts: Artifact[]
@@ -39,6 +40,20 @@ interface Props {
   height?: string | number
   draggable?: boolean
   showMiniMap?: boolean
+  highlightSelected?: boolean
+  /**
+   * When set, run a dagre auto-layout in the given direction ("LR" = left→right,
+   * "TB" = top→bottom). Persisted drag positions still override the layout
+   * per-node, so user adjustments are preserved.
+   */
+  autoLayout?: "LR" | "TB"
+  /**
+   * Imperative trigger: whenever this number changes, the canvas wipes saved
+   * drag positions and re-runs the dagre layout in `relayoutDirection`
+   * (default "LR"). Owned by the parent so a toolbar button can drive it.
+   */
+  relayoutSignal?: number
+  relayoutDirection?: "LR" | "TB"
 }
 
 export function GraphCanvas(props: Props) {
@@ -61,6 +76,10 @@ function Inner({
   height = "100%",
   draggable = true,
   showMiniMap = true,
+  highlightSelected = true,
+  autoLayout,
+  relayoutSignal,
+  relayoutDirection = "LR",
 }: Props) {
   // Position overrides (drag persistence)
   const [positions, setPositions] = useState<
@@ -88,26 +107,75 @@ function Inner({
   // after the drag ends (during the drag React Flow already elevates it).
   const [lastDraggedId, setLastDraggedId] = useState<string | null>(null)
 
+  // Parent-driven relayout: a counter prop. We track the last value we acted on
+  // in a ref so the initial mount (signal === undefined or first observation)
+  // doesn't trigger a layout — only subsequent changes do.
+  const lastRelayoutSignalRef = useRef<number | undefined>(relayoutSignal)
+  useEffect(() => {
+    if (relayoutSignal === undefined) return
+    if (lastRelayoutSignalRef.current === relayoutSignal) return
+    lastRelayoutSignalRef.current = relayoutSignal
+    const v = artifacts.filter((a) => !typeFilter || typeFilter.has(a.type))
+    const layout = computeDagreLayout(v, relations, {
+      nodeStyle: nodeStyle ?? "color",
+      direction: relayoutDirection,
+    })
+    setPositions(layout)
+    persist(layout)
+    setLastDraggedId(null)
+  }, [
+    relayoutSignal,
+    relayoutDirection,
+    artifacts,
+    typeFilter,
+    relations,
+    nodeStyle,
+    persist,
+  ])
+
   const visible = useMemo(
     () => artifacts.filter((a) => !typeFilter || typeFilter.has(a.type)),
     [artifacts, typeFilter],
   )
 
+  // Dagre-derived base positions. Persisted drag positions still take
+  // precedence per-node so user adjustments don't get clobbered on rerender.
+  const layoutPositions = useMemo(() => {
+    if (!autoLayout) return null
+    return computeDagreLayout(visible, relations, {
+      nodeStyle: nodeStyle ?? "color",
+      direction: autoLayout,
+    })
+  }, [autoLayout, visible, relations, nodeStyle])
+
   const nodes: Node[] = useMemo(
     () =>
       visible.map((a) => {
-        const p = positions[a.id] || { x: a.gx, y: a.gy }
+        const p =
+          positions[a.id] ||
+          (layoutPositions && layoutPositions[a.id]) ||
+          { x: a.gx, y: a.gy }
+        const isSelected = highlightSelected && selectedId === a.id
         return {
           id: a.id,
           type: "minoNode",
           position: p,
-          data: { artifact: a, nodeStyle, isSelected: selectedId === a.id },
-          selected: selectedId === a.id,
+          data: { artifact: a, nodeStyle, isSelected },
+          selected: isSelected,
           draggable,
           zIndex: lastDraggedId === a.id ? 1 : 0,
         }
       }),
-    [visible, positions, nodeStyle, selectedId, draggable, lastDraggedId],
+    [
+      visible,
+      positions,
+      layoutPositions,
+      nodeStyle,
+      selectedId,
+      draggable,
+      lastDraggedId,
+      highlightSelected,
+    ],
   )
 
   const visibleIds = useMemo(() => new Set(visible.map((v) => v.id)), [visible])
