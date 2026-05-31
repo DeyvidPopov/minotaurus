@@ -25,7 +25,9 @@ import { GraphCanvas } from "@/components/graph/graph-canvas"
 import { BrandLogo } from "@/components/shell/brand-logo"
 
 export default function LandingPage() {
-  // tight subgraph for the hero — only services and their immediate links
+  // tight subgraph for the hero — a focused, fully-connected cluster around the
+  // Orders/Payments/Auth flow (13 nodes). Every node has at least one edge
+  // within the set, so the LR layout reads cleanly with no orphans.
   const heroNodes = useMemo(() => {
     const ids = new Set([
       "svc-auth",
@@ -33,16 +35,12 @@ export default function LandingPage() {
       "svc-orders",
       "svc-payments",
       "svc-inventory",
-      "svc-search",
       "svc-notifs",
-      "db-users",
       "db-orders",
       "db-payments",
-      "api-auth",
       "api-orders",
       "api-payments",
       "ext-stripe",
-      "ext-sendgrid",
       "doc-arch",
       "sec-mfa",
     ])
@@ -156,7 +154,9 @@ export default function LandingPage() {
               artifacts={heroNodes}
               relations={heroRels}
               nodeStyle="color"
-              selectedId="svc-orders"
+              autoLayout="LR"
+              showMiniMap={false}
+              highlightSelected={false}
             />
           </div>
         </div>
