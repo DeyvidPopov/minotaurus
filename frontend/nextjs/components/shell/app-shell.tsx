@@ -6,11 +6,27 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { CmdK } from "./cmdk";
+import { useTweaks } from "@/components/providers";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const pathname = usePathname();
+  const accent = useTweaks((s) => s.accent);
+
+  // The selected accent is applied here (not in the global Providers) so it only
+  // affects authenticated pages. Public pages keep the fixed purple CSS default.
+  // Cleanup removes the inline override so navigating back to the landing/auth
+  // pages reverts to purple instead of leaking the user's accent.
+  useEffect(() => {
+    const h = document.documentElement;
+    h.style.setProperty("--accent", accent);
+    h.style.setProperty("--accent-fg", accent.toLowerCase() === "#e5e5e5" ? "#0a0a0a" : "#ffffff");
+    return () => {
+      h.style.removeProperty("--accent");
+      h.style.removeProperty("--accent-fg");
+    };
+  }, [accent]);
 
   // Detect projectId from URL for sub-nav
   const segs = pathname.split("/").filter(Boolean);

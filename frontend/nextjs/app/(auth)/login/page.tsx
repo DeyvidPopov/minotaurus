@@ -43,12 +43,6 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-[380px] bg-panel border border-border rounded-xl p-7 shadow-md">
-      <div className="flex items-center gap-2.5 mb-4">
-        <div className="w-7 h-7 rounded-md grid place-items-center text-white font-bold font-mono text-[13px]" style={{
-          background: "linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #000))",
-        }}>M</div>
-        <div className="font-semibold">Minotaurus <span className="text-fg-muted font-normal">· SSOT</span></div>
-      </div>
       <h1 className="text-xl font-semibold tracking-tight m-0 mb-1">Welcome back</h1>
       <p className="text-fg-muted text-[13px] m-0 mb-5">Sign in to your workspace.</p>
 

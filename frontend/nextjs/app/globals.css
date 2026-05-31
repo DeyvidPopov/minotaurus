@@ -23,7 +23,7 @@
   --r-lg: 10px;
   --r-xl: 14px;
 
-  --accent: #d97757;
+  --accent: #8b5cf6; /* brand purple (== --c-purple): the fixed pre-login accent + first-paint default */
   --accent-fg: #ffffff;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
   --accent-ring: color-mix(in srgb, var(--accent) 36%, transparent);

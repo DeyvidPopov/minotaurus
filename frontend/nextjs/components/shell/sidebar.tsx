@@ -10,12 +10,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
+import { BrandLogo } from "@/components/shell/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
 import { projectsApi } from "@/lib/api/projects";
 import type { Project, User } from "@/lib/types";
 
-interface Item { id: string; label: string; href: string; icon: React.ReactNode; badge?: number; badgeTone?: "warning"; }
+interface Item { id: string; label: string; href: string; icon: React.ReactNode; badge?: number; badgeTone?: "warning"; exact?: boolean; }
 
 export function Sidebar({ projectId }: { projectId: string | null }) {
   const pathname = usePathname();
@@ -33,11 +34,11 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
 
   const global: Item[] = [
     { id: "dash",     label: "Dashboard", href: "/dashboard", icon: <Home size={16} /> },
-    { id: "projects", label: "Projects",  href: "/projects",  icon: <Folder size={16} /> },
+    { id: "projects", label: "Projects",  href: "/projects",  icon: <Folder size={16} />, exact: true },
   ];
 
   const inProj: Item[] = project ? [
-    { id: "overview",   label: "Overview",        href: `/projects/${project.id}`,             icon: <Compass size={16} /> },
+    { id: "overview",   label: "Overview",        href: `/projects/${project.id}`,             icon: <Compass size={16} />, exact: true },
     { id: "artifacts",  label: "Artifacts",       href: `/projects/${project.id}/artifacts`,   icon: <Box size={16} />,    badge: project.artifactCount },
     { id: "graph",      label: "Knowledge Graph", href: `/projects/${project.id}/graph`,       icon: <Network size={16} /> },
     { id: "api",        label: "API Specs",       href: `/projects/${project.id}/api`,         icon: <Plug size={16} /> },
@@ -51,20 +52,12 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
     { id: "export",     label: "Export SSOT",     href: `/projects/${project.id}/export`,      icon: <Package size={16} /> },
   ] : [];
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const isActive = (href: string, exact?: boolean) =>
+    pathname === href || (!exact && pathname.startsWith(href + "/"));
 
   return (
     <aside className="sidebar h-screen overflow-hidden flex flex-col bg-bg border-r border-border" style={{ width: 232 }}>
-      <Link href="/" className="flex items-center gap-2.5 px-3.5 py-3.5 hover:opacity-80 transition-opacity" title="Back to landing">
-        <div className="w-7 h-7 rounded-md grid place-items-center text-white font-bold font-mono text-[13px]" style={{
-          background: "linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #000))",
-          boxShadow: "inset 0 0 0 1px rgba(255,255,255,.18), 0 1px 0 rgba(0,0,0,.18)",
-        }}>M</div>
-        <div className="min-w-0">
-          <div className="font-semibold text-[14px] tracking-tight leading-tight">Minotaurus</div>
-          <div className="text-[11px] text-fg-muted leading-tight">SSOT Architecture</div>
-        </div>
-      </Link>
+      <BrandLogo href="/" title="Back to landing" className="px-3.5 py-3.5" />
 
       <SidebarSection items={global} isActive={isActive} />
 
@@ -108,15 +101,17 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
   );
 }
 
-function SidebarSection({ items, isActive }: { items: Item[]; isActive: (href: string) => boolean }) {
+function SidebarSection({ items, isActive }: { items: Item[]; isActive: (href: string, exact?: boolean) => boolean }) {
   return (
     <div className="flex flex-col px-2 gap-px">
-      {items.map((it) => (
+      {items.map((it) => {
+        const active = isActive(it.href, it.exact);
+        return (
         <Link key={it.id} href={it.href} className={cn(
           "flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[13.5px] font-normal min-h-[30px] transition-colors",
-          isActive(it.href) ? "bg-panel-hover text-fg font-medium" : "text-fg-muted hover:bg-panel-hover hover:text-fg",
+          active ? "bg-panel-hover text-fg font-medium" : "text-fg-muted hover:bg-panel-hover hover:text-fg",
         )}>
-          <span className={cn(isActive(it.href) && "text-accent")}>{it.icon}</span>
+          <span className={cn(active && "text-accent")}>{it.icon}</span>
           <span className="flex-1">{it.label}</span>
           {it.badge != null && it.badge > 0 && (
             it.badgeTone === "warning"
@@ -124,7 +119,8 @@ function SidebarSection({ items, isActive }: { items: Item[]; isActive: (href: s
               : <span className="text-[11px] text-fg-subtle">{it.badge}</span>
           )}
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }

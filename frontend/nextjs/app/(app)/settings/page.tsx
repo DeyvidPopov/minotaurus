@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Lock, LogOut, Upload, Construction } from "lucide-react";
+import { Save, Lock, LogOut, Upload, Construction, Check } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs } from "@/components/ui/tabs";
@@ -199,6 +199,14 @@ function ProfileTab() {
 
 // ────────────────────────── Workspace ──────────────────────────
 
+// Curated accent palette (carried over from the original UI template).
+const ACCENTS: { value: string; label: string }[] = [
+  { value: "#3b82f6", label: "Blue" },
+  { value: "#d97757", label: "Terracotta" },
+  { value: "#1f8a5b", label: "Green" },
+  { value: "#8b5cf6", label: "Purple" },
+];
+
 function WorkspaceTab() {
   const tweaks = useTweaks();
 
@@ -224,13 +232,33 @@ function WorkspaceTab() {
               <option value="comfy">Comfy</option>
             </select>
           </Field>
-          <Field label="Sidebar style">
-            <select value={tweaks.sidebar} onChange={(e) => tweaks.set("sidebar", e.target.value as "expanded" | "icons" | "floating")}
-              className="w-full bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px]">
-              <option value="expanded">Expanded</option>
-              <option value="icons">Icons only</option>
-              <option value="floating">Floating</option>
-            </select>
+          <Field label="Accent color">
+            <div className="flex items-center gap-2.5 py-1.5">
+              {ACCENTS.map((a) => {
+                const selected = tweaks.accent.toLowerCase() === a.value.toLowerCase();
+                return (
+                  <button
+                    key={a.value}
+                    type="button"
+                    title={a.label}
+                    aria-label={a.label}
+                    aria-pressed={selected}
+                    onClick={() => tweaks.set("accent", a.value)}
+                    className="grid place-items-center rounded-full transition-transform hover:scale-110"
+                    style={{
+                      width: 26,
+                      height: 26,
+                      background: a.value,
+                      boxShadow: selected
+                        ? `0 0 0 2px var(--bg), 0 0 0 4px ${a.value}`
+                        : "inset 0 0 0 1px rgba(255,255,255,.18)",
+                    }}
+                  >
+                    {selected && <Check size={14} color="#fff" strokeWidth={3} />}
+                  </button>
+                );
+              })}
+            </div>
           </Field>
           <Field label="Graph node style">
             <select value={tweaks.graphNodeStyle} onChange={(e) => tweaks.set("graphNodeStyle", e.target.value as "shape" | "color" | "minimal")}

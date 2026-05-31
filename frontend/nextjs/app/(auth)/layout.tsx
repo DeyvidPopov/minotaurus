@@ -1,4 +1,6 @@
 // app/(auth)/layout.tsx — no chrome, full-bleed auth screen
+import { BrandLogo } from "@/components/shell/brand-logo";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen grid place-items-center p-6" style={{
@@ -8,7 +10,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         var(--bg)
       `,
     }}>
-      {children}
+      <div className="flex flex-col items-center gap-7 w-full">
+        <BrandLogo href="/" layout="stacked" markSize={44} title="Back to landing" />
+        {children}
+      </div>
     </div>
   );
 }

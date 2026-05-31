@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import { ARTIFACTS, RELATIONS } from "@/lib/mock-data"
 import { GraphCanvas } from "@/components/graph/graph-canvas"
-import { Badge } from "@/components/ui/badge"
+import { BrandLogo } from "@/components/shell/brand-logo"
 
 export default function LandingPage() {
   // tight subgraph for the hero — only services and their immediate links
@@ -62,20 +62,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-bg text-fg">
       {/* nav */}
       <nav className="max-w-[1280px] mx-auto px-8 py-4 flex items-center gap-4 text-[14px]">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div
-            className="w-7 h-7 rounded-md grid place-items-center text-white font-bold font-mono text-[13px]"
-            style={{
-              background:
-                "linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #000))",
-              boxShadow: "inset 0 0 0 1px rgba(255,255,255,.18)",
-            }}
-          >
-            M
-          </div>
-          <span className="font-semibold tracking-tight">Minotaurus</span>
-          <Badge mono>minotaurus.dev</Badge>
-        </Link>
+        <BrandLogo href="/" />
         <div className="flex gap-5 ml-7 text-fg-muted hidden sm:flex">
           <a href="#workflow" className="hover:text-fg">
             Workflow
