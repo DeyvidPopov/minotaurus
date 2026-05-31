@@ -324,6 +324,13 @@ export function BootstrapWizard({
                 {proposal.diagrams.map((d, i) => {
                   const dec = validation.diagrams[i];
                   const invalid = dec && !dec.accepted;
+                  // Live referential check against the CURRENT selection: a selected
+                  // diagram whose nodes reference an unselected artifact will be
+                  // rejected on apply. Recompute from server-extracted `nodes` so the
+                  // warning tracks the user's checkboxes (the propose-time decision
+                  // was made against the full proposal).
+                  const missingRefs = (dec?.nodes ?? []).filter((n) => !titles.has(normTitle(n)));
+                  const showRefWarning = !invalid && !!selDiagrams[i] && missingRefs.length > 0;
                   return (
                     <div key={i} className="rounded-md border border-border bg-panel-2 p-3 flex flex-col gap-2">
                       <label className="flex items-center gap-2.5 cursor-pointer">
@@ -339,9 +346,12 @@ export function BootstrapWizard({
                       {invalid ? (
                         <Warn reason={dec?.reason} />
                       ) : (
-                        <div className="border border-border rounded-md bg-panel overflow-auto max-h-[320px] p-2">
-                          <MermaidPreview source={d.mermaidSource} />
-                        </div>
+                        <>
+                          {showRefWarning && <DiagramRefWarning missing={missingRefs} />}
+                          <div className="border border-border rounded-md bg-panel overflow-auto max-h-[320px] p-2">
+                            <MermaidPreview source={d.mermaidSource} />
+                          </div>
+                        </>
                       )}
                       <details className="group text-[12px] text-fg-muted">
                         <summary className="cursor-pointer select-none inline-flex items-center gap-1 list-none">
@@ -447,6 +457,32 @@ function Warn({ reason }: { reason?: string }) {
   return (
     <div className="flex items-center gap-1.5 text-[11.5px] text-warning mt-0.5">
       <AlertTriangle size={12} /> {reason || "Flagged by validation — unchecked by default."}
+    </div>
+  );
+}
+
+// Live warning when a selected diagram references artifacts the user hasn't
+// selected. The diagram would be rejected on apply (SSOT integrity), so surface
+// it here with the exact artifacts to re-select.
+function DiagramRefWarning({ missing }: { missing: string[] }) {
+  return (
+    <div
+      className="rounded-md px-2.5 py-2 text-[11.5px]"
+      style={{
+        borderWidth: 1,
+        borderStyle: "solid",
+        borderColor: "color-mix(in srgb, var(--c-warning) 35%, transparent)",
+        background: "color-mix(in srgb, var(--c-warning) 8%, transparent)",
+      }}
+    >
+      <div className="flex items-center gap-1.5 font-medium text-warning">
+        <AlertTriangle size={12} /> Diagram references artifacts that are not selected — it will be skipped on apply.
+      </div>
+      <ul className="mt-1 ml-5 list-disc text-fg-muted">
+        {missing.map((m) => (
+          <li key={m}>{m}</li>
+        ))}
+      </ul>
     </div>
   );
 }

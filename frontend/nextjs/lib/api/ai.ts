@@ -48,6 +48,10 @@ export interface RelationDecision extends ItemDecision {
 }
 export interface DiagramDecision extends ItemDecision {
   title: string;
+  /** Architecture node labels the diagram references (for live deselection warnings). */
+  nodes?: string[];
+  /** Subset of `nodes` that didn't resolve to a selected/existing artifact at validation time. */
+  unresolvedNodes?: string[];
 }
 export interface ValidationReport {
   ok: boolean;

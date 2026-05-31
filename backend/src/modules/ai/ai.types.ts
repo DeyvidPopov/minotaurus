@@ -52,6 +52,19 @@ export interface RelationDecision extends ItemDecision {
 }
 export interface DiagramDecision extends ItemDecision {
   title: string;
+  /**
+   * All architecture node labels the diagram references (extracted from the
+   * Mermaid source, original-case, deduped). Lets the review UI warn live when
+   * the user deselects an artifact a selected diagram depends on. Absent when the
+   * Mermaid failed to parse.
+   */
+  nodes?: string[];
+  /**
+   * The subset of `nodes` that did NOT resolve to a selected / existing artifact
+   * at validation time. Non-empty ⇒ `accepted:false` (the diagram would drift
+   * from the SSOT and is rejected at apply).
+   */
+  unresolvedNodes?: string[];
 }
 
 export interface ValidationReport {

@@ -135,6 +135,108 @@ test("invalid Mermaid diagram is skipped with a reason", () => {
   assert.equal(r.ok, true); // artifacts + relation still apply
 });
 
+// ── Diagram ↔ artifact referential integrity ──
+
+test("diagram referencing only selected artifacts is accepted, with nodes listed", () => {
+  // Default diagram references "Auth Service" + "Player Management" — both selected.
+  const r = validateBootstrapProposal(proposal(), emptyCtx());
+  assert.equal(r.diagrams[0].accepted, true);
+  assert.deepEqual(r.diagrams[0].nodes, ["Auth Service", "Player Management"]);
+  assert.equal(r.diagrams[0].unresolvedNodes, undefined);
+});
+
+test("diagram referencing a deselected artifact is rejected (not silently skipped)", () => {
+  // "Player Management" is deselected ⇒ absent from the proposal artifacts, but the
+  // diagram still draws it. The diagram must be rejected, the rest still applies.
+  const r = validateBootstrapProposal(
+    proposal({
+      artifacts: [{ title: "Auth Service", type: "SERVICE", rationale: "", confidence: 0.9 }],
+      relations: [],
+    }),
+    emptyCtx(),
+  );
+  assert.equal(r.diagrams[0].accepted, false);
+  assert.deepEqual(r.diagrams[0].unresolvedNodes, ["Player Management"]);
+  assert.match(r.diagrams[0].reason ?? "", /not in the selection/i);
+  assert.match(r.diagrams[0].reason ?? "", /Player Management/);
+  assert.equal(r.ok, true); // the Auth Service artifact is still creatable
+});
+
+test("diagram referencing an EXTERNAL_SYSTEM artifact resolves (Model A)", () => {
+  const r = validateBootstrapProposal(
+    proposal({
+      artifacts: [
+        { title: "Payments", type: "SERVICE", rationale: "", confidence: 0.9 },
+        { title: "Stripe", type: "EXTERNAL_SYSTEM", rationale: "", confidence: 0.8 },
+      ],
+      relations: [],
+      diagrams: [
+        { title: "Payments flow", mermaidSource: 'flowchart LR\n  P["Payments"] --> S["Stripe"]', confidence: 0.7 },
+      ],
+    }),
+    emptyCtx(),
+  );
+  assert.equal(r.diagrams[0].accepted, true);
+  assert.deepEqual(r.diagrams[0].nodes, ["Payments", "Stripe"]);
+});
+
+test("diagram resolves against an already-existing project artifact", () => {
+  // "Player Management" lives in the project (not in this proposal); the diagram
+  // referencing it must still resolve via the existing-artifact set.
+  const ctx: ValidationContext = {
+    existingArtifacts: [{ id: "a2", normalizedTitle: "player management" }],
+    existingRelations: [],
+  };
+  const r = validateBootstrapProposal(
+    proposal({ relations: [] }), // artifacts: Auth Service (new) + Player Management (exists → skipped, but resolvable)
+    ctx,
+  );
+  assert.equal(r.diagrams[0].accepted, true);
+});
+
+test("multi-diagram: valid one accepted, invalid one rejected, no cross-contamination", () => {
+  const r = validateBootstrapProposal(
+    proposal({
+      relations: [],
+      diagrams: [
+        { title: "Good", mermaidSource: 'flowchart TD\n  A["Auth Service"] --> B["Player Management"]', confidence: 0.8 },
+        { title: "Bad", mermaidSource: 'flowchart TD\n  A["Auth Service"] --> G["Analytics Service"]', confidence: 0.8 },
+      ],
+    }),
+    emptyCtx(),
+  );
+  assert.equal(r.diagrams[0].accepted, true);
+  assert.equal(r.diagrams[1].accepted, false);
+  assert.deepEqual(r.diagrams[1].unresolvedNodes, ["Analytics Service"]);
+});
+
+test("exact-title enforcement: an abbreviated node label does not resolve", () => {
+  const r = validateBootstrapProposal(
+    proposal({
+      relations: [],
+      diagrams: [
+        { title: "Overview", mermaidSource: 'flowchart TD\n  A["Auth Service"] --> B["Player Mgmt"]', confidence: 0.8 },
+      ],
+    }),
+    emptyCtx(),
+  );
+  assert.equal(r.diagrams[0].accepted, false);
+  assert.deepEqual(r.diagrams[0].unresolvedNodes, ["Player Mgmt"]);
+});
+
+test("diagram check is case/whitespace-insensitive (matches title normalization)", () => {
+  const r = validateBootstrapProposal(
+    proposal({
+      relations: [],
+      diagrams: [
+        { title: "Overview", mermaidSource: 'flowchart TD\n  A["auth   service"] --> B["PLAYER MANAGEMENT"]', confidence: 0.8 },
+      ],
+    }),
+    emptyCtx(),
+  );
+  assert.equal(r.diagrams[0].accepted, true);
+});
+
 test("nothing acceptable ⇒ ok false with a batch error", () => {
   const r = validateBootstrapProposal(
     { summary: "", artifacts: [], relations: [], diagrams: [] },

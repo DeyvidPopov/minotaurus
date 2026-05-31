@@ -68,7 +68,11 @@ function extractTitle(source: string, fallback: string): string {
   return fallback.trim() || "Imported Mermaid Diagram";
 }
 
-const NODE_LABEL_RE = /\[([^\]]+?)\]|\(\(([^)]+?)\)\)|\(\[([^\]]+?)\]\)|\{\{([^}]+?)\}\}|>([^\]]+?)\]|\(([^)]+?)\)/g;
+// The `>label]` branch is Mermaid's asymmetric "flag" node shape (`id>label]`).
+// The negative lookbehind keeps it from matching the `>` inside an edge arrow
+// (`-->`, `==>`, `-.->`), which would otherwise swallow the arrow plus the next
+// node's opening bracket (e.g. `A[X] --> B[Y]` → a bogus `B[Y` hint).
+const NODE_LABEL_RE = /\[([^\]]+?)\]|\(\(([^)]+?)\)\)|\(\[([^\]]+?)\]\)|\{\{([^}]+?)\}\}|(?<![-=.<>])>([^\]]+?)\]|\(([^)]+?)\)/g;
 const PARTICIPANT_RE = /^\s*(?:participant|actor)\s+(?:[A-Za-z0-9_-]+\s+as\s+)?([A-Za-z0-9_\- ]+)/gim;
 const ERD_ENTITY_RE = /^\s*([A-Za-z][A-Za-z0-9_-]*)\s*(?:\{|\}|\|\||--\|\||\|o--\|\||--o)/m;
 const ERD_ENTITY_DECLARATION_RE = /^\s*([A-Za-z][A-Za-z0-9_-]+)\s*\{/gm;
