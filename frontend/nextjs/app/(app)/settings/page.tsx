@@ -224,14 +224,6 @@ function WorkspaceTab() {
               <option value="light">Light</option>
             </select>
           </Field>
-          <Field label="Density">
-            <select value={tweaks.density} onChange={(e) => tweaks.set("density", e.target.value as "compact" | "regular" | "comfy")}
-              className="w-full bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px]">
-              <option value="compact">Compact</option>
-              <option value="regular">Regular</option>
-              <option value="comfy">Comfy</option>
-            </select>
-          </Field>
           <Field label="Accent color">
             <div className="flex items-center gap-2.5 py-1.5">
               {ACCENTS.map((a) => {

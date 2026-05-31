@@ -8,7 +8,7 @@ interface Props { value: string; onChange: (id: string) => void; tabs: Tab[]; }
 
 export function Tabs({ value, onChange, tabs }: Props) {
   return (
-    <div className="flex border-b border-border mb-5 overflow-x-auto" role="tablist">
+    <div className="flex border-b border-border mb-5 overflow-x-auto overflow-y-hidden" role="tablist">
       {tabs.map((t) => (
         <button
           key={t.id} role="tab"

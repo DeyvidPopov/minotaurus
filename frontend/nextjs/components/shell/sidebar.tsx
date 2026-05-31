@@ -57,7 +57,7 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
 
   return (
     <aside className="sidebar h-screen overflow-hidden flex flex-col bg-bg border-r border-border" style={{ width: 232 }}>
-      <BrandLogo href="/" title="Back to landing" className="px-3.5 py-3.5" />
+      <BrandLogo className="px-3.5 py-3.5" />
 
       <SidebarSection items={global} isActive={isActive} />
 
@@ -77,7 +77,8 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
           "sb-item flex items-center gap-2.5 px-2.5 py-1.5 rounded-sm text-[13.5px] font-normal min-h-[30px] transition-colors",
           isActive("/settings") ? "bg-panel-hover text-fg" : "text-fg-muted hover:bg-panel-hover hover:text-fg",
         )}>
-          <Settings size={16} /><span>Settings</span>
+          <span className={cn(isActive("/settings") && "text-accent")}><Settings size={16} /></span>
+          <span>Settings</span>
         </Link>
         <div className="flex items-center gap-2.5 p-1.5 rounded-sm mt-1">
           {user && <Avatar user={user as User} size={26} />}

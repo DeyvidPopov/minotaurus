@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Empty } from "@/components/ui/empty";
 import { GraphCanvas } from "@/components/graph/graph-canvas";
+import { useTweaks } from "@/components/providers";
 import { DocumentationEditor } from "@/components/documentation-editor";
 import { artifactsApi, relationsApi } from "@/lib/api/artifacts";
 import { apiSpecsApi, type ApiSpec } from "@/lib/api/api-specs";
@@ -59,6 +60,7 @@ const VALID_TABS = new Set(["overview", "relations", "documentation", "validatio
 
 export default function ArtifactDetailPage({ params }: { params: { projectId: string; artifactId: string } }) {
   const { projectId, artifactId } = params;
+  const { graphNodeStyle } = useTweaks();
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = (() => {
@@ -210,7 +212,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
                     No relations yet. Use Link to connect this artifact to another.
                   </div>
                 ) : (
-                  <GraphCanvas artifacts={subgraph.nodes} relations={subgraph.rels} selectedId={a.id} nodeStyle="color" draggable={false} fitView highlightSelected={false} showMiniMap={false} autoLayout="LR" />
+                  <GraphCanvas artifacts={subgraph.nodes} relations={subgraph.rels} selectedId={a.id} nodeStyle={graphNodeStyle} draggable={false} fitView highlightSelected={false} showMiniMap={false} autoLayout="LR" />
                 )}
               </div>
             </Card>

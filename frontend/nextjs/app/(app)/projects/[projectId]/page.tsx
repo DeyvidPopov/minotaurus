@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RefreshCw, Upload, Sparkles, Plus, Box, Network, Shield, Package, Star, History, Plug, Database, GitMerge, Pencil, Trash2, Link2, Unlink } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -14,6 +13,8 @@ import { ProjectMark } from "@/components/ui/project-mark";
 import { Empty } from "@/components/ui/empty";
 import { OpenLink } from "@/components/ui/open-link";
 import { GraphCanvas } from "@/components/graph/graph-canvas";
+import { ClampedText } from "@/components/ui/clamped-text";
+import { useTweaks } from "@/components/providers";
 import { BootstrapWizard } from "@/components/ai/bootstrap-wizard";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
@@ -33,6 +34,7 @@ type ProjectRelation = {
 
 export default function WorkspacePage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
+  const { graphNodeStyle } = useTweaks();
   const [project, setProject] = useState<Project | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [relations, setRelations] = useState<Relation[]>([]);
@@ -98,28 +100,32 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
 
   return (
     <div className="px-8 py-6">
-      <PageHeader
-        title={
-          <div className="flex items-center gap-3 flex-wrap">
+      <div className="mb-6">
+        {/* Sub-nav row: logo + name + actions on one line */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
             <ProjectMark color={project.color} size={42} letter={project.name[0]?.toUpperCase() || "P"} />
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight m-0 flex items-center gap-2.5">
-                {project.name}
-                <StatusBadge status="ACTIVE" />
-                {project.starred && <Star size={16} className="text-warning" />}
-              </h1>
-              <div className="text-fg-muted text-[13.5px] mt-1">{project.description || "No description"}</div>
-            </div>
+            <h1 className="text-2xl font-semibold tracking-tight m-0 flex items-center gap-2.5 min-w-0">
+              <span className="truncate">{project.name}</span>
+              <StatusBadge status="ACTIVE" />
+              {project.starred && <Star size={16} className="text-warning shrink-0" />}
+            </h1>
           </div>
-        }
-        actions={<>
-          <Button icon={<RefreshCw size={14} />} onClick={runValidation} disabled={running}>
-            {running ? "Validating…" : "Run validation"}
-          </Button>
-          <Link href={`/projects/${project.id}/export`}><Button icon={<Upload size={14} />}>Export SSOT</Button></Link>
-          <Link href={`/projects/${project.id}/artifacts/new`}><Button variant="primary" icon={<Plus size={14} />}>New artifact</Button></Link>
-        </>}
-      />
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <Button icon={<RefreshCw size={14} />} onClick={runValidation} disabled={running}>
+              {running ? "Validating…" : "Run validation"}
+            </Button>
+            <Link href={`/projects/${project.id}/export`}><Button icon={<Upload size={14} />}>Export SSOT</Button></Link>
+            <Link href={`/projects/${project.id}/artifacts/new`}><Button variant="primary" icon={<Plus size={14} />}>New artifact</Button></Link>
+          </div>
+        </div>
+        {/* Description: full-width row underneath, capped for readability */}
+        <ClampedText
+          text={project.description || "No description"}
+          lines={3}
+          className="text-fg-muted text-[13.5px] mt-3"
+        />
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-7">
         {[
@@ -173,7 +179,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
                 No artifacts yet — create one to start building the graph.
               </div>
             ) : (
-              <GraphCanvas artifacts={artifacts} relations={relations} nodeStyle="color" storageKey={`project:${projectId}`} showMiniMap={false} minZoom={0.05} />
+              <GraphCanvas artifacts={artifacts} relations={relations} nodeStyle={graphNodeStyle} storageKey={`project:${projectId}`} showMiniMap={false} minZoom={0.05} />
             )}
           </div>
         </Card>

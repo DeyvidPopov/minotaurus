@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       `,
     }}>
       <div className="flex flex-col items-center gap-7 w-full">
-        <BrandLogo href="/" layout="stacked" markSize={44} title="Back to landing" />
+        <BrandLogo layout="stacked" markSize={44} title="Back to landing" />
         {children}
       </div>
     </div>

@@ -83,7 +83,7 @@ frontend/nextjs/
 │       ├── settings/
 │       └── projects/...            # every workspace route
 ├── components/
-│   ├── providers.tsx               # Zustand "tweaks" store (theme/density/sidebar/font/graph-node-style) + Sonner
+│   ├── providers.tsx               # Zustand "tweaks" store (theme/font/accent/graph-node-style) + Sonner
 │   ├── shell/                      # AppShell, Sidebar, Topbar, CmdK
 │   ├── graph/                      # GraphCanvas (React Flow), GraphLegend
 │   ├── documentation-editor.tsx    # Markdown editor with live preview
@@ -108,7 +108,7 @@ The API client (`lib/api/client.ts`) handles JWT attachment, the `{ success, dat
 
 ## Cross-cutting features
 
-- **Theme** (dark default; light supported), density, sidebar mode, accent color and graph node style live in Zustand and persist to localStorage.
+- **Theme** (dark default; light supported on authenticated pages only), font, accent color and graph node style live in Zustand and persist to localStorage.
 - **Sidebar** dynamically loads project name + per-project sub-nav (Artifacts / Graph / API Specs / Database / Diagrams / Validation / Version History / Export).
 - **Topbar** breadcrumbs lookup real artifact / project / API spec / DB model / diagram titles by id. Theme toggle in the right corner.
 - **Command palette** (⌘K / Ctrl+K) — quick-jump to dashboard, projects list, and any project. (Not a full artifact index.)

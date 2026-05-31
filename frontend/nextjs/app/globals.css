@@ -10,12 +10,14 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --d-row-h: 40px;
-  --d-pad: 16px;
-  --d-gap: 12px;
-  --d-fs: 14px;
-  --d-fs-sm: 12.5px;
-  --d-fs-xs: 11.5px;
+  /* Density is no longer user-configurable — the app is standardized on the
+     former "comfy" preset (these were the comfy values). */
+  --d-row-h: 48px;
+  --d-pad: 20px;
+  --d-gap: 16px;
+  --d-fs: 15px;
+  --d-fs-sm: 13.5px;
+  --d-fs-xs: 12.5px;
 
   --r-xs: 4px;
   --r-sm: 6px;
@@ -78,21 +80,10 @@
   color-scheme: dark;
 }
 
-[data-density="compact"] {
-  --d-row-h: 32px;
-  --d-pad: 12px;
-  --d-gap: 8px;
-  --d-fs: 13px;
-  --d-fs-sm: 12px;
-  --d-fs-xs: 11px;
-}
-[data-density="comfy"] {
-  --d-row-h: 48px;
-  --d-pad: 20px;
-  --d-gap: 16px;
-  --d-fs: 15px;
-  --d-fs-sm: 13.5px;
-  --d-fs-xs: 12.5px;
+/* The workspace content renders at the comfy scale. Scoped to `.mino-app-content`
+   (AppShell only) so the sidebar/topbar chrome and public pages are unaffected. */
+.mino-app-content {
+  zoom: 1.1;
 }
 
 * {

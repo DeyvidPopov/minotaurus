@@ -13,6 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileNav, setMobileNav] = useState(false);
   const pathname = usePathname();
   const accent = useTweaks((s) => s.accent);
+  const theme = useTweaks((s) => s.theme);
 
   // The selected accent is applied here (not in the global Providers) so it only
   // affects authenticated pages. Public pages keep the fixed purple CSS default.
@@ -27,6 +28,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       h.style.removeProperty("--accent-fg");
     };
   }, [accent]);
+
+  // Light/dark theme is likewise scoped to authenticated pages: applied here, and
+  // reverted to the fixed dark brand default on cleanup so the landing/auth pages
+  // never pick up a user's light-mode preference.
+  useEffect(() => {
+    const h = document.documentElement;
+    h.setAttribute("data-theme", theme);
+    return () => {
+      h.setAttribute("data-theme", "dark");
+    };
+  }, [theme]);
 
   // Detect projectId from URL for sub-nav
   const segs = pathname.split("/").filter(Boolean);
@@ -56,7 +68,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar projectId={projectId} />
         <div className="flex flex-col min-w-0 min-h-0 overflow-hidden">
           <Topbar onOpenSearch={() => setCmdOpen(true)} onOpenMobileNav={() => setMobileNav(true)} />
-          <div className="flex-1 min-h-0 min-w-0 overflow-auto relative">{children}</div>
+          <div className="mino-app-content flex-1 min-h-0 min-w-0 overflow-auto relative">{children}</div>
         </div>
       </div>
       <CmdK open={cmdOpen} onClose={() => setCmdOpen(false)} />

@@ -60,7 +60,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-bg text-fg">
       {/* nav */}
       <nav className="max-w-[1280px] mx-auto px-8 py-4 flex items-center gap-4 text-[14px]">
-        <BrandLogo href="/" />
+        <BrandLogo />
         <div className="flex gap-5 ml-7 text-fg-muted hidden sm:flex">
           <a href="#workflow" className="hover:text-fg">
             Workflow

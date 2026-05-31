@@ -5,16 +5,22 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { MinotaurusMark } from "@/components/ui/minotaurus-mark";
+import { useAuth } from "@/lib/auth-context";
 
 export function BrandLogo({
-  href = "/",
+  href,
   layout = "row",
   markSize = 28,
   className,
   title,
 }: {
+  /**
+   * Explicit destination. **Omit** for auth-aware routing: logged in → `/dashboard`,
+   * otherwise → `/` (landing). Pass `null` to render a non-link.
+   */
   href?: string | null;
   layout?: "row" | "stacked";
   markSize?: number;
@@ -22,6 +28,22 @@ export function BrandLogo({
   title?: string;
 }) {
   const stacked = layout === "stacked";
+
+  // Auth-aware destination. `useAuth()` is authoritative inside the app (where the
+  // provider is mounted); on public pages there's no provider, so we also probe the
+  // token directly so a logged-in visitor on the landing page still lands on the
+  // dashboard. Computed in an effect to avoid an SSR/hydration mismatch on the href.
+  const { user } = useAuth();
+  const [hasToken, setHasToken] = useState(false);
+  useEffect(() => {
+    setHasToken(
+      typeof window !== "undefined" && !!localStorage.getItem("mino:token"),
+    );
+  }, []);
+  const loggedIn = !!user || hasToken;
+
+  const resolvedHref =
+    href === null ? null : href !== undefined ? href : loggedIn ? "/dashboard" : "/";
 
   const content = (
     <>
@@ -38,15 +60,15 @@ export function BrandLogo({
   const classes = cn(
     "flex transition-opacity",
     stacked ? "flex-col items-center gap-2" : "items-center gap-2.5",
-    href !== null && "hover:opacity-80",
+    resolvedHref !== null && "hover:opacity-80",
     className
   );
 
-  if (href === null) {
+  if (resolvedHref === null) {
     return <div className={classes}>{content}</div>;
   }
   return (
-    <Link href={href} className={classes} title={title}>
+    <Link href={resolvedHref} className={classes} title={title}>
       {content}
     </Link>
   );
