@@ -1,7 +1,15 @@
 // components/graph/graph-canvas.tsx — React Flow-powered knowledge graph
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import ReactFlow, {
   Background,
   BaseEdge,
@@ -13,6 +21,7 @@ import ReactFlow, {
   Position,
   getSmoothStepPath,
   useNodes,
+  useNodesState,
   useReactFlow,
   useStore,
   type Node,
@@ -55,6 +64,12 @@ interface Props {
    */
   relayoutSignal?: number
   relayoutDirection?: "LR" | "TB"
+  /**
+   * Lowest zoom React Flow allows. Defaults to 0.25. Set lower for small
+   * embedded views (e.g. the dashboard mini-graph) so fitView can shrink a
+   * large graph enough to fully contain it instead of clamping and overflowing.
+   */
+  minZoom?: number
 }
 
 export function GraphCanvas(props: Props) {
@@ -81,6 +96,7 @@ function Inner({
   autoLayout,
   relayoutSignal,
   relayoutDirection = "LR",
+  minZoom = 0.25,
 }: Props) {
   // Position overrides (drag persistence)
   const [positions, setPositions] = useState<
@@ -170,7 +186,7 @@ function Inner({
     })
   }, [autoLayout, visible, relations, nodeStyle])
 
-  const nodes: Node[] = useMemo(
+  const derivedNodes: Node[] = useMemo(
     () =>
       visible.map((a) => {
         const p =
@@ -203,6 +219,61 @@ function Inner({
     ],
   )
 
+  // Live drag: React Flow needs its own mutable node state + onNodesChange so it
+  // can apply per-frame drag deltas (the node follows the cursor). We keep
+  // `derivedNodes` as the source of truth and mirror it into rfNodes whenever it
+  // changes. During an active drag none of derivedNodes' inputs change, so this
+  // sync doesn't fire and the in-progress drag position is preserved; on drop we
+  // persist to `positions`, derivedNodes recomputes, and rfNodes re-syncs.
+  // Initialize with derivedNodes so the first render already has nodes (the
+  // mount-time fitView needs them); the effect keeps them in sync afterwards.
+  const [rfNodes, setRfNodes, onNodesChange] = useNodesState(derivedNodes)
+  useEffect(() => {
+    setRfNodes(derivedNodes)
+  }, [derivedNodes, setRfNodes])
+
+  // Id of the node currently being dragged (null when idle). While set, edges
+  // route through the cheap path instead of getSmartEdge — see edges memo.
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const dragActive = !!draggingId
+
+  // ── global label de-collision coordinator ──
+  // Edges report their measured label anchor + box here; a rAF-coalesced pass
+  // resolves overlaps and hands each edge a final position (read via context).
+  const anchorsRef = useRef(new Map<string, LabelBox>())
+  const [resolvedLabels, setResolvedLabels] = useState<
+    Map<string, { x: number; y: number }>
+  >(new Map())
+  const labelRafRef = useRef<number | null>(null)
+  const recomputeLabels = useCallback(() => {
+    labelRafRef.current = null
+    const boxes = Array.from(anchorsRef.current.entries()).map(([id, b]) => ({
+      id,
+      ...b,
+    }))
+    setResolvedLabels(resolveLabelLayout(boxes))
+  }, [])
+  const reportLabel = useCallback(
+    (id: string, box: LabelBox | null) => {
+      if (box) anchorsRef.current.set(id, box)
+      else anchorsRef.current.delete(id)
+      if (labelRafRef.current == null) {
+        labelRafRef.current = requestAnimationFrame(recomputeLabels)
+      }
+    },
+    [recomputeLabels],
+  )
+  useEffect(
+    () => () => {
+      if (labelRafRef.current != null) cancelAnimationFrame(labelRafRef.current)
+    },
+    [],
+  )
+  const labelLayout = useMemo<LabelLayout>(
+    () => ({ report: reportLabel, resolved: resolvedLabels }),
+    [reportLabel, resolvedLabels],
+  )
+
   const visibleIds = useMemo(() => new Set(visible.map((v) => v.id)), [visible])
   const edges: Edge[] = useMemo(
     () =>
@@ -233,11 +304,11 @@ function Inner({
               width: 16,
               height: 16,
             },
-            data: { type: r.type, color, dimmed },
+            data: { type: r.type, color, dimmed, dragging: dragActive },
             label: r.type,
           }
         }),
-    [relations, visibleIds, focusActive, selectedId],
+    [relations, visibleIds, focusActive, selectedId, dragActive],
   )
 
   // ── drop-time collision resolution ──
@@ -321,35 +392,41 @@ function Inner({
         h,
       )
       if (resolved.x !== node.position.x || resolved.y !== node.position.y) {
-        reactFlow.setNodes((ns) =>
+        // Write to rfNodes (the controlled source) so it isn't re-asserted on
+        // the next render. setPositions below then re-syncs derivedNodes → rfNodes.
+        setRfNodes((ns) =>
           ns.map((n) => (n.id === node.id ? { ...n, position: resolved } : n)),
         )
       }
       setLastDraggedId(node.id)
+      setDraggingId(null)
       setPositions((prev) => {
         const next = { ...prev, [node.id]: resolved }
         persist(next)
         return next
       })
     },
-    [persist, reactFlow, resolveDropPosition],
+    [persist, resolveDropPosition, setRfNodes],
   )
 
   return (
-    <div style={{ width: "100%", height }}>
+    <LabelLayoutContext.Provider value={labelLayout}>
+      <div style={{ width: "100%", height }}>
       <ReactFlow
-        nodes={nodes}
+        nodes={rfNodes}
         edges={edges}
+        onNodesChange={onNodesChange}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         connectionMode={ConnectionMode.Loose}
         onNodeClick={(_, n) => onSelect?.(n.data.artifact)}
         onPaneClick={() => onSelect?.(null)}
+        onNodeDragStart={(_, n) => setDraggingId(n.id)}
         onNodeDragStop={onNodeDragStop}
         fitView={fitView}
         fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
         proOptions={{ hideAttribution: true }}
-        minZoom={0.25}
+        minZoom={minZoom}
         maxZoom={2.4}
       >
         <Background gap={22} size={1} color="var(--grid-dot)" />
@@ -368,7 +445,8 @@ function Inner({
           />
         )}
       </ReactFlow>
-    </div>
+      </div>
+    </LabelLayoutContext.Provider>
   )
 }
 
@@ -383,13 +461,168 @@ const NODE_TYPES = {
 // React Flow's EdgeLabelRenderer portal so it sits above the nodes layer. Label position
 // is measured from the actual SVG path (getPointAtLength at len/2) so it lands on the
 // visible body of the edge instead of a routing waypoint.
-type LabeledEdgeData = { type?: string; color?: string; dimmed?: boolean }
+type LabeledEdgeData = {
+  type?: string
+  color?: string
+  dimmed?: boolean
+  dragging?: boolean
+}
+
+// ───── global edge-label de-collision ─────
+// Each edge reports the measured anchor + estimated box of its label to a shared
+// coordinator (provided via context by GraphCanvas). The coordinator runs a
+// deterministic greedy pass that pushes overlapping labels apart and returns a
+// resolved position per edge, which the edge renders at. Because the reported
+// anchor is the measured *path* point (independent of the label's own offset),
+// there is no feedback loop. Labels live in React Flow's transformed pane, so
+// these flow-coordinate boxes are zoom-independent.
+type LabelBox = { x: number; y: number; w: number; h: number }
+
+type LabelLayout = {
+  report: (id: string, box: LabelBox | null) => void
+  resolved: Map<string, { x: number; y: number }>
+}
+
+const LabelLayoutContext = createContext<LabelLayout | null>(null)
+
+// Estimated label box (px == flow units here) from the label text.
+const LABEL_CHAR_W = 6.1
+const LABEL_PAD_X = 10
+const LABEL_H = 15
+const LABEL_GAP = 3 // min clear space between two labels
+
+function estimateLabelBox(text: string): { w: number; h: number } {
+  return { w: text.length * LABEL_CHAR_W + LABEL_PAD_X, h: LABEL_H }
+}
+
+// Center-based AABB overlap test with a gap margin.
+function labelsOverlap(a: LabelBox, b: LabelBox): boolean {
+  return (
+    Math.abs(a.x - b.x) * 2 < a.w + b.w + LABEL_GAP * 2 &&
+    Math.abs(a.y - b.y) * 2 < a.h + b.h + LABEL_GAP * 2
+  )
+}
+
+// Deterministic greedy de-collision: process labels in id order; for each, keep
+// its x and search outward in y (alternating up/down) for the nearest slot clear
+// of every already-placed label. Each label is placed only once it's clear, so
+// the result is guaranteed overlap-free.
+function resolveLabelLayout(
+  boxes: Array<LabelBox & { id: string }>,
+): Map<string, { x: number; y: number }> {
+  const sorted = [...boxes].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  const placed: LabelBox[] = []
+  const out = new Map<string, { x: number; y: number }>()
+  for (const b of sorted) {
+    const step = b.h * 0.65
+    let y = b.y
+    let k = 1
+    let dir = 1
+    let guard = 0
+    while (
+      placed.some((p) => labelsOverlap(p, { x: b.x, y, w: b.w, h: b.h })) &&
+      guard++ < 500
+    ) {
+      y = b.y + dir * k * step
+      dir = -dir
+      if (dir === 1) k++
+    }
+    placed.push({ x: b.x, y, w: b.w, h: b.h })
+    out.set(b.id, { x: b.x, y })
+  }
+  return out
+}
 
 // Below this zoom, edge labels are hidden (render-time only; the label data is
 // untouched). They reappear automatically as the user zooms back in.
 const LABEL_ZOOM_THRESHOLD = 0.6
 
+// Padding (px) inflating each node's box when testing whether a straight
+// smoothstep path clips it. Bigger → more edges escalate to smart routing
+// (fewer clips); smaller → straighter edges, slightly higher clip risk.
+const SMOOTHSTEP_NODE_PADDING = 8
+
+type Pt = { x: number; y: number }
+
+// Orthogonal corner waypoints of React Flow's smoothstep path. Our nodes use
+// Left/Right handles, so the route is the horizontal Z (source → midX → target);
+// the vertical case is included for completeness. This is an approximation of
+// React Flow's exact geometry — good enough for a crossing test.
+function smoothStepWaypoints(
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  sourcePosition: Position,
+): Pt[] {
+  const horizontal =
+    sourcePosition === Position.Left || sourcePosition === Position.Right
+  if (horizontal) {
+    const midX = (sx + tx) / 2
+    return [
+      { x: sx, y: sy },
+      { x: midX, y: sy },
+      { x: midX, y: ty },
+      { x: tx, y: ty },
+    ]
+  }
+  const midY = (sy + ty) / 2
+  return [
+    { x: sx, y: sy },
+    { x: sx, y: midY },
+    { x: tx, y: midY },
+    { x: tx, y: ty },
+  ]
+}
+
+// Axis-aligned segment vs rectangle test (smoothstep segments are always
+// horizontal or vertical, so this stays trivial).
+function segIntersectsRect(
+  a: Pt,
+  b: Pt,
+  rx1: number,
+  ry1: number,
+  rx2: number,
+  ry2: number,
+): boolean {
+  if (a.y === b.y) {
+    if (a.y < ry1 || a.y > ry2) return false
+    return Math.max(a.x, b.x) >= rx1 && Math.min(a.x, b.x) <= rx2
+  }
+  if (a.x < rx1 || a.x > rx2) return false
+  return Math.max(a.y, b.y) >= ry1 && Math.min(a.y, b.y) <= ry2
+}
+
+// True if the smoothstep polyline clips any node other than its own endpoints.
+function pathCrossesNode(
+  waypoints: Pt[],
+  nodes: Node[],
+  sourceId: string,
+  targetId: string,
+  padding: number,
+): boolean {
+  for (const n of nodes) {
+    if (n.id === sourceId || n.id === targetId) continue
+    const w = n.width ?? 0
+    const h = n.height ?? 0
+    if (!w || !h) continue
+    const rx1 = n.position.x - padding
+    const ry1 = n.position.y - padding
+    const rx2 = n.position.x + w + padding
+    const ry2 = n.position.y + h + padding
+    for (let i = 0; i < waypoints.length - 1; i++) {
+      if (segIntersectsRect(waypoints[i], waypoints[i + 1], rx1, ry1, rx2, ry2)) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
 function LabeledSmoothStepEdge({
+  id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -408,11 +641,41 @@ function LabeledSmoothStepEdge({
   // there's no reason to re-render every edge per zoom delta.)
   const labelsVisible = useStore((s) => s.transform[2] >= LABEL_ZOOM_THRESHOLD)
   const color = data?.color || "#94a3b8"
+  // While any node is dragging, route through the cheap smoothstep path: no
+  // getSmartEdge pathfinding (O(1) per frame instead of a grid search ×N edges),
+  // so lines follow the moving node smoothly. Smart routing returns on drop.
+  const dragging = !!data?.dragging
 
-  // getSmartEdge is grid-based pathfinding — expensive and run per edge. Memoize
-  // it on the routing inputs so unrelated re-renders (e.g. the label-visibility
-  // flip) don't re-pathfind. It still recomputes when endpoints or nodes change.
+  // Smoothstep-first routing: prefer the clean orthogonal smoothstep path, and
+  // only escalate to the (expensive) getSmartEdge pathfinding for edges whose
+  // straight path would actually clip a node. While dragging we always take the
+  // cheap path. Memoized so unrelated re-renders don't recompute.
   const { edgePath, fallbackLabelX, fallbackLabelY } = useMemo(() => {
+    const cheap = () => {
+      const [p, lx, ly] = getSmoothStepPath({
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+        borderRadius: 6,
+      })
+      return { edgePath: p, fallbackLabelX: lx, fallbackLabelY: ly }
+    }
+    if (dragging) return cheap()
+    // Does the straight smoothstep route clip an intervening node? If not, keep
+    // it (cheap + clean). Only crossing edges pay for grid pathfinding.
+    const waypoints = smoothStepWaypoints(
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+      sourcePosition,
+    )
+    if (!pathCrossesNode(waypoints, nodes, source, target, SMOOTHSTEP_NODE_PADDING)) {
+      return cheap()
+    }
     const smart = getSmartEdge({
       sourceX,
       sourceY,
@@ -430,43 +693,56 @@ function LabeledSmoothStepEdge({
         fallbackLabelY: smart.edgeCenterY,
       }
     }
-    const [p, lx, ly] = getSmoothStepPath({
-      sourceX,
-      sourceY,
-      sourcePosition,
-      targetX,
-      targetY,
-      targetPosition,
-      borderRadius: 6,
-    })
-    return { edgePath: p, fallbackLabelX: lx, fallbackLabelY: ly }
-  }, [sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, nodes])
+    return cheap()
+  }, [source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, nodes, dragging])
 
   const pathRef = useRef<SVGPathElement | null>(null)
   const [labelPt, setLabelPt] = useState<{ x: number; y: number } | null>(null)
+  const layout = useContext(LabelLayoutContext)
+  // `report` is a stable callback; the layout object's identity changes on every
+  // resolve, so depend on `report` (not `layout`) in the effect to avoid a
+  // report → resolve → re-render → report loop.
+  const report = layout?.report
+  const labelText = label != null ? String(label) : ""
 
   useEffect(() => {
-    // Only measure when the label will actually render. getTotalLength /
-    // getPointAtLength force a synchronous reflow; skipping them while zoomed
-    // out avoids layout thrashing across every edge.
-    if (!labelsVisible) return
+    // Measure the base label anchor (path midpoint) and report it to the global
+    // de-collision coordinator. getTotalLength / getPointAtLength force a
+    // synchronous reflow, so skip while zoomed out / mid-drag (label is hidden
+    // then anyway) and unreport so its box doesn't block others.
+    if (!labelsVisible || dragging || !labelText) {
+      setLabelPt(null)
+      report?.(id, null)
+      return
+    }
     const el = pathRef.current
     if (!el) return
     try {
       const len = el.getTotalLength()
       if (!Number.isFinite(len) || len <= 0) {
         setLabelPt(null)
+        report?.(id, null)
         return
       }
-      const pt = el.getPointAtLength(len / 2)
-      setLabelPt({ x: pt.x, y: pt.y })
+      const mid = el.getPointAtLength(len / 2)
+      setLabelPt({ x: mid.x, y: mid.y })
+      const { w, h } = estimateLabelBox(labelText)
+      report?.(id, { x: mid.x, y: mid.y, w, h })
     } catch {
       setLabelPt(null)
+      report?.(id, null)
     }
-  }, [edgePath, labelsVisible])
+  }, [edgePath, labelsVisible, dragging, id, labelText, report])
 
-  const labelX = labelPt?.x ?? fallbackLabelX
-  const labelY = labelPt?.y ?? fallbackLabelY
+  // Unreport on unmount so a removed edge's box never blocks remaining labels.
+  useEffect(() => () => report?.(id, null), [id, report])
+
+  // Render at the globally de-collided position when available; until the first
+  // resolve pass lands, fall back to the measured midpoint (then the smart/
+  // smoothstep waypoint center if even that isn't measured yet).
+  const resolved = layout?.resolved.get(id)
+  const labelX = resolved?.x ?? labelPt?.x ?? fallbackLabelX
+  const labelY = resolved?.y ?? labelPt?.y ?? fallbackLabelY
 
   return (
     <>
@@ -478,7 +754,7 @@ function LabeledSmoothStepEdge({
         stroke="none"
         style={{ pointerEvents: "none" }}
       />
-      {label != null && labelPt != null && labelsVisible && (
+      {label != null && labelPt != null && labelsVisible && !dragging && (
         <EdgeLabelRenderer>
           <div
             style={{
