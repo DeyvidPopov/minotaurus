@@ -32,7 +32,7 @@ interface GraphEdge {
 
 export default function GraphPage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
-  const { graphNodeStyle, set } = useTweaks();
+  const { graphNodeStyle, graphLegendOpen, set } = useTweaks();
   const [project, setProject] = useState<Project | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [relations, setRelations] = useState<Relation[]>([]);
@@ -150,7 +150,13 @@ export default function GraphPage({ params }: { params: { projectId: string } })
               storageKey={`project:${projectId}`}
               relayoutSignal={relayoutSignal}
             />
-            <GraphLegend typeFilter={typeFilter} onToggle={toggleType} counts={counts} />
+            <GraphLegend
+              typeFilter={typeFilter}
+              onToggle={toggleType}
+              counts={counts}
+              open={graphLegendOpen}
+              onToggleOpen={() => set("graphLegendOpen", !graphLegendOpen)}
+            />
           </>
         )}
 

@@ -119,6 +119,26 @@ Every CUD across the platform (artifacts, relations, API specs, endpoints, DB mo
 
 `modules/ingestion/` has one controller plus four parser engines (`markdown`, `openapi`, `mermaid`, `sql`). Flow: draft → parse → confirm. Confirm uses the same artifact / API spec / diagram / DB model creation paths as the regular controllers (including the artifact title check) so ingestion never bypasses validation. Ingestion is an audit log — deleting an `IngestionRecord` does **not** cascade-delete the resources it produced (no FK on the join). UI copy reflects this ("Remove log" vs "Delete draft").
 
+### AI Bootstrap Wizard (`modules/ai/`)
+
+The first (and currently only) AI feature. From an existing **empty** project, the user describes an idea → AI proposes a draft → the user reviews/selects → confirmed items are applied through the **existing** artifact/relation/diagram creation paths. It implements the `## AI Safety & Determinism Rules` above: **AI proposes; a human-gated deterministic step disposes.** Code in `modules/ai/` never calls `prisma.*.create/update/delete`.
+
+**Flow & files.** `ai.routes.ts` mounts `POST /projects/:projectId/ai/bootstrap/{propose,apply}` (both `DEVELOPER`+). `ai.controller.ts` is thin (role check + envelope). `ai.service.ts:proposeBootstrap` orchestrates: build prompt → provider → Zod-parse (one repair retry) → normalize Mermaid → deterministic preview validation → persist an `AiSession`. `proposal/bootstrap.apply.ts:applyBootstrap` is the **only** path to the DB: it re-validates the (user-edited) proposal server-side, then creates artifacts/relations/diagrams reusing the regular controllers' fields, records a `VersionEvent` per entity with `metadata.origin:"AI"`, and updates the `AiSession`.
+
+**Stateless proposal + audit.** The proposal is **not** persisted as a source of truth — the client holds it between propose and apply, and apply re-validates from scratch (never trust the client). `AiSession` (Prisma) is **lightweight audit metadata only** — like `IngestionRecord`, never a graph node — recording idea, model, tokens, status (PROPOSED/APPLIED/DISCARDED), counts, and the proposal snapshot.
+
+**The generation contract is expressed twice, derived from the Prisma enums** (`proposal/bootstrap.schema.ts`): a Zod schema (validates Claude's output at propose and the user subset at apply) and a Claude tool `input_schema` (forces conforming JSON via `tool_choice`). **Field/emit order is load-bearing:** `summary → artifacts → diagrams → relations` — `relations` (the bulkiest, most expendable field) is last, so a truncated response loses relations rather than the required `diagrams`.
+
+**Artifacts are created `DRAFT`; AI prose never lands on entity fields** — rationale/confidence live only in the proposal/audit snapshot, not in `Artifact.description` (kept `""`). Confidence is advisory (review UI pre-checks ≥0.6); it never gates apply.
+
+**AI Mermaid is structure-only.** `prompts/bootstrap.prompt.ts` forbids styling; `proposal/mermaid-normalize.ts` strips any `classDef`/`class`/`style`/`linkStyle`/`:::class`/`%%{init}%%` at propose + apply (the validator parses the normalized form, so styling never causes rejection). The shared renderer owns appearance: `mermaid-preview.tsx:forceLabelVisibility` darkens near-white shape fills (luminance-based) as a **runtime fallback** for user-pasted / imported styled Mermaid — not the primary strategy. Don't reintroduce AI-side styling.
+
+**Provider & token budget (`providers/`).** `ai.provider.ts` is the only LLM seam; `ai.provider.anthropic.ts` calls **non-streaming** `messages.create` with forced tool use and a cached system block (`AI_MODEL` default `claude-sonnet-4-6`, `AI_MAX_TOKENS` default `8192`). `StructuredResult` preserves `stopReason`/`usage`/`model`/`maxTokens`/`durationMs` — **do not discard them**; that lossiness once made a truncated response look like a provider failure.
+
+**Error taxonomy (honest, not generic).** A large proposal can exhaust `max_tokens` → Anthropic returns **200 with `stop_reason:"max_tokens"`** and a complete-but-partial tool object. The service treats this as truncation, **not** a provider failure: it throws `AiOutputTruncatedError` → **422 `AI_OUTPUT_TRUNCATED`** (`details:{maxTokens,outputTokens,suggestion}`) and **skips the repair retry** (it would truncate identically). Codes: `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR` (transport / no tool block), `422 AI_OUTPUT_TRUNCATED`, `502 AI_SCHEMA_ERROR` (complete but off-schema after one retry); apply adds `422 AI_VALIDATION_FAILED` / `409 AI_APPLY_CONFLICT`. Every failure logs a scalar `[ai] bootstrap proposal failed {…}` line (projectId/userId/model/stopReason/tokens/durationMs/code) — **never** the prompt, AI output, or secrets.
+
+**Determinism untouched, scope bounded.** AI lives outside the deterministic core — the validator and apply are deterministic, and the analysis/validation engines are neither consulted nor modified. **Phase-1 scope is artifacts + relations + 1–3 diagrams only**; DB models / API specs / security policies / docs are future work, to be added through the same propose → validate → review → confirm pattern (extend the schema + validator + apply, reuse the existing creation controllers).
+
 ### Export Engine V2 (SSOT export + PDF report)
 
 Three layers, strictly separated — each consumes the previous and never reaches back:
@@ -210,6 +230,7 @@ The first feature built on these rules is the **AI Bootstrap Wizard** (`modules/
 - Export Engine V2 is layered: SSOT assembly → analysis → PDF. The analysis engine and PDF renderer are pure and deterministic (no AI, no `Date.now()`). Don't recompute scores in the renderer or assemble SSOT data outside `buildExportContent`.
 - `ArtifactRelation` is the graph source of truth — don't add a parallel "links" table or emit non-artifact nodes from the graph endpoint.
 - Postgres is the source of truth (since Phase 6). The old `backend/src/db/data.json` JSON store is gone — don't reintroduce it.
+- AI proposes, a deterministic apply disposes — `modules/ai/` never writes to the DB directly, and AI-generated Mermaid is structure-only (the renderer owns styling). See the AI Bootstrap Wizard section.
 
 ## When in doubt
 

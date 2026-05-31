@@ -14,6 +14,7 @@ import ReactFlow, {
   getSmoothStepPath,
   useNodes,
   useReactFlow,
+  useStore,
   type Node,
   type Edge,
   type EdgeProps,
@@ -111,6 +112,10 @@ function Inner({
   // in a ref so the initial mount (signal === undefined or first observation)
   // doesn't trigger a layout — only subsequent changes do.
   const lastRelayoutSignalRef = useRef<number | undefined>(relayoutSignal)
+  // Set when a relayout just changed positions, so the next position-driven
+  // render re-fits the viewport. Drag-persist and initial mount leave this
+  // false, so only an explicit relayout triggers an auto-fit.
+  const pendingFitRef = useRef(false)
   useEffect(() => {
     if (relayoutSignal === undefined) return
     if (lastRelayoutSignalRef.current === relayoutSignal) return
@@ -123,6 +128,7 @@ function Inner({
     setPositions(layout)
     persist(layout)
     setLastDraggedId(null)
+    pendingFitRef.current = true
   }, [
     relayoutSignal,
     relayoutDirection,
@@ -137,6 +143,22 @@ function Inner({
     () => artifacts.filter((a) => !typeFilter || typeFilter.has(a.type)),
     [artifacts, typeFilter],
   )
+
+  // ── focus mode ──
+  // When a node is selected (and highlighting is enabled), build the set of the
+  // selected node plus its 1-hop neighbors. Everything outside this set is dimmed
+  // at render time. `null` = no focus, so the graph looks unchanged. Derived from
+  // `relations` only — no data mutation.
+  const focusActive = highlightSelected && !!selectedId
+  const neighborIds = useMemo(() => {
+    if (!focusActive || !selectedId) return null
+    const ids = new Set<string>([selectedId])
+    for (const r of relations) {
+      if (r.source === selectedId) ids.add(r.target)
+      if (r.target === selectedId) ids.add(r.source)
+    }
+    return ids
+  }, [focusActive, selectedId, relations])
 
   // Dagre-derived base positions. Persisted drag positions still take
   // precedence per-node so user adjustments don't get clobbered on rerender.
@@ -156,6 +178,7 @@ function Inner({
           (layoutPositions && layoutPositions[a.id]) ||
           { x: a.gx, y: a.gy }
         const isSelected = highlightSelected && selectedId === a.id
+        const dimmed = neighborIds ? !neighborIds.has(a.id) : false
         return {
           id: a.id,
           type: "minoNode",
@@ -164,6 +187,7 @@ function Inner({
           selected: isSelected,
           draggable,
           zIndex: lastDraggedId === a.id ? 1 : 0,
+          style: { opacity: dimmed ? 0.22 : 1, transition: "opacity .15s ease" },
         }
       }),
     [
@@ -175,6 +199,7 @@ function Inner({
       draggable,
       lastDraggedId,
       highlightSelected,
+      neighborIds,
     ],
   )
 
@@ -185,6 +210,11 @@ function Inner({
         .filter((r) => visibleIds.has(r.source) && visibleIds.has(r.target))
         .map((r) => {
           const color = EDGE_COLOR[r.type] || "#94a3b8"
+          // Focus mode: edges touching the selected node are emphasized; the rest
+          // are dimmed. No focus → original look (strokeWidth 1.4, opacity 0.7).
+          const connected =
+            focusActive && (r.source === selectedId || r.target === selectedId)
+          const dimmed = focusActive && !connected
           return {
             id: r.id,
             source: r.source,
@@ -193,8 +223,9 @@ function Inner({
             animated: false,
             style: {
               stroke: color,
-              strokeWidth: 1.4,
-              opacity: 0.7,
+              strokeWidth: connected ? 2.2 : 1.4,
+              opacity: dimmed ? 0.1 : connected ? 1 : 0.7,
+              transition: "opacity .15s ease",
             },
             markerEnd: {
               type: MarkerType.ArrowClosed,
@@ -202,11 +233,11 @@ function Inner({
               width: 16,
               height: 16,
             },
-            data: { type: r.type, color },
+            data: { type: r.type, color, dimmed },
             label: r.type,
           }
         }),
-    [relations, visibleIds],
+    [relations, visibleIds, focusActive, selectedId],
   )
 
   // ── drop-time collision resolution ──
@@ -215,6 +246,28 @@ function Inner({
   // the axis of least intrusion. Iterates a few times so cascading pushes
   // (3+ nodes packed together) still converge.
   const reactFlow = useReactFlow()
+
+  // After a relayout writes new positions, re-fit the viewport so the freshly
+  // arranged graph is centered. Gated on pendingFitRef so drag-persist and
+  // initial mount don't refit. A nested requestAnimationFrame is required: the
+  // first frame lets React Flow commit the new node positions into its internal
+  // store, the second fits against them — a single frame fires too early and
+  // fitView would frame the stale layout.
+  useEffect(() => {
+    if (!pendingFitRef.current) return
+    pendingFitRef.current = false
+    let inner = 0
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => {
+        reactFlow.fitView({ padding: 0.18, maxZoom: 1.1, duration: 400 })
+      })
+    })
+    return () => {
+      cancelAnimationFrame(outer)
+      cancelAnimationFrame(inner)
+    }
+  }, [positions, reactFlow])
+
   const resolveDropPosition = useCallback(
     (id: string, startX: number, startY: number, w: number, h: number) => {
       if (!w || !h) return { x: startX, y: startY }
@@ -330,7 +383,11 @@ const NODE_TYPES = {
 // React Flow's EdgeLabelRenderer portal so it sits above the nodes layer. Label position
 // is measured from the actual SVG path (getPointAtLength at len/2) so it lands on the
 // visible body of the edge instead of a routing waypoint.
-type LabeledEdgeData = { type?: string; color?: string }
+type LabeledEdgeData = { type?: string; color?: string; dimmed?: boolean }
+
+// Below this zoom, edge labels are hidden (render-time only; the label data is
+// untouched). They reappear automatically as the user zooms back in.
+const LABEL_ZOOM_THRESHOLD = 0.6
 
 function LabeledSmoothStepEdge({
   sourceX,
@@ -345,27 +402,34 @@ function LabeledSmoothStepEdge({
   label,
 }: EdgeProps<LabeledEdgeData>) {
   const nodes = useNodes()
+  // Subscribe to the threshold as a BOOLEAN, not the raw zoom: edges then
+  // re-render only when crossing LABEL_ZOOM_THRESHOLD, not on every zoom tick.
+  // (React Flow already moves the edges layer via a single CSS transform, so
+  // there's no reason to re-render every edge per zoom delta.)
+  const labelsVisible = useStore((s) => s.transform[2] >= LABEL_ZOOM_THRESHOLD)
   const color = data?.color || "#94a3b8"
 
-  const smart = getSmartEdge({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    nodes,
-    options: { nodePadding: 12, gridRatio: 12 },
-  })
-
-  let edgePath: string
-  let fallbackLabelX: number
-  let fallbackLabelY: number
-  if (smart) {
-    edgePath = smart.svgPathString
-    fallbackLabelX = smart.edgeCenterX
-    fallbackLabelY = smart.edgeCenterY
-  } else {
+  // getSmartEdge is grid-based pathfinding — expensive and run per edge. Memoize
+  // it on the routing inputs so unrelated re-renders (e.g. the label-visibility
+  // flip) don't re-pathfind. It still recomputes when endpoints or nodes change.
+  const { edgePath, fallbackLabelX, fallbackLabelY } = useMemo(() => {
+    const smart = getSmartEdge({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      nodes,
+      options: { nodePadding: 12, gridRatio: 12 },
+    })
+    if (smart) {
+      return {
+        edgePath: smart.svgPathString,
+        fallbackLabelX: smart.edgeCenterX,
+        fallbackLabelY: smart.edgeCenterY,
+      }
+    }
     const [p, lx, ly] = getSmoothStepPath({
       sourceX,
       sourceY,
@@ -375,15 +439,17 @@ function LabeledSmoothStepEdge({
       targetPosition,
       borderRadius: 6,
     })
-    edgePath = p
-    fallbackLabelX = lx
-    fallbackLabelY = ly
-  }
+    return { edgePath: p, fallbackLabelX: lx, fallbackLabelY: ly }
+  }, [sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, nodes])
 
   const pathRef = useRef<SVGPathElement | null>(null)
   const [labelPt, setLabelPt] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
+    // Only measure when the label will actually render. getTotalLength /
+    // getPointAtLength force a synchronous reflow; skipping them while zoomed
+    // out avoids layout thrashing across every edge.
+    if (!labelsVisible) return
     const el = pathRef.current
     if (!el) return
     try {
@@ -397,7 +463,7 @@ function LabeledSmoothStepEdge({
     } catch {
       setLabelPt(null)
     }
-  }, [edgePath])
+  }, [edgePath, labelsVisible])
 
   const labelX = labelPt?.x ?? fallbackLabelX
   const labelY = labelPt?.y ?? fallbackLabelY
@@ -412,7 +478,7 @@ function LabeledSmoothStepEdge({
         stroke="none"
         style={{ pointerEvents: "none" }}
       />
-      {label != null && labelPt != null && (
+      {label != null && labelPt != null && labelsVisible && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -428,6 +494,8 @@ function LabeledSmoothStepEdge({
               borderRadius: 3,
               padding: "1px 4px",
               lineHeight: 1.2,
+              opacity: data?.dimmed ? 0.1 : 1,
+              transition: "opacity .15s ease",
             }}
           >
             {label}

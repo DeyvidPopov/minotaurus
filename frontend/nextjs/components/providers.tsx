@@ -17,6 +17,7 @@ interface TweakState {
   density: Density;
   fontPair: FontPair;
   graphNodeStyle: GraphNodeStyle;
+  graphLegendOpen: boolean;
   set: <K extends keyof Omit<TweakState, "set">>(key: K, value: TweakState[K]) => void;
 }
 
@@ -28,6 +29,7 @@ export const useTweaks = create<TweakState>()(
       density: "regular",
       fontPair: "geist",
       graphNodeStyle: "color",
+      graphLegendOpen: true,
       set: (key, value) => set({ [key]: value } as Partial<TweakState>),
     }),
     { name: "mino:tweaks" }
