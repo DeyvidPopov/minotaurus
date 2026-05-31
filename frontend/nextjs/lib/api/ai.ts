@@ -84,6 +84,82 @@ export interface ApplyResult {
   validation: ValidationReport;
 }
 
+// ── AI Architecture Review (read-only) ──
+// AI interprets the deterministic AnalysisResult; it never computes or alters it.
+// Mirrors backend modules/ai/review/review.types.ts.
+
+export interface EvidenceRef {
+  kind: "metric" | "artifact" | "risk" | "resource" | "count";
+  ref: string;
+  value?: string | number;
+}
+
+interface ReviewFindingBase {
+  title: string;
+  /** Set by the server's deterministic verifier when no evidence resolved. */
+  unverified?: boolean;
+}
+export interface StrengthFinding extends ReviewFindingBase {
+  observation: string;
+  evidence: EvidenceRef[];
+}
+export interface ReviewRiskFinding extends ReviewFindingBase {
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  observation: string;
+  recommendation: string;
+  evidence: EvidenceRef[];
+}
+export interface BlindSpotFinding extends ReviewFindingBase {
+  observation: string;
+  recommendation: string;
+  evidence: EvidenceRef[];
+}
+export interface GovernanceFinding extends ReviewFindingBase {
+  observation: string;
+  recommendation?: string;
+  evidence: EvidenceRef[];
+}
+export interface ValidationCommentaryFinding extends ReviewFindingBase {
+  observation: string;
+  recommendation?: string;
+  evidence: EvidenceRef[];
+}
+export interface RecommendationFinding extends ReviewFindingBase {
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  recommendation: string;
+  evidence: EvidenceRef[];
+}
+
+export interface ArchitectureReview {
+  executiveSummary: string;
+  strengths: StrengthFinding[];
+  risks: ReviewRiskFinding[];
+  blindSpots: BlindSpotFinding[];
+  governanceReview: GovernanceFinding[];
+  validationCommentary: ValidationCommentaryFinding[];
+  recommendations: RecommendationFinding[];
+}
+
+/** The deterministic numbers the review interprets — these remain authoritative. */
+export interface ReviewAnalysis {
+  meta: { generatedAt: string; projectId: string; emptyProject: boolean };
+  health: {
+    score: number | null;
+    grade: string;
+    label: string;
+    subScores: { documentation: number; connectivity: number; traceability: number; validation: number; governance: number };
+  };
+}
+
+export interface ReviewResult {
+  review: ArchitectureReview;
+  analysis: ReviewAnalysis;
+  analysisHash: string;
+  model: string;
+  usage: { inputTokens: number; outputTokens: number };
+  generatedAt: string;
+}
+
 export const aiApi = {
   proposeBootstrap: (projectId: string, idea: string) =>
     apiClient.post<ProposeResult>(`/projects/${projectId}/ai/bootstrap/propose`, { idea }),
@@ -92,4 +168,6 @@ export const aiApi = {
       proposal,
       sessionId: sessionId ?? undefined,
     }),
+  reviewArchitecture: (projectId: string) =>
+    apiClient.post<ReviewResult>(`/projects/${projectId}/ai/review`, {}),
 };

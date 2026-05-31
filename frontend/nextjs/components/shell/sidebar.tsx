@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Home, Folder, Compass, Box, Network,
-  Plug, Database, GitMerge, Shield, History, Package, Settings, LogOut, Users, BookOpen, Download,
+  Plug, Database, GitMerge, Shield, History, Package, Settings, LogOut, Users, BookOpen, Download, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -47,6 +47,7 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
     { id: "docs",       label: "Documentation",   href: `/projects/${project.id}/docs`,        icon: <BookOpen size={16} /> },
     { id: "ingestion",  label: "Ingestion",       href: `/projects/${project.id}/ingestion`,   icon: <Download size={16} /> },
     { id: "validation", label: "Validation",      href: `/projects/${project.id}/validation`,  icon: <Shield size={16} />, badge: project.validationIssueCount, badgeTone: "warning" },
+    { id: "review",     label: "AI Review",       href: `/projects/${project.id}/review`,      icon: <Sparkles size={16} /> },
     { id: "versions",   label: "Version History", href: `/projects/${project.id}/versions`,    icon: <History size={16} /> },
     { id: "team",       label: "Team",            href: `/projects/${project.id}/team`,        icon: <Users size={16} />,  badge: project.members },
     { id: "export",     label: "Export SSOT",     href: `/projects/${project.id}/export`,      icon: <Package size={16} /> },
