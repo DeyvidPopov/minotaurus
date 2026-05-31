@@ -38,6 +38,7 @@ model User {
   versionEvents     VersionEvent[]
   memberships       ProjectMember[]
   ingestionRecords  IngestionRecord[]
+  aiSessions        AiSession[]
 }
 
 // ────────────────────────────── Projects ──────────────────────────────
@@ -60,6 +61,7 @@ model Project {
   versionEvents    VersionEvent[]
   members          ProjectMember[]
   ingestionRecords IngestionRecord[]
+  aiSessions       AiSession[]
 
   @@index([ownerId])
 }
@@ -457,6 +459,50 @@ model IngestionRecord {
   createdById     String
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@index([projectId, createdAt(sort: Desc)])
+}
+
+// ────────────────────────────── AI (Bootstrap Wizard) ──────────────────────────────
+// Lightweight audit metadata for the AI proposal/apply flow. NOT a domain entity —
+// it never appears in the knowledge graph. It records what AI proposed and what the
+// user confirmed (analogous to IngestionRecord). Applied artifacts / relations /
+// diagrams are created through the normal creation paths, never stored here.
+
+enum AiSessionKind {
+  BOOTSTRAP
+}
+
+enum AiSessionStatus {
+  PROPOSED
+  APPLIED
+  DISCARDED
+}
+
+model AiSession {
+  id                String          @id @default(uuid())
+  projectId         String
+  kind              AiSessionKind   @default(BOOTSTRAP)
+  status            AiSessionStatus @default(PROPOSED)
+  idea              String
+  model             String          @default("")
+  promptTokens      Int             @default(0)
+  completionTokens  Int             @default(0)
+  proposal          Json?
+  artifactsProposed Int             @default(0)
+  relationsProposed Int             @default(0)
+  diagramsProposed  Int             @default(0)
+  artifactsCreated  Int             @default(0)
+  relationsCreated  Int             @default(0)
+  diagramsCreated   Int             @default(0)
+  createdById       String
+  appliedById       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy User    @relation(fields: [createdById], references: [id], onDelete: Restrict)

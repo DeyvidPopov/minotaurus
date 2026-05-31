@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { RefreshCw, Upload, Plus, Box, Network, Shield, Package, Star, History, Plug, Database, GitMerge, Pencil, Trash2, Link2, Unlink } from "lucide-react";
+import { RefreshCw, Upload, Sparkles, Plus, Box, Network, Shield, Package, Star, History, Plug, Database, GitMerge, Pencil, Trash2, Link2, Unlink } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { ProjectMark } from "@/components/ui/project-mark";
 import { Empty } from "@/components/ui/empty";
 import { OpenLink } from "@/components/ui/open-link";
 import { GraphCanvas } from "@/components/graph/graph-canvas";
+import { BootstrapWizard } from "@/components/ai/bootstrap-wizard";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { validationApi } from "@/lib/api";
@@ -39,6 +40,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
   const [recentEvents, setRecentEvents] = useState<VersionEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const refresh = async () => {
     try {
@@ -136,6 +138,28 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
         ))}
       </div>
 
+      {artifacts.length === 0 ? (
+        <div className="rounded-lg border border-border bg-panel p-8 text-center max-w-2xl mx-auto mt-2">
+          <div className="w-12 h-12 rounded-lg bg-accent-soft text-accent grid place-items-center mx-auto mb-4">
+            <Network size={22} />
+          </div>
+          <h2 className="text-[17px] font-semibold tracking-tight m-0">Your project is currently empty</h2>
+          <p className="text-fg-muted text-[13.5px] mt-1.5 mb-5 max-w-md mx-auto">
+            Start manually, or generate an initial architecture draft with AI — you review and confirm every item before anything is saved.
+          </p>
+          <div className="flex items-center justify-center gap-2.5 flex-wrap">
+            <Link href={`/projects/${project.id}/artifacts/new`}>
+              <Button icon={<Plus size={14} />}>Start Building Manually</Button>
+            </Link>
+            <Button variant="primary" icon={<Sparkles size={14} />} onClick={() => setWizardOpen(true)}>
+              Generate Initial Architecture with AI
+            </Button>
+          </div>
+          <div className="text-[11.5px] text-fg-subtle mt-3.5">
+            AI creates a draft only. Nothing is saved until you confirm.
+          </div>
+        </div>
+      ) : (
       <div className="grid lg:grid-cols-[1.4fr_1fr] gap-5 items-start">
         <Card
           title="Knowledge graph"
@@ -212,6 +236,15 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
           </Card>
         </div>
       </div>
+      )}
+
+      {wizardOpen && (
+        <BootstrapWizard
+          projectId={projectId}
+          onClose={() => setWizardOpen(false)}
+          onApplied={refresh}
+        />
+      )}
     </div>
   );
 }

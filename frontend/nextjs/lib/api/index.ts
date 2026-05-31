@@ -11,6 +11,7 @@ export * from "./diagrams";
 export * from "./versions";
 export * from "./members";
 export * from "./ingestion";
+export * from "./ai";
 
 import { apiClient } from "./client";
 import type {

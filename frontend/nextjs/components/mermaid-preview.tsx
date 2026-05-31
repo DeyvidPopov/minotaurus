@@ -124,6 +124,24 @@ const SVG_LABEL_SELECTORS = [
 
 const FG = "#e6e8ec";
 const EDGE_LABEL_BG = "#1a1d24";
+// Dark-UI fills applied to near-white shapes (e.g. flowchart `classDef … fill:#f5f5f5`).
+const NODE_DARK_FILL = "#1a1d24";
+const NODE_DARK_BORDER = "#3a3f48";
+
+/**
+ * Parse a resolved CSS color ("rgb(…)" / "rgba(…)") to perceived luminance
+ * (0–255). Returns null for "none" / "transparent" / unparseable values so the
+ * caller skips them. Used to detect near-white shape fills that need darkening.
+ */
+function colorLuminance(value: string): number | null {
+  const m = /rgba?\(([^)]+)\)/i.exec(value);
+  if (!m) return null;
+  const parts = m[1].split(",").map((s) => parseFloat(s.trim()));
+  const [r, g, b] = parts;
+  const a = parts.length > 3 ? parts[3] : 1;
+  if (![r, g, b].every(Number.isFinite) || a === 0) return null;
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
 
 function forceLabelVisibility(host: HTMLDivElement): void {
   const svg = host.querySelector("svg");
@@ -200,6 +218,37 @@ function forceLabelVisibility(host: HTMLDivElement): void {
     rect.setAttribute("fill", NOTE_BG);
     rect.setAttribute("stroke", "#3a3f48");
   });
+
+  // ── Near-white shape normalization (dark-UI consistency) ──
+  // Flowchart classDef styles (e.g. `classDef external fill:#f5f5f5,stroke:#999`)
+  // and a few Mermaid base-theme defaults paint node/cluster bodies near-white,
+  // which read as glaring white boxes on the dark UI and hide the forced-light
+  // label text. Recolor ONLY near-white fills (luminance > 200) to the dark node
+  // fill; mid-luminance colors — intentional accents, edge/arrow greys like
+  // #9aa3ad, the #999 dashed "external" border — are deliberately left alone so
+  // meaning is preserved. Inline `!important` is required to beat classDef's own
+  // `!important` rules. <text>/<tspan> are excluded (kept light above); edge
+  // paths report fill:"none" and are skipped. Screen-only: the PDF capture path
+  // (renderMermaidToSvg) never runs this sweep, so export rendering is untouched.
+  if (typeof window !== "undefined") {
+    const shapes = Array.from(
+      svg.querySelectorAll<SVGElement>("rect, polygon, path, circle, ellipse"),
+    );
+    // Read every computed color first, then write — avoids read/write layout thrash.
+    const toDarken: Array<{ el: SVGElement; fill: boolean; stroke: boolean }> = [];
+    for (const shape of shapes) {
+      const cs = window.getComputedStyle(shape);
+      const fill = colorLuminance(cs.fill);
+      const stroke = colorLuminance(cs.stroke);
+      const darkenFill = fill !== null && fill > 200;
+      const darkenStroke = stroke !== null && stroke > 224;
+      if (darkenFill || darkenStroke) toDarken.push({ el: shape, fill: darkenFill, stroke: darkenStroke });
+    }
+    for (const { el, fill, stroke } of toDarken) {
+      if (fill) el.style.setProperty("fill", NODE_DARK_FILL, "important");
+      if (stroke) el.style.setProperty("stroke", NODE_DARK_BORDER, "important");
+    }
+  }
 }
 
 /**

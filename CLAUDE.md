@@ -188,6 +188,20 @@ The Knowledge Graph uses React Flow's native `<Controls>` (horizontal, `position
 - **Last-dragged on top**: `lastDraggedId` state assigns `zIndex: 1` to the most recently dropped node so it stays above the others; React Flow already elevates the actively-dragged one, so the transition is seamless.
 - **`highlightSelected` prop** controls whether `selectedId` paints the blue accent border. Off on the artifact-detail mini-graph because the focal node is already implied by the page route.
 
+## AI Safety & Determinism Rules
+
+Minotaurus is a deterministic-first platform. AI is an **additive proposal-and-explanation layer that lives outside the deterministic core**: it may *read* the SSOT and `AnalysisResult` and *emit* structured proposals, but it re-enters the system only through the same human-gated, AI-free path ingestion uses — `propose → review → confirm → deterministic apply`. These rules are mandatory for every present and future AI feature and extend the determinism conventions below.
+
+1. **AI never writes to the database directly.** AI code must not call `prisma.*.create / update / delete`. The only route from model output to persisted state is `AI → proposal → user review → user confirm → deterministic apply → DB`, where *apply* reuses the existing controllers/engines (the same creation logic ingestion-confirm calls) — never a parallel AI write path.
+2. **AI output is not SSOT until a user confirms it.** Everything the model emits stays draft/proposed — never persisted, scored, validated, exported, or shown as real project state — until explicit user confirmation.
+3. **`AnalysisResult` stays deterministic.** `AnalysisResult → AI` is allowed (AI may *explain* a score). `AI → AnalysisResult` is forbidden (AI may never *compute* or influence a score). The analysis engine stays pure (no AI, no `Date.now()`). If AI prose is ever embedded in an export, freeze it into the snapshot first — like diagram SVGs — so the PDF stays a pure function of stored bytes.
+4. **Validation stays deterministic.** AI may *explain* validation findings and *suggest* fixes; AI may **not** create, modify, or resolve `ValidationIssue` rows. The rule-based validation engine remains the only writer of validation state.
+5. **Every AI-proposed entity must pass deterministic validation before it joins the project.** Proposals are checked against the same invariants the controllers enforce — artifact title normalization + per-project uniqueness, in-range enums, relation endpoints that resolve, no duplicate relations, valid Mermaid, schema validity — *before* apply. Invalid items are rejected or flagged for the user, never silently applied.
+
+**Provenance.** Every AI-applied change records a `VersionEvent` like any other mutation, with the confirming human as `triggeredBy` and origin metadata — e.g. `{ "origin": "AI", "source": "BOOTSTRAP_WIZARD", "confirmedBy": "<user-id>" }` — so the timeline never misrepresents what produced a change.
+
+The first feature built on these rules is the **AI Bootstrap Wizard** (`modules/ai/`): from an existing empty project, the user describes an idea, AI proposes artifacts (created as `DRAFT`) + relations + one to three Mermaid diagrams, the user reviews and selects, and confirmed items are applied through the existing artifact/relation/diagram creation paths. A lightweight `AiSession` row (audit metadata, like `IngestionRecord`) records each propose/apply. AI does not create the project (it already exists) and does not write anything until confirm.
+
 ## Conventions (from `docs/AI_CONTEXT/ARCHITECTURE_RULES.md`)
 
 - Thin controllers — push non-trivial logic into `<feature>.engine.ts`.

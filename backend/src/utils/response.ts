@@ -13,8 +13,12 @@ export function fail(
   status: number,
   code: string,
   message: string,
+  details?: unknown,
 ) {
-  return res.status(status).json({ success: false, error: { code, message } });
+  return res.status(status).json({
+    success: false,
+    error: { code, message, ...(details !== undefined ? { details } : {}) },
+  });
 }
 
 export class HttpError extends Error {
