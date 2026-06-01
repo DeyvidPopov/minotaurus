@@ -136,7 +136,7 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
 
   return (
-    <div className="px-8 py-6 max-w-[1100px] mx-auto">
+    <div className="px-8 py-6">
       <PageHeader
         title="Version history"
         subtitle={

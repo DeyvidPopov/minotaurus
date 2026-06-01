@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { User } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { signToken } from "../../middleware/auth.js";
+import { getProjectAccess } from "../../lib/project-access.js";
 import { created, fail, ok } from "../../utils/response.js";
 
 const registerSchema = z.object({
@@ -26,6 +27,7 @@ export function toPublicUser(u: User) {
     lastName: u.lastName,
     role: u.role,
     initials: `${u.firstName.charAt(0)}${u.lastName.charAt(0)}`.toUpperCase(),
+    defaultProjectId: u.defaultProjectId,
   };
 }
 
@@ -83,10 +85,17 @@ const updateMeSchema = z
     firstName: z.string().min(1).optional(),
     lastName: z.string().min(1).optional(),
     email: z.string().email().optional(),
+    // null = clear the default workspace (land on the dashboard).
+    defaultProjectId: z.string().min(1).nullable().optional(),
   })
-  .refine((v) => v.firstName || v.lastName || v.email, {
-    message: "At least one field is required",
-  });
+  .refine(
+    (v) =>
+      v.firstName !== undefined ||
+      v.lastName !== undefined ||
+      v.email !== undefined ||
+      v.defaultProjectId !== undefined,
+    { message: "At least one field is required" },
+  );
 
 export async function updateMe(req: Request, res: Response) {
   const userId = (req as Request & { user?: { userId: string } }).user?.userId;
@@ -109,12 +118,24 @@ export async function updateMe(req: Request, res: Response) {
     if (taken) return fail(res, 409, "EMAIL_TAKEN", "Email is already registered");
   }
 
+  // A non-null default workspace must be a project the user can actually access,
+  // otherwise we'd store a reference that resolves to a "project unavailable" page.
+  if (parsed.data.defaultProjectId) {
+    const access = await getProjectAccess(parsed.data.defaultProjectId, user.id);
+    if (access.status !== "ok") {
+      return fail(res, 400, "INVALID_DEFAULT_PROJECT", "You don't have access to that project");
+    }
+  }
+
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
       ...(parsed.data.email ? { email: parsed.data.email } : {}),
       ...(parsed.data.firstName ? { firstName: parsed.data.firstName } : {}),
       ...(parsed.data.lastName ? { lastName: parsed.data.lastName } : {}),
+      ...(parsed.data.defaultProjectId !== undefined
+        ? { defaultProjectId: parsed.data.defaultProjectId }
+        : {}),
     },
   });
   return ok(res, { user: toPublicUser(updated) }, "Profile updated");

@@ -13,7 +13,9 @@ import { Empty } from "@/components/ui/empty";
 import { useAuth } from "@/lib/auth-context";
 import { useTweaks } from "@/components/providers";
 import { authApi } from "@/lib/api/auth";
+import { projectsApi } from "@/lib/api/projects";
 import { ApiError } from "@/lib/api/client";
+import type { Project } from "@/lib/types";
 
 type TabId = "profile" | "workspace" | "notifications" | "tokens" | "danger";
 
@@ -263,13 +265,61 @@ function WorkspaceTab() {
         </div>
       </Card>
 
-      <Card title="Default project view" subtitle="Coming next — sync across devices.">
-        <div className="text-fg-muted text-[13px]">
-          A future release will let you pick the page that opens by default when you click a project
-          (overview, artifacts, graph, …). For now every project opens on the overview.
-        </div>
-      </Card>
+      <DefaultWorkspaceCard />
     </div>
+  );
+}
+
+function DefaultWorkspaceCard() {
+  const { user, setUser } = useAuth();
+  const [projects, setProjects] = useState<Project[] | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    projectsApi
+      .list()
+      .then((list) => { if (!cancelled) setProjects(list); })
+      .catch(() => { if (!cancelled) setProjects([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const change = async (value: string) => {
+    const defaultProjectId = value === "" ? null : value;
+    setSaving(true);
+    try {
+      const res = await authApi.updateMe({ defaultProjectId });
+      setUser(res.user);
+      toast.success(defaultProjectId ? "Default workspace updated" : "Default workspace cleared");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not update default workspace");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card
+      title="Default workspace"
+      subtitle="The project you land in after signing in. Saved to your account."
+    >
+      <Field label="Default workspace">
+        <select
+          value={user?.defaultProjectId ?? ""}
+          onChange={(e) => change(e.target.value)}
+          disabled={saving || projects === null}
+          className="w-full sm:max-w-[420px] bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px] disabled:opacity-60"
+        >
+          <option value="">Dashboard (no default)</option>
+          {(projects ?? []).map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </Field>
+      <div className="text-[11.5px] text-fg-subtle mt-2">
+        Choose a project to open it directly on sign-in, or “Dashboard (no default)” to land on the dashboard.
+      </div>
+    </Card>
   );
 }
 

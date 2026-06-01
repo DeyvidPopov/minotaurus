@@ -75,6 +75,7 @@ export interface User {
   email: string;
   role: "ADMIN" | "ENGINEER" | "ARCHITECT";
   initials: string;
+  defaultProjectId: string | null;
 }
 
 export interface Project {

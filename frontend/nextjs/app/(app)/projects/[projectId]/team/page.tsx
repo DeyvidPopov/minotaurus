@@ -129,16 +129,14 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
   return (
     <div className="px-8 py-6">
       <PageHeader
-        title={
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight m-0">Team</h1>
-            <div className="text-fg-muted text-[13.5px] mt-1">
-              {members.length} member{members.length === 1 ? "" : "s"} ·{" "}
-              {isOwner
-                ? "You can invite, promote, demote and remove members."
-                : "Only project owners can manage team membership."}
-            </div>
-          </div>
+        title="Team"
+        subtitle={
+          <>
+            {members.length} member{members.length === 1 ? "" : "s"} ·{" "}
+            {isOwner
+              ? "You can invite, promote, demote and remove members."
+              : "Only project owners can manage team membership."}
+          </>
         }
       />
 

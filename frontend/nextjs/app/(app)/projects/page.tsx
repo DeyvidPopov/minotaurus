@@ -66,7 +66,7 @@ export default function ProjectsPage() {
                 </div>
                 {p.starred && <Star size={14} className="text-warning" />}
               </div>
-              <div className="text-fg-muted text-[13px] mb-4 leading-relaxed min-h-10">{p.description || "No description"}</div>
+              <div className="text-fg-muted text-[13px] mb-4 leading-relaxed line-clamp-3 h-[60px]">{p.description || "No description"}</div>
               <div className="grid grid-cols-2 gap-2.5 mb-3">
                 <div>
                   <div className="text-[11px] uppercase tracking-wider text-fg-subtle mb-1">Artifacts</div>

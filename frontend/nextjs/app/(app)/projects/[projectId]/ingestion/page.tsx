@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Download, FileText, Plug, GitMerge, Database, ExternalLink, X, Info,
+  FileText, Plug, GitMerge, Database, ExternalLink, X, Info,
   Upload as UploadIcon, Search, ArrowLeft, Link as LinkIcon, Plus, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -165,18 +165,8 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
   return (
     <div className="px-8 py-6">
       <PageHeader
-        title={
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight m-0 flex items-center gap-2.5">
-              <Download size={22} className="text-accent" />
-              Ingestion
-              <span className="text-fg-muted text-[14px] font-normal">{project.name}</span>
-            </h1>
-            <div className="text-fg-muted text-[13.5px] mt-1">
-              Bring existing documentation, API specs, diagrams and database schemas into Minotaurus.
-            </div>
-          </div>
-        }
+        title="Ingestion"
+        subtitle="Bring existing documentation, API specs, diagrams and database schemas into Minotaurus."
       />
 
       <div className="bg-panel-2 border border-border rounded-md px-3.5 py-2.5 mb-5 flex items-start gap-2 text-[12.5px] text-fg-muted">

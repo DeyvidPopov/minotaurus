@@ -152,12 +152,28 @@ export interface ReviewAnalysis {
 }
 
 export interface ReviewResult {
+  /** AiSession audit row id (null only if the audit write failed at generation). */
+  id: string | null;
   review: ArchitectureReview;
   analysis: ReviewAnalysis;
   analysisHash: string;
   model: string;
   usage: { inputTokens: number; outputTokens: number };
   generatedAt: string;
+  /** True when output truncated and only the completed prefix was salvaged. */
+  truncated: boolean;
+  /** Sections dropped by truncation (only when `truncated`). */
+  missingSections: string[];
+  /** True when the project changed since this review was generated. */
+  stale: boolean;
+}
+
+/** Lightweight review-history metadata (newest first). */
+export interface ReviewListItem {
+  id: string;
+  generatedAt: string;
+  analysisHash: string;
+  model: string;
 }
 
 export const aiApi = {
@@ -170,4 +186,11 @@ export const aiApi = {
     }),
   reviewArchitecture: (projectId: string) =>
     apiClient.post<ReviewResult>(`/projects/${projectId}/ai/review`, {}),
+  // Read-only retrieval of persisted reviews (no AI call).
+  getLatestReview: (projectId: string) =>
+    apiClient.get<ReviewResult>(`/projects/${projectId}/ai/review/latest`),
+  listReviews: (projectId: string) =>
+    apiClient.get<ReviewListItem[]>(`/projects/${projectId}/ai/reviews`),
+  getReviewById: (projectId: string, reviewId: string) =>
+    apiClient.get<ReviewResult>(`/projects/${projectId}/ai/reviews/${reviewId}`),
 };

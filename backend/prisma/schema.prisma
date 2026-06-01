@@ -28,6 +28,12 @@ model User {
   role         UserRole @default(ENGINEER)
   createdAt    DateTime @default(now())
 
+  // Optional "default workspace": the project the user lands in after login.
+  // Null = no default (land on the dashboard). SetNull on the FK so deleting the
+  // project self-heals the preference instead of leaving a dangling reference.
+  defaultProjectId String?
+  defaultProject   Project? @relation("UserDefaultProject", fields: [defaultProjectId], references: [id], onDelete: SetNull)
+
   ownedProjects     Project[]          @relation("ProjectOwner")
   artifacts         Artifact[]
   apiSpecs          ApiSpec[]
@@ -62,6 +68,7 @@ model Project {
   members          ProjectMember[]
   ingestionRecords IngestionRecord[]
   aiSessions       AiSession[]
+  defaultedByUsers User[]            @relation("UserDefaultProject")
 
   @@index([ownerId])
 }

@@ -82,18 +82,8 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
   return (
     <div className="px-8 py-6">
       <PageHeader
-        title={
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight m-0 flex items-center gap-2.5">
-              <BookOpen size={22} className="text-accent" />
-              Documentation
-              <span className="text-fg-muted text-[14px] font-normal">{project.name}</span>
-            </h1>
-            <div className="text-fg-muted text-[13.5px] mt-1">
-              {summary.coveragePercent}% coverage · {summary.documentedArtifacts} of {summary.totalArtifacts} artifacts documented
-            </div>
-          </div>
-        }
+        title="Documentation"
+        subtitle={`${summary.coveragePercent}% coverage · ${summary.documentedArtifacts} of ${summary.totalArtifacts} artifacts documented`}
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-5">

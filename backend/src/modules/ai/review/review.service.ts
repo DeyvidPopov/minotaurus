@@ -8,12 +8,11 @@
 // Bootstrap Wizard) — never a graph node, never SSOT. AI interprets the
 // deterministic AnalysisResult; it never produces or alters it.
 
-import { createHash } from "node:crypto";
 import { AiSessionKind, AiSessionStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { buildExportContent } from "../../exports/exports.engine.js";
 import { analyzeExportSnapshot } from "../../exports/analysis/metrics.engine.js";
-import type { ExportSnapshot } from "../../exports/analysis/analysis.types.js";
+import type { AnalysisResult, ExportSnapshot } from "../../exports/analysis/analysis.types.js";
 import { getAiProvider, type StructuredResult } from "../providers/ai.provider.js";
 import { AiOutputTruncatedError, AiSchemaError } from "../ai.service.js";
 import { buildReviewDigest } from "./review.digest.js";
@@ -24,8 +23,18 @@ import {
   architectureReviewSchema,
   reviewToolInputSchema,
 } from "./review.schema.js";
+import { salvageTruncatedReview } from "./review.salvage.js";
+import { hashAnalysis, toStoredReviewResult } from "./review.read.js";
 import { verifyReviewEvidence } from "./review.verify.js";
-import type { ArchitectureReview, ReviewResult } from "./review.types.js";
+import type { ArchitectureReview, ReviewListItem, ReviewResult } from "./review.types.js";
+
+/** Output-token budget for a review. Bounded output keeps this comfortable; the
+ *  headroom (default 12k) is insurance, not the primary fix. */
+const DEFAULT_REVIEW_MAX_TOKENS = 12000;
+function reviewMaxTokens(): number {
+  const v = Number(process.env.AI_REVIEW_MAX_TOKENS);
+  return Number.isFinite(v) && v > 0 ? v : DEFAULT_REVIEW_MAX_TOKENS;
+}
 
 // Everything the deterministic analysis engine reads. The review never sends raw
 // SSOT to the model — this only feeds the analysis engine, whose bounded output
@@ -42,9 +51,17 @@ export const ALL_REVIEW_SECTIONS = [
   "TEAM",
 ];
 
-/** Stable hash of the deterministic analysis (for future staleness detection). */
-export function hashAnalysis(analysis: unknown): string {
-  return createHash("sha256").update(JSON.stringify(analysis)).digest("hex");
+/**
+ * Deterministic, AI-free: assemble the SSOT, analyze it, hash the result. Reused
+ * by generate (basis for the review) and by the read endpoints (current basis,
+ * for staleness + the score cards). No provider call — cheap on every refresh.
+ */
+export async function computeAnalysisAndHash(
+  projectId: string,
+): Promise<{ analysis: AnalysisResult; analysisHash: string }> {
+  const content = await buildExportContent(projectId, "JSON", ALL_REVIEW_SECTIONS);
+  const analysis = analyzeExportSnapshot(content);
+  return { analysis, analysisHash: hashAnalysis(analysis) };
 }
 
 function logAiFailure(fields: Record<string, unknown>): void {
@@ -72,6 +89,8 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
   const baseUser = buildReviewUserPrompt(digest);
 
   let review: ArchitectureReview | null = null;
+  let truncated = false;
+  let missingSections: string[] = [];
   let model = "";
   let usage = { inputTokens: 0, outputTokens: 0 };
   let stopReason: string | null = null;
@@ -80,6 +99,7 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
   let lastError = "";
 
   const base = { projectId: params.projectId, userId: params.userId };
+  const outputBudget = reviewMaxTokens();
 
   // First attempt + one repair retry on complete-but-off-schema output. A
   // truncated (max_tokens) response is NOT retried — it would truncate the same.
@@ -97,6 +117,7 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
         toolName: REVIEW_TOOL_NAME,
         toolDescription: REVIEW_TOOL_DESCRIPTION,
         inputSchema: reviewToolInputSchema,
+        maxTokens: outputBudget,
       });
     } catch (err) {
       logAiFailure({ ...base, stage: "provider", model: model || "(unknown)", durationMs, code: "AI_PROVIDER_ERROR", message: err instanceof Error ? err.message : String(err) });
@@ -110,6 +131,22 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
     durationMs += result.durationMs;
 
     if (result.stopReason === "max_tokens") {
+      // Graceful degradation: bounded output makes this rare, but if it happens
+      // the completed prefix is still useful (recommendations emit last). Salvage
+      // it and flag what was lost rather than discarding a good review. Don't
+      // retry — a retry truncates identically.
+      const salvaged = salvageTruncatedReview(result.data);
+      if (salvaged) {
+        review = salvaged.review;
+        truncated = true;
+        missingSections = salvaged.missingSections;
+        // eslint-disable-next-line no-console
+        console.warn("[ai] architecture review truncated-salvaged " + JSON.stringify({
+          ...base, model, outputTokens: usage.outputTokens, maxTokens, durationMs, missingSections,
+        }));
+        break;
+      }
+      // Nothing usable arrived → honest failure.
       logAiFailure({ ...base, stage: "truncated", model, stopReason, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, maxTokens, durationMs, code: "AI_OUTPUT_TRUNCATED" });
       throw new AiOutputTruncatedError({ maxTokens, outputTokens: usage.outputTokens });
     }
@@ -134,8 +171,9 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
   // AiSession. The kind + analysisHash are real columns; the JSON payload holds
   // the review snapshot and verification stats. This is audit metadata only —
   // never a graph node, never SSOT (same role as a bootstrap AiSession).
+  let savedId: string | null = null;
   try {
-    await prisma.aiSession.create({
+    const created = await prisma.aiSession.create({
       data: {
         projectId: params.projectId,
         kind: AiSessionKind.REVIEW,
@@ -147,6 +185,8 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
         analysisHash,
         proposal: {
           generatedAt,
+          truncated,
+          missingSections,
           review: verified.review,
           verification: {
             totalRefs: verified.totalRefs,
@@ -157,6 +197,7 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
         createdById: params.userId,
       },
     });
+    savedId = created.id;
   } catch (err) {
     // Audit is best-effort; a failed metadata write must not fail a read-only
     // review. Log scalar diagnostics and return the review anyway.
@@ -164,11 +205,53 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
   }
 
   return {
+    id: savedId,
     review: verified.review,
     analysis,
     analysisHash,
     model,
     usage,
     generatedAt,
+    truncated,
+    missingSections,
+    stale: false, // just generated against the current analysis
   };
+}
+
+// ── Read endpoints (reuse persisted reviews — NO AI call) ──
+
+/** Latest persisted review for the project, or null if none exists. */
+export async function getLatestReview(projectId: string): Promise<ReviewResult | null> {
+  const row = await prisma.aiSession.findFirst({
+    where: { projectId, kind: AiSessionKind.REVIEW },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!row) return null;
+  const { analysis, analysisHash } = await computeAnalysisAndHash(projectId);
+  return toStoredReviewResult(row, analysis, analysisHash);
+}
+
+/** A specific persisted review (read-only), or null if not found in this project. */
+export async function getReviewById(projectId: string, reviewId: string): Promise<ReviewResult | null> {
+  const row = await prisma.aiSession.findFirst({
+    where: { id: reviewId, projectId, kind: AiSessionKind.REVIEW },
+  });
+  if (!row) return null;
+  const { analysis, analysisHash } = await computeAnalysisAndHash(projectId);
+  return toStoredReviewResult(row, analysis, analysisHash);
+}
+
+/** Review history metadata, newest first. */
+export async function listReviews(projectId: string): Promise<ReviewListItem[]> {
+  const rows = await prisma.aiSession.findMany({
+    where: { projectId, kind: AiSessionKind.REVIEW },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, createdAt: true, analysisHash: true, model: true },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    generatedAt: r.createdAt.toISOString(),
+    analysisHash: r.analysisHash ?? "",
+    model: r.model,
+  }));
 }

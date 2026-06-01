@@ -30,9 +30,9 @@ export default function LoginPage() {
   const onSubmit = async (values: FormValues) => {
     setLoading(true);
     try {
-      await authApi.login(values);
+      const { user } = await authApi.login(values);
       toast.success("Signed in");
-      router.push("/dashboard");
+      router.push(user.defaultProjectId ? `/projects/${user.defaultProjectId}` : "/dashboard");
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Could not sign in";
       toast.error(message);

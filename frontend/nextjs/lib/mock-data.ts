@@ -16,14 +16,14 @@ export const CURRENT_USER: User = {
   id: "u_1",
   firstName: "Deyvid", lastName: "Popov",
   email: "deyvid@minotaurus.dev",
-  role: "ADMIN", initials: "DP",
+  role: "ADMIN", initials: "DP", defaultProjectId: null,
 };
 
 export const USERS: User[] = [
   CURRENT_USER,
-  { id: "u_2", firstName: "Maya",  lastName: "Lindberg", email: "maya@minotaurus.dev", role: "ENGINEER",  initials: "ML" },
-  { id: "u_3", firstName: "Ren",   lastName: "Okafor",   email: "ren@minotaurus.dev",  role: "ENGINEER",  initials: "RO" },
-  { id: "u_4", firstName: "Iris",  lastName: "Chen",     email: "iris@minotaurus.dev", role: "ARCHITECT", initials: "IC" },
+  { id: "u_2", firstName: "Maya",  lastName: "Lindberg", email: "maya@minotaurus.dev", role: "ENGINEER",  initials: "ML", defaultProjectId: null },
+  { id: "u_3", firstName: "Ren",   lastName: "Okafor",   email: "ren@minotaurus.dev",  role: "ENGINEER",  initials: "RO", defaultProjectId: null },
+  { id: "u_4", firstName: "Iris",  lastName: "Chen",     email: "iris@minotaurus.dev", role: "ARCHITECT", initials: "IC", defaultProjectId: null },
 ];
 
 export const PROJECTS: Project[] = [

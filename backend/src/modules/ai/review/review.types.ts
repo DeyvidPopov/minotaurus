@@ -165,12 +165,34 @@ export interface ArchitectureReview {
 // ── Endpoint payload ──
 
 export interface ReviewResult {
+  /** AiSession audit row id (null only if the audit write failed at generation). */
+  id: string | null;
   review: ArchitectureReview;
-  /** The deterministic analysis the review interprets — authoritative numbers. */
+  /** The deterministic analysis the review interprets — authoritative numbers.
+   *  On a reloaded review this is the CURRENT analysis (recomputed), so the score
+   *  cards always show truth; `stale` flags when the narrative predates it. */
   analysis: AnalysisResult;
-  /** Stable hash of `analysis` (for future staleness detection). */
+  /** Stable hash of the analysis the review was generated against. */
   analysisHash: string;
   model: string;
   usage: { inputTokens: number; outputTokens: number };
   generatedAt: string;
+  /**
+   * True when the model hit its output ceiling and we salvaged the completed
+   * sections. The review is the intact prefix; trailing sections are absent.
+   */
+  truncated: boolean;
+  /** Sections dropped by truncation (only set when `truncated`). */
+  missingSections: string[];
+  /** True when the project's current analysis hash differs from `analysisHash`
+   *  (the project changed since this review was generated). */
+  stale: boolean;
+}
+
+/** Lightweight metadata for the review history list (newest first). */
+export interface ReviewListItem {
+  id: string;
+  generatedAt: string;
+  analysisHash: string;
+  model: string;
 }

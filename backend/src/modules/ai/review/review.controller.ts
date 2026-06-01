@@ -8,7 +8,12 @@ import type { AuthedRequest } from "../../../middleware/auth.js";
 import { assertProjectRole } from "../../../lib/project-access.js";
 import { AiOutputTruncatedError, AiSchemaError } from "../ai.service.js";
 import { AiNotConfiguredError, AiProviderError } from "../providers/ai.provider.js";
-import { generateArchitectureReview } from "./review.service.js";
+import {
+  generateArchitectureReview,
+  getLatestReview,
+  getReviewById,
+  listReviews,
+} from "./review.service.js";
 
 export async function reviewArchitectureEndpoint(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
@@ -34,4 +39,29 @@ export async function reviewArchitectureEndpoint(req: AuthedRequest, res: Respon
     if (err instanceof AiSchemaError) return fail(res, 502, "AI_SCHEMA_ERROR", err.message);
     throw err;
   }
+}
+
+// ── Read endpoints — reuse persisted reviews; NO AI call, NO mutation ──
+
+export async function latestReviewEndpoint(req: AuthedRequest, res: Response) {
+  const projectId = req.params.projectId;
+  if (!(await assertProjectRole(projectId, req.user!.userId, res, "DEVELOPER"))) return;
+  const result = await getLatestReview(projectId);
+  if (!result) return fail(res, 404, "AI_REVIEW_NOT_FOUND", "No AI review has been generated for this project yet.");
+  return ok(res, result, "Latest review");
+}
+
+export async function reviewHistoryEndpoint(req: AuthedRequest, res: Response) {
+  const projectId = req.params.projectId;
+  if (!(await assertProjectRole(projectId, req.user!.userId, res, "DEVELOPER"))) return;
+  const items = await listReviews(projectId);
+  return ok(res, items, "Review history");
+}
+
+export async function reviewByIdEndpoint(req: AuthedRequest, res: Response) {
+  const projectId = req.params.projectId;
+  if (!(await assertProjectRole(projectId, req.user!.userId, res, "DEVELOPER"))) return;
+  const result = await getReviewById(projectId, req.params.reviewId);
+  if (!result) return fail(res, 404, "AI_REVIEW_NOT_FOUND", "Review not found.");
+  return ok(res, result, "Review");
 }
