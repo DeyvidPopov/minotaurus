@@ -43,6 +43,17 @@ function scoreColorVar(score: number | null): string {
   return "var(--c-danger)";
 }
 
+// Qualitative band label, matching the backend GRADE_BANDS wording the composite
+// Health label uses — applied per sub-score so every card reads "number + band".
+function scoreLabel(score: number | null): string {
+  if (score == null) return "—";
+  if (score >= 90) return "Excellent";
+  if (score >= 75) return "Healthy";
+  if (score >= 60) return "Fair";
+  if (score >= 40) return "At Risk";
+  return "Critical";
+}
+
 function severityTone(sev: string): "danger" | "warning" | "info" | "default" {
   switch (sev) {
     case "CRITICAL": return "danger";
@@ -268,6 +279,7 @@ export default function ReviewPage({ params }: { params: { projectId: string } }
                 <div className="relative z-10">
                   <div className="text-[11px] uppercase tracking-wider text-fg-subtle truncate">{SUB_LABELS[k] ?? k}</div>
                   <div className="mt-1 text-2xl font-semibold tabular-nums">{v}</div>
+                  <div className="text-[11.5px] text-fg-muted mt-0.5">{scoreLabel(v)}</div>
                 </div>
               </Card>
             ))}

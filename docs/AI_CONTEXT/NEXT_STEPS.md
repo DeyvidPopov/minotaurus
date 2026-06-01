@@ -1,82 +1,107 @@
 # Next Steps
 
-Ingestion Phases 4 (Mermaid) and 5 (SQL Schema) are both shipped. All four
-ingestion source cards are now "Parser ready": Markdown / OpenAPI JSON /
-Mermaid / SQL Schema. Each wizard runs deterministically (no AI), creates
-real Prisma rows via existing modules, fires VersionEvents, and is gated to
-DEVELOPER+. 11/11 backend smoke tests still pass.
+> Refreshed for the pre-submission documentation pass (2026-06-01). The platform is
+> feature-complete for the diploma scope. **Both AI features are shipped** — AI is no
+> longer "future work." The remaining work is hardening, testing, and documentation,
+> not new feature development.
 
-**Recommended next phase: AI architecture review.** Now that ingestion
-covers documentation, APIs, diagrams and database schemas, the platform has
-enough structured signal for an AI pass to (a) summarise the architecture
-for a project, (b) flag inconsistencies between artifacts / specs / models /
-diagrams that the deterministic validation rules can't catch, and (c)
-answer impact questions ("what breaks if I deprecate the Auth Service?"). A
-single backend endpoint wrapping a model call would be enough; Settings
-already has a place for an Anthropic API key field to keep the feature
-opt-in.
+## Where the project stands
+All planned phases are shipped and live against PostgreSQL:
+- Core platform (projects, artifacts, relations, documentation, diagrams, team/roles, version history).
+- Architecture intelligence (knowledge graph, deterministic validation, deterministic
+  analysis engine, traceability, depth-1 impact analysis).
+- Ingestion Hub with four deterministic parsers (Markdown / OpenAPI JSON / Mermaid / SQL Schema).
+- Export Engine V2 (JSON / Markdown / **real deterministic PDF report**) with an on-demand
+  server-side download endpoint.
+- **AI Bootstrap Wizard** and **AI Architecture Review** — both fenced outside the
+  deterministic core (propose/explain only; human-gated, re-validated apply).
 
-Phase A (Dedicated Documentation Hub) is shipped: new
-`GET /api/projects/:projectId/documentation` overview endpoint, real
-`/projects/[projectId]/docs` page with coverage stats / search / filter / per-artifact
-"Open documentation" deep-links to the artifact detail, sidebar entry restored,
-artifact detail now honours `?tab=documentation`. Documentation storage is still
-`Artifact.documentationContent` — no schema change. 11/11 backend smoke tests pass.
+## Recommended final-timeline priorities (in order)
 
-Phase 7 (Project Team Management + Roles) is shipped and verified end-to-end against
-the live Postgres database. ProjectMember table + four roles (OWNER/ARCHITECT/
-DEVELOPER/VIEWER) replace the per-controller `ownerId === userId` checks. Members API,
-team page, validation rule, export Team section and seeded multi-user demo are all
-live. 11/11 backend smoke tests still pass.
+1. **Manual testing.** Walk the demo end-to-end against a freshly seeded DB. Cover the
+   export PDF (full + diagrams-only + single-section), validation, ingestion (all four
+   parsers), the knowledge graph, and both AI flows. The export/PDF, validation engine,
+   ingestion parsers, AI orchestration, and the entire frontend have **no automated tests**,
+   so manual verification is the safety net. (See the checklist below.)
 
-Phase 6 (PostgreSQL migration) is shipped and **live-verified**. Local Postgres on
-:5433, healthcheck `GET /api/health/db` reports connected, seed populates the demo,
-all 11 backend smoke tests + the per-page E2E check pass through Postgres. The
-frontend is unchanged.
+2. **Bug fixing.** Fix whatever manual testing surfaces. Prioritise the audit's real
+   blockers first (see "Pre-submission hardening" below) — they are small, targeted fixes,
+   not rewrites.
+
+3. **UI polish.** Tighten loading/error/empty states (some pages collapse a load error
+   into the empty state; one artifact-detail page can show "Loading…" indefinitely on
+   failure), modal focus handling, and visual consistency. Keep changes contained — do not
+   redesign the shell or touch the graph-canvas / PDF-SVG normalization logic.
+
+4. **Documentation writing.** Diploma write-up. The strongest arguments to foreground:
+   the deterministic-first architecture, the AI-as-fenced-additive-layer safety model
+   (verified by code inspection), the three-layer export engine with byte-deterministic
+   PDFs, and the SSOT knowledge graph. See `CURRENT_STATE.md` and `CLAUDE.md`.
+
+5. **Defense preparation.** Rehearse the demo flow; be ready to explain the determinism
+   boundary, the validation rule set, the export determinism strategy, and the RBAC model.
+
+## Pre-submission hardening (small, high-value fixes — do during step 2)
+These came out of the pre-submission audit and are blockers for a credible submission:
+- **JWT secret fallback** — `middleware/auth.ts` falls back to a hardcoded
+  `"dev-secret-change-me"` if `JWT_SECRET` is unset. Remove the fallback / fail fast at
+  startup, and set a real secret in `.env`.
+- **Rotate the Anthropic API key** sitting in `backend/.env` (it is git-ignored and not
+  committed, but it is a live key on disk).
+- **Async error wrapper** — Express 4 does not route rejected async-handler promises to the
+  error middleware, so an unexpected throw can hang a request. Add `express-async-errors`
+  (or wrap handlers).
+- **Guard the destructive scripts** — `npm run seed` and `prisma:reset --force` wipe the
+  database with no `NODE_ENV` check or confirmation. Add a guard before any shared/prod use.
+- **Cap the version-history query** — `listVersionHistory` loads all events then slices in
+  memory; add a `take` cap (this is the highest-volume unbounded list).
+
+## Deliberately deferred (post-diploma — do NOT start now)
+- Pagination across the remaining list endpoints; N+1 serializer cleanup.
+- Validation-engine O(n²) optimisation for large projects.
+- Controller / validation-engine / parser unit tests + a frontend test runner.
+- ZIP export (today it silently returns JSON — either implement or stop advertising it).
+- AI generation of DB models / API specs / security policies (Bootstrap is artifacts +
+  relations + diagrams only).
+- Transitive impact analysis + blast-radius scoring.
+- WebSocket live updates; email invitations for non-existent users; per-resource ownership transfer.
+- Retention/archival for `VersionEvent` / `AiSession` / `ExportPackage` growth.
 
 ## To bring a fresh checkout online
 ```
 cd backend
 npm install
-# Create the database (one-time):
 psql -U postgres -h localhost -p 5433 -c "CREATE DATABASE minotaurus;"
-# Apply the initial migration:
 npx prisma migrate deploy
-# Seed the demo:
 npm run seed
-# Run:
 npm run dev    # backend on :4000
 
 # In another terminal:
-cd ../frontend/nextjs && npm run dev   # frontend on :3000
+cd ../frontend/nextjs && npm install && npm run dev   # frontend on :3000
 ```
 
-## Sanity check
-```
-curl http://localhost:4000/api/health/db
-# → { "success": true, "data": { "database": "connected", "provider": "postgresql", "port": 5433 } }
-```
+## Final-testing checklist
+Automated (expect green):
+- `cd backend && npm run test:unit` → 112 passing (pure engines: export analysis, PDF, AI proposal/review).
+- `cd backend && npx tsc -p tsconfig.json --noEmit` → clean.
+- `cd frontend/nextjs && npm run typecheck` → clean; `npm run lint` → review warnings.
+- With backend + seeded DB: `cd backend && npm run test:api` → 11/11 (then re-`npm run seed`
+  to clear the orphan users/projects it leaves behind).
 
-## Recommended next phase
-
-**AI architecture analysis** is the natural follow-up:
-- The platform now has all the inputs an LLM needs to reason about a system,
-  and a real query-able relational store to feed them in.
-- One backend endpoint (`POST /api/projects/:id/ai/analyze`) wrapping a model
-  call would unlock:
-  - "Summarize the architecture of this project"
-  - "What changed in the last week?"
-  - "What would break if I deprecate Authentication Service?"
-- Add a Settings tab "Anthropic API key" so the feature stays opt-in.
-
-## After AI analysis
-1. WebSocket live updates (re-render the timeline / dashboard counters on event)
-2. Email invitations for non-existent users (today the user must already have an account
-   for an invite to succeed)
-3. PDF / ZIP export rendering on the server
-4. Per-resource ownership transfer (createdById is recorded but there's no UI)
+Manual (no automated coverage — verify by hand):
+- PDF export: full scope, diagrams-only, and a single-section scope; confirm diagrams render
+  with readable colors and the TOC matches rendered sections.
+- Re-download the same PDF twice → identical bytes.
+- JSON + Markdown download → correct Content-Type / filename.
+- Role gating: VIEWER/DEVELOPER cannot create an export (403, ARCHITECT+); non-member cannot
+  download; bad export id → 404.
+- Validation run on the demo project; eyeball the rule output.
+- Ingestion: Markdown / OpenAPI / Mermaid / SQL draft → parse → confirm.
+- Knowledge graph: drag / persist / relayout / focus; Mermaid viewer pan/zoom.
+- AI Bootstrap (on an empty project) and AI Review end-to-end in the UI.
 
 ## Constraints (unchanged)
-- Do not redesign UI shell
-- Keep the API envelope contract identical
-- Do not break graph contract
+- Do not redesign the UI shell.
+- Keep the API envelope contract identical.
+- Do not break the graph contract.
+- Keep AI outside the deterministic core (the five safety rules in `CLAUDE.md`).

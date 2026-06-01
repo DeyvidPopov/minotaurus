@@ -9,6 +9,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { prisma } from "../src/lib/prisma.js";
+import { assertDestructiveAllowed } from "../src/lib/destructive-guard.js";
 import { recordVersionEvent } from "../src/modules/versions/versions.engine.js";
 import { runValidationForProject } from "../src/modules/validation/validation.engine.js";
 import { buildExportContent } from "../src/modules/exports/exports.engine.js";
@@ -115,6 +116,10 @@ interface ArtifactSpec {
 }
 
 async function main() {
+  // Safety gate: refuse to wipe production or a remote/managed database. Runs
+  // BEFORE any delete. Throws (caught below → exit 1) if the target is unsafe.
+  assertDestructiveAllowed();
+
   // Wipe in dependency-safe order. Postgres FK cascades will handle most of
   // it, but explicit deletes keep the seed re-runnable.
   await prisma.$transaction([

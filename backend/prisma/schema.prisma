@@ -177,6 +177,11 @@ model ArtifactRelation {
   targetArtifact Artifact @relation("RelationTarget", fields: [targetArtifactId], references: [id], onDelete: Cascade)
   createdBy      User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
+  // A directed edge is unique by (source, target, type): the DB enforces the
+  // no-duplicate-edge rule the app already validates (graph SSOT integrity).
+  // Directional + type-scoped, so A→B and B→A, and two different relation types
+  // between the same pair, all remain distinct allowed edges.
+  @@unique([sourceArtifactId, targetArtifactId, relationType])
   @@index([sourceArtifactId])
   @@index([targetArtifactId])
 }

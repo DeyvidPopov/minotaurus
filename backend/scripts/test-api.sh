@@ -40,6 +40,21 @@ assert_success() {
   green "PASS: $label"
 }
 
+# assert_error <label> <json> <expected-error-code>
+# Asserts the response is an error envelope with the given error.code.
+assert_error() {
+  local label="$1"; local body="$2"; local code="$3"
+  local ok actual
+  ok=$(jget "$body" "success")
+  actual=$(jget "$body" "error.code")
+  if [ "$ok" != "false" ] || [ "$actual" != "$code" ]; then
+    red "FAIL: $label (expected error $code, got success=$ok code=$actual)"
+    echo "$body"
+    exit 1
+  fi
+  green "PASS: $label"
+}
+
 hr; echo "1. Health"
 H=$(curl -s "$BASE/api/health")
 assert_success "GET /api/health" "$H"
@@ -86,6 +101,24 @@ REL=$(curl -s -X POST "$BASE/api/artifacts/$A1_ID/relations" "${AUTH[@]}" \
   -d "{\"targetArtifactId\":\"$A2_ID\",\"relationType\":\"DEPENDS_ON\",\"description\":\"auth depends on user db\"}")
 assert_success "POST /api/artifacts/:id/relations" "$REL"
 REL_ID=$(jget "$REL" "data.id")
+
+# DB-enforced edge uniqueness (source, target, type). The exact same edge is rejected…
+REL_DUP=$(curl -s -X POST "$BASE/api/artifacts/$A1_ID/relations" "${AUTH[@]}" \
+  -H "Content-Type: application/json" \
+  -d "{\"targetArtifactId\":\"$A2_ID\",\"relationType\":\"DEPENDS_ON\",\"description\":\"dup\"}")
+assert_error "POST duplicate relation → 409 RELATION_EXISTS" "$REL_DUP" "RELATION_EXISTS"
+
+# …but the same pair with a different relationType is a distinct, allowed edge…
+REL_TYPE=$(curl -s -X POST "$BASE/api/artifacts/$A1_ID/relations" "${AUTH[@]}" \
+  -H "Content-Type: application/json" \
+  -d "{\"targetArtifactId\":\"$A2_ID\",\"relationType\":\"USES\",\"description\":\"different type\"}")
+assert_success "POST same pair, different relationType (allowed)" "$REL_TYPE"
+
+# …and the reversed direction is also a distinct, allowed edge.
+REL_REV=$(curl -s -X POST "$BASE/api/artifacts/$A2_ID/relations" "${AUTH[@]}" \
+  -H "Content-Type: application/json" \
+  -d "{\"targetArtifactId\":\"$A1_ID\",\"relationType\":\"DEPENDS_ON\",\"description\":\"reversed direction\"}")
+assert_success "POST reversed direction (allowed)" "$REL_REV"
 
 hr; echo "7. Fetch graph"
 G=$(curl -s "$BASE/api/projects/$PROJECT_ID/graph" "${AUTH[@]}")

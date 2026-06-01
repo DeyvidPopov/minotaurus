@@ -1,12 +1,34 @@
 # Feature Progress
 
+> The newest work is listed first under "DONE". The dated "pass" sections further down are
+> a historical changelog kept for context. Refreshed 2026-06-01 (pre-submission pass).
+
 ## DONE
 - Auth
 - Projects
 - Artifacts
 - Relations
-- Validation
-- Export
+- Validation (rule-based, deterministic — 17 rules)
+- **Deterministic Analysis Engine** (`modules/exports/analysis/`, pure — health score,
+  documentation coverage, connectivity, traceability, governance, validation roll-up, risks)
+- **Export Engine V2** — JSON / Markdown / **real deterministic PDF report** (`pdfmake`,
+  section-gated, byte-deterministic from the snapshot) + on-demand server-side download
+  endpoint (`GET /exports/:exportId/download`). *(ZIP is advertised but not implemented —
+  falls back to JSON.)*
+- **AI Bootstrap Wizard** (`modules/ai/`) — propose artifacts (DRAFT) + relations + 1–3
+  Mermaid diagrams → human review → deterministic, server-re-validated apply. AI never
+  writes SSOT except on the human-gated apply path.
+- **AI Architecture Review** (`modules/ai/review/`) — read-only; reads SSOT +
+  `AnalysisResult`, emits an evidence-verified narrative, persists an `AiSession(REVIEW)`
+  audit row. No apply path; AI explains scores, never computes them.
+- **AiSession audit trail**, **Mermaid normalization** (AI Mermaid is structure-only),
+  **AI truncation handling** (honest `422`/prefix salvage, repair retry skipped).
+- **Database-level unique relation constraint** — the knowledge-graph edge is unique by
+  `@@unique([sourceArtifactId, targetArtifactId, relationType])` (migration
+  `20260601120000_unique_artifact_relation_edge`); the relation controller maps the P2002
+  unique violation to a clean `409 RELATION_EXISTS` (race-safe vs. the pre-check). Plus the
+  existing artifact-title constraint `@@unique([projectId, normalizedTitle])`
+  (409 ARTIFACT_TITLE_TAKEN) and membership `@@unique([projectId, userId])`.
 - Documentation (per-artifact Markdown editor)
 - **Documentation Hub (Phase A — project-wide coverage view)**
 - **Ingestion Hub (Ingestion Phases 1 + 2 + 3 + 4 + 5)** — every source type
@@ -601,9 +623,54 @@
   `prisma migrate deploy` instead of needing dev shadow DB.
 - New scripts: `prisma:generate`, `prisma:migrate`, `prisma:reset`, `prisma:studio`.
 
-## TODO (next phases)
-- AI architecture analysis (uses version history + impact + relations as feature inputs)
-- WebSocket live updates / live "X is editing" presence
-- Email invitations for non-existent users (today an email must already match a Minotaurus
-  account; sending an actual invite email is not implemented)
-- Per-resource ownership transfer (createdById is recorded but there is no UI to reassign)
+## AI FEATURES (shipped — current pass)
+- **AI Bootstrap Wizard** (`modules/ai/`): `POST /projects/:id/ai/bootstrap/{propose,apply}`
+  (DEVELOPER+). `proposeBootstrap` builds a prompt → Anthropic provider (forced tool use,
+  cached system block, non-streaming) → Zod-parse (one repair retry) → Mermaid normalize →
+  deterministic preview validation → persist a `PROPOSED` `AiSession`. `applyBootstrap` is
+  the only DB path: re-validates the user-edited proposal against the live project, creates
+  artifacts (`DRAFT`, `description:""`) + relations + diagrams in a `$transaction`, records a
+  `VersionEvent` per entity with `metadata.origin:"AI"`, flips the session to `APPLIED`.
+- **AI Architecture Review** (`modules/ai/review/`): `POST /projects/:id/ai/review`
+  (generate; DEVELOPER+; the only AI call) + three read-only GETs (`/review/latest`,
+  `/reviews`, `/reviews/:id`) that reuse persisted reviews with no AI call. Chain:
+  `SSOT → buildExportContent → analyzeExportSnapshot → buildReviewDigest → AI`. Output is
+  bounded by `review.schema.ts` caps; evidence is verified against a deterministic
+  `evidenceKeys` allow-list (`review.verify.ts`); truncation salvages the completed prefix
+  (`review.salvage.ts`). Persisted as `AiSession(REVIEW)` with an `analysisHash` for
+  staleness (`hashAnalysis` excludes `generatedAt`).
+- Error taxonomy: `503 AI_NOT_CONFIGURED`, `502 AI_PROVIDER_ERROR`, `422 AI_OUTPUT_TRUNCATED`,
+  `502 AI_SCHEMA_ERROR`; apply adds `422 AI_VALIDATION_FAILED` / `409 AI_APPLY_CONFLICT`.
+- Frontend: `components/ai/bootstrap-wizard.tsx` (describe → review → confirm, live
+  re-validation) and `app/(app)/projects/[projectId]/review/page.tsx` (loads the latest
+  persisted review on mount, history dropdown, staleness badge, evidence chips, deterministic
+  score cards). Regeneration is always explicit.
+- 11/11 backend smoke tests still pass; 112 backend unit tests cover the pure AI
+  proposal/review sub-engines.
+
+## EXPORT ENGINE V2 (shipped — current pass)
+- Three strictly separated layers: `buildExportContent` (SSOT assembly) →
+  `analyzeExportSnapshot` (pure analysis) → `renderArchitecturePdf` (pure presentation).
+- Real PDF via `pdfmake` (standard-14 fonts, no headless browser), section-gated by
+  `buildReportPlan`, deterministic (CreationDate/ModDate/`_id` pinned from snapshot identity).
+- Diagram SVGs captured by the frontend at export-create time and frozen into the snapshot;
+  normalized for `svg-to-pdfkit` in `pdf/diagram-svg.ts`.
+- On-demand download: `GET /exports/:exportId/download` (registered before the `:exportId`
+  catch-all) renders PDF from the persisted snapshot; JSON/MARKDOWN stream stored content.
+- ZIP is advertised but not implemented (falls back to JSON).
+
+## REMAINING WORK (pre-submission → post-diploma)
+Pre-submission hardening (small, see `NEXT_STEPS.md`):
+- Remove the hardcoded JWT-secret fallback; set a real secret; rotate the Anthropic key.
+- Add an async error wrapper (Express 4 doesn't route async-handler rejections).
+- Guard the destructive scripts (`seed`, `prisma:reset`) with a `NODE_ENV` check.
+- Cap the version-history query (`take`).
+- Tighten frontend loading/error states; modal focus handling.
+
+Deferred (post-diploma, do not start now):
+- Pagination + N+1 cleanup across list endpoints; validation-engine O(n²) optimisation.
+- Controller / validation-engine / parser unit tests + a frontend test runner.
+- ZIP export; AI generation of DB models / API specs / security policies.
+- Transitive impact analysis + scoring.
+- WebSocket live updates; email invitations for non-existent users; per-resource ownership
+  transfer; retention/archival for version events / AI sessions / export packages.

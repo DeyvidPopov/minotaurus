@@ -229,10 +229,33 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - Validation runs replace **all** prior issues for the project. No append/diff mode. Resolved/ignored statuses survive only until the next `POST /validate` run.
 - No "Run on save" — validation only fires when the user clicks **Run validation** or the seed runs it.
 
-## Export
+## Export (Export Engine V2 — shipped)
 - Snapshots are stored at creation time. Editing artifacts/docs/specs/diagrams after export does **not** update the stored export — re-export to refresh.
-- Export `MARKDOWN` format renders documentation and Mermaid blocks; `PDF` and `ZIP` are accepted but render the same payload (no PDF generation).
-- No download endpoint — preview page builds a blob client-side.
+- **Three strictly separated layers:** `buildExportContent` (SSOT assembly) →
+  `analyzeExportSnapshot` (pure deterministic analysis) → `renderArchitecturePdf` (pure
+  presentation). No layer reaches back; the renderer never recomputes a score, the analysis
+  never touches Prisma.
+- **JSON** returns the full SSOT payload; **MARKDOWN** renders documentation + Mermaid
+  blocks; **PDF** is a real `pdfmake` report (standard-14 fonts, no headless browser),
+  section-gated by `buildReportPlan` and **deterministic** (CreationDate/ModDate/`_id`
+  pinned from the snapshot identity → same persisted snapshot renders byte-identical PDFs).
+- **Download endpoint shipped:** `GET /exports/:exportId/download` renders the PDF on
+  demand from the persisted snapshot and streams `application/pdf`; JSON/MARKDOWN stream the
+  stored content. Registered before the `:exportId` catch-all; download mirrors read access,
+  create requires ARCHITECT+.
+- **Determinism caveat:** "same persisted snapshot → same PDF," **not** "same project state
+  → same PDF" — `generatedAt` is stamped at create time, so two exports created seconds
+  apart differ. This is by design (the snapshot is the frozen unit of determinism).
+- **PDF diagram rendering is the fragile spot** (`pdf/diagram-svg.ts`): the frontend
+  captures each diagram's SVG at export-create time and the renderer rewrites it for
+  `svg-to-pdfkit` with string-level regex surgery, including a **hardcoded dark→print color
+  remap** coupled to the exact hex values the frontend bakes in. If the UI theme palette
+  changes, PDF diagram colors can drift and no test catches it. Verify diagrams visually.
+- **ZIP is advertised but NOT implemented** — `ZIP` appears in `EXPORT_FORMATS` but the
+  download path falls through to the JSON branch and returns JSON. Do not demo "ZIP export"
+  as a real archive; either implement it or remove it from the format list.
+- **No unit test on `buildExportContent` itself** (including the Markdown path) — only the
+  downstream analyzer and PDF renderer are unit-tested.
 
 ## Frontend
 - `useTweaks` (theme / density / sidebar / graph node style) is browser-local Zustand state. Not synced to the backend.
@@ -242,10 +265,37 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - **Documentation routes (Phase A).** `/projects/[id]/docs` is now a real Documentation
   Hub (coverage stats, search, filter, deep-links). `/projects/[id]/docs/[artifactId]`
   redirects to the artifact detail with the Documentation tab preselected.
-- **No file / OpenAPI / repo import.** All modelling is manual. The UI no longer claims
-  otherwise (UX honesty pass).
-- **No AI assistant.** The "Ask Minotaurus" button and sparkly topbar icons are removed.
-  Validation is rule-based and deterministic; no LLM is involved anywhere.
+- File import is available via the **Ingestion Hub** (Markdown / OpenAPI JSON / Mermaid /
+  SQL Schema), all deterministic. There is no repo/Git import and no YAML OpenAPI support.
+
+## AI (Bootstrap Wizard + Architecture Review — shipped, advisory only)
+- **AI is opt-in and advisory.** Both features require `ANTHROPIC_API_KEY`; without it the
+  endpoints return `503 AI_NOT_CONFIGURED`. AI is an additive proposal/explanation layer
+  **outside** the deterministic core — it never writes SSOT directly, never computes a
+  score, and never creates/resolves validation issues (the five AI Safety & Determinism
+  Rules in `CLAUDE.md`, re-verified by code inspection in the pre-submission audit).
+- **Bootstrap Wizard** proposes artifacts (created `DRAFT`) + relations + 1–3 Mermaid
+  diagrams from a text idea. The user reviews/selects; only confirmed items are applied,
+  through a deterministic, server-**re-validated** apply step (the client snapshot is never
+  trusted). **Scope is artifacts + relations + diagrams only** — DB models, API specs,
+  security policies and docs are not AI-generated.
+- **Architecture Review** is **read-only**: it reads the SSOT + deterministic
+  `AnalysisResult`, emits an evidence-verified narrative, and persists an `AiSession(REVIEW)`
+  audit row. There is no apply path; the GET endpoints make no model call. Findings whose
+  citations aren't in the deterministic `evidenceKeys` allow-list are flagged `unverified`.
+- **AI prose never lands on entity fields** — rationale/confidence live only in the
+  proposal/audit snapshot; bootstrapped `Artifact.description` stays `""`.
+- **Truncation is handled honestly** — a `max_tokens` stop returns `422 AI_OUTPUT_TRUNCATED`
+  (bootstrap) or salvages the completed prefix with `truncated:true` + `missingSections[]`
+  (review); the repair retry is skipped because it would truncate identically.
+- **Doc-vs-code nuance:** the apply path **inlines** the artifact/relation/diagram create
+  calls and re-derives the controller fields inside its own transaction rather than calling
+  the real controller functions. Behaviour (title normalization, DRAFT status, version
+  events, Mermaid validation) is equivalent today, but the two paths are parallel code — a
+  future controller change won't automatically propagate to the AI apply path.
+- AI-applied initial graph node coordinates use `Math.random()`, so apply is not
+  byte-deterministic — but this only affects x/y (overridden by client drag-persist), never
+  scores or validation.
 
 ## Phase 6 runtime (now finalized)
 - Database is **live** on `localhost:5433` (PostgreSQL 18). Credentials: `postgres /
@@ -271,8 +321,11 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - **No diff or before/after snapshots.** Events carry `metadata` (changed field list,
   status, severity histogram for validations) but the previous values are not stored.
   Restoring an older state of an artifact is not possible.
-- **No retention policy.** Events accumulate indefinitely in `data.json`. For a long-running
-  demo this is fine; for a real deployment, add archival.
+- **No retention policy.** Events accumulate indefinitely in PostgreSQL (`VersionEvent` is
+  the fastest-growing table — one row per CUD across the whole platform). For a long-running
+  demo this is fine; for a real deployment, add archival/partitioning.
+- **Deleting a project cascade-deletes its `VersionEvent` history** (and `AiSession` rows).
+  The audit trail does not survive project deletion.
 - **`VERSIONING` validation category remains unused.** The three new architecture-intelligence
   rules (excessive deps, recent churn, deprecated-but-referenced) live under the existing
   `ARCHITECTURE` category. Reserved for a future "stale version" rule.
@@ -301,6 +354,44 @@ Living list of trade-offs and partial implementations in the current MVP. Update
   DOCUMENTATION-typed artifact that has a `DOCUMENTS` relation to the target. Free-text
   references to the artifact inside other docs are not detected.
 
+## Performance / scalability
+- **No pagination on list endpoints.** Almost every `findMany` is unbounded; search/filter
+  for artifacts/specs/models/diagrams/version-events is done in JS after a full table load.
+  `listVersionHistory` is the worst case (loads all events, then slices `limit` in memory).
+  Fine for the demo dataset; a large project would be slow.
+- **N+1 query patterns** in list serializers (artifacts / database-models / api-specs /
+  impact) — per-row count/lookup queries inside `Promise.all`.
+- **Validation engine loads the whole project into memory** and several rules are O(n²)
+  (relation scans inside per-artifact loops). Fine for the demo; quadratic at scale.
+- **Knowledge graph:** every edge subscribes to the node array, so node changes re-render
+  all edges. Heavily mitigated (cheap-path-first routing, boolean zoom threshold,
+  rAF-coalesced labels) but the broad subscription is the standing scaling risk.
+
+## Testing
+- Backend unit tests (112, `node:test`) cover **pure engines only** — export analysis, PDF
+  renderer/plan/SVG, and the AI proposal/review sub-engines.
+- **No tests** for: any controller, the validation engine, the ingestion parsers,
+  `lib/project-access.ts`, AI orchestration (`ai.service.ts`, `bootstrap.apply.ts`,
+  `review.service.ts`, providers), or `buildExportContent`.
+- **No frontend tests at all** (no runner installed). The graph rendering, edge
+  de-collision, Mermaid SVG capture, and tweaks store are unverified by automated tests.
+- `scripts/test-api.sh` is a liveness smoke pass (asserts only `success:true`) and leaves
+  orphan users/projects per run — re-`npm run seed` before any demo.
+
+## Security / operations (pre-submission hardening — see NEXT_STEPS.md)
+- **JWT secret fallback:** `middleware/auth.ts` falls back to a hardcoded
+  `"dev-secret-change-me"` if `JWT_SECRET` is unset — tokens would be forgeable. There is no
+  startup check. Set a real secret and remove the fallback before any shared deployment.
+- **Destructive scripts are NOT guarded:** `npm run seed` unconditionally wipes every table
+  (all users + projects) and `prisma:reset --force` drops/recreates the DB — neither has a
+  `NODE_ENV` guard or confirmation. Pointed at a shared/prod `DATABASE_URL`, either destroys
+  all data. Guard them before running anywhere but a disposable local DB.
+- **Permissive CORS default:** when `CORS_ORIGIN` is unset, the server reflects any origin
+  with `credentials:true`. Set `CORS_ORIGIN` explicitly outside local dev.
+- A live `ANTHROPIC_API_KEY` and a weak `JWT_SECRET=change-me-in-production` sit in
+  `backend/.env` on disk. The file is git-ignored and **not** committed, but rotate the key.
+- Production hardening (rate limiting, refresh tokens, token revocation on password change,
+  request-size limits, audit-log immutability) is **not** done — this is an MVP/diploma build.
+
 ## Misc
-- The "Ask Minotaurus" dashboard button is a static label — no AI integration.
 - The CmdK palette only indexes static pages + projects fetched lazily on open. It does not index artifacts/specs/diagrams.

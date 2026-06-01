@@ -14,9 +14,10 @@
     "seed": "tsx scripts/seed-demo.ts",
     "test:api": "bash scripts/test-api.sh",
     "test:unit": "node --import tsx --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:reset": "prisma migrate reset --force",
+    "prisma:reset": "tsx scripts/guard-destructive.ts && prisma migrate reset --force",
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
     "jsonwebtoken": "^9.0.2",
     "pdfmake": "^0.2.23",
     "prisma": "^5.22.0",

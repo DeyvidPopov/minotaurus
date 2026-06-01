@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { ProjectRole, RelationType, type ArtifactRelation } from "@prisma/client";
+import { Prisma, ProjectRole, RelationType, type ArtifactRelation } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
@@ -79,15 +79,27 @@ export async function createRelation(req: AuthedRequest, res: Response) {
     return fail(res, 400, "SELF_RELATION", "Cannot relate an artifact to itself");
   }
 
-  const relation = await prisma.artifactRelation.create({
-    data: {
-      sourceArtifactId: source.id,
-      targetArtifactId: target.id,
-      relationType: parsed.data.relationType,
-      description: parsed.data.description,
-      createdById: req.user!.userId,
-    },
-  });
+  let relation: ArtifactRelation;
+  try {
+    relation = await prisma.artifactRelation.create({
+      data: {
+        sourceArtifactId: source.id,
+        targetArtifactId: target.id,
+        relationType: parsed.data.relationType,
+        description: parsed.data.description,
+        createdById: req.user!.userId,
+      },
+    });
+  } catch (err) {
+    // The DB enforces edge uniqueness (source, target, type). Map the unique
+    // violation to a clean 409 instead of a 500 — race-safe vs. a pre-check.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return fail(res, 409, "RELATION_EXISTS", "Relation already exists");
+    }
+    // eslint-disable-next-line no-console
+    console.error("[relations] create failed", err);
+    return fail(res, 500, "INTERNAL_ERROR", "Failed to create relation");
+  }
   await recordVersionEvent({
     projectId: source.projectId,
     entityType: "RELATION",

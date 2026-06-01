@@ -2,6 +2,57 @@
 
 ## Last Completed Feature
 
+**AI Architecture Review** (`modules/ai/review/`) — the first read-only AI feature:
+- Chain is strictly one-directional and AI-free until the model call:
+  `SSOT → buildExportContent → analyzeExportSnapshot → buildReviewDigest → AI review`.
+  `AnalysisResult → AI` is allowed; `AI → AnalysisResult` is forbidden (Safety Rule 3).
+- `POST /projects/:id/ai/review` generates (DEVELOPER+, the only AI call); three read-only
+  GETs (`/review/latest`, `/reviews`, `/reviews/:reviewId`) reuse persisted reviews with no
+  AI call. The digest is built from `AnalysisResult` (not raw SSOT), output is bounded by
+  `review.schema.ts` caps, evidence is verified against a deterministic `evidenceKeys`
+  allow-list (`review.verify.ts`), and a `max_tokens` stop salvages the completed prefix
+  (`review.salvage.ts`).
+- Persisted as `AiSession(REVIEW)` with a nullable `analysisHash` (migration
+  `20260531234232_ai_review_session`); `hashAnalysis` excludes `meta.generatedAt` so the
+  hash fingerprints project state, not assembly time. History is preserved (new row per
+  generate). Frontend: `app/(app)/projects/[projectId]/review/page.tsx` loads the latest
+  review on mount (no AI), shows staleness (`Current` vs `Project changed`), a history
+  dropdown, evidence chips, and deterministic score cards; regeneration is always explicit.
+
+## Previous feature pass
+
+**AI Bootstrap Wizard** (`modules/ai/`) — the first AI feature, on the AI Safety &
+Determinism Rules:
+- `POST /projects/:id/ai/bootstrap/{propose,apply}` (DEVELOPER+). `proposeBootstrap`:
+  prompt → Anthropic provider (forced tool use, cached system block, non-streaming) →
+  Zod-parse (one repair retry) → Mermaid normalize → deterministic preview validation →
+  persist a `PROPOSED` `AiSession`. `applyBootstrap` is the only DB path: re-validates the
+  user-edited proposal against the live project (never trusts the client), creates artifacts
+  (`DRAFT`, `description:""`) + relations + diagrams in a `$transaction`, records a
+  `VersionEvent` per entity with `metadata.origin:"AI"`, flips the session to `APPLIED`.
+- Generation contract expressed twice from the Prisma enums (Zod schema + Claude tool
+  `input_schema`), field/emit order `summary → artifacts → diagrams → relations`. AI Mermaid
+  is structure-only (styling stripped at propose + apply + validate). Honest error taxonomy
+  (`503/502/422/409`); truncation → `422 AI_OUTPUT_TRUNCATED`, repair retry skipped.
+- Frontend `components/ai/bootstrap-wizard.tsx`: describe → review (per-item checkboxes,
+  live relation-endpoint + diagram-reference re-validation) → confirm.
+
+## Previous feature pass
+
+**Export Engine V2** — SSOT export + real deterministic PDF report:
+- Three strictly separated layers: `buildExportContent` (SSOT assembly) →
+  `analyzeExportSnapshot` (pure analysis) → `renderArchitecturePdf` (pure presentation).
+- Real PDF via `pdfmake` (standard-14 fonts, no headless browser), section-gated by
+  `buildReportPlan`, deterministic (CreationDate/ModDate/`_id` pinned from snapshot
+  identity → byte-identical re-renders). Diagram SVGs captured by the frontend at
+  export-create time, frozen into the snapshot, normalized in `pdf/diagram-svg.ts`.
+- On-demand download `GET /exports/:exportId/download` (registered before the `:exportId`
+  catch-all) renders PDF from the persisted snapshot; JSON/MARKDOWN stream stored content.
+  Create requires ARCHITECT+; download mirrors read access. ZIP advertised but not
+  implemented (falls back to JSON).
+
+## Previous feature pass
+
 **Diagrams module UX refactor**:
 - Diagrams list page rewritten as a visual card gallery. Each card
   renders a live Mermaid thumbnail (clamped via CSS), title, type chip,
@@ -428,40 +479,47 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 
 ## Current Commit
 
-8963010 — *Polish diagrams gallery and Mermaid readability*
+118cea2 — *AI Review* (latest on `main`).
 
 ## Current Working State
 
-- frontend works (Team page live)
-- backend works (members API live, role enforcement live)
-- exports work (TEAM, artifacts, relations, API specs, DB models, diagrams, validation report, graph, version history, impact analysis)
-- validation works (artifact/relation/doc/security/API/DB/diagram/churn/deprecated/single-member rules)
-- Mermaid rendering works (lazy-loaded, `securityLevel: strict`, surfaces syntax errors as UI state)
+- frontend works (all module pages live, incl. AI Bootstrap wizard + AI Review page)
+- backend works (16 Prisma models, role enforcement live, AI endpoints live)
+- **AI works** (opt-in via `ANTHROPIC_API_KEY`): Bootstrap propose/apply + read-only Review
+  with persisted `AiSession` audit rows. Without the key the endpoints return `503`.
+- **exports work** — JSON / Markdown / **real deterministic PDF** + on-demand download
+  endpoint. ZIP advertised but not implemented (falls back to JSON).
+- validation works (rule-based, deterministic — relation/doc/security/API/DB/diagram/churn/
+  deprecated/single-member rules)
+- analysis engine works (pure, deterministic — health score, coverage, traceability, risks)
+- Mermaid rendering works (lazy-loaded, surfaces syntax errors as UI state)
 - Demo project ("Online Shop Platform") seeded with 4 team members
-  (Deyvid OWNER · Iris ARCHITECT · Maya DEVELOPER · Ren VIEWER), 10 artifacts,
-  10 relations, 4 docs, 1 API spec with 3 endpoints, 1 DB model with 3 entities + FK,
-  1 architecture diagram, 31 version events spread across all four authors
+  (Deyvid OWNER · Iris ARCHITECT · Maya DEVELOPER · Ren VIEWER), artifacts, relations, docs,
+  1 API spec + endpoints, 1 DB model + entities + FK, diagrams, version events, seeded exports
+- Tests: 112 backend unit tests (pure engines) pass; backend + frontend `tsc` clean; 11/11
+  `test:api` smoke. No controller / validation-engine / frontend tests.
 
 ## Current Goal
 
-**AI architecture review** — wrap a model call in a backend endpoint to
-summarise architecture, flag cross-artifact inconsistencies the deterministic
-validation rules can't catch, and answer impact questions. Settings already
-has a place for an Anthropic API key field to keep it opt-in. See
-NEXT_STEPS.md.
+**Pre-submission hardening** — manual testing, bug fixing, UI polish, diploma documentation,
+and defense preparation. No new features. First priorities (see `NEXT_STEPS.md`): remove the
+hardcoded JWT-secret fallback, rotate the Anthropic key, add an async error wrapper, guard
+the destructive scripts, cap the version-history query.
 
 ## Important Constraints
 
-- do not break graph contract
-- do not redesign frontend shell
+- do not break the graph contract (`ArtifactRelation` only; artifact nodes only)
+- do not redesign the frontend shell
 - do not regress existing flows (auth, projects, artifacts, relations, docs, API specs,
-  DB models, diagrams, validation, export, version history, impact analysis, **team**)
-- preserve seeded demo login (`deyvid@minotaurus.dev` / `minotaurus`) — confirmed
-  unaffected by Phase 7 changes
+  DB models, diagrams, validation, export, version history, impact analysis, team, **AI**)
+- keep AI outside the deterministic core (the five AI Safety & Determinism Rules in `CLAUDE.md`)
+- preserve the seeded demo login (`deyvid@minotaurus.dev` / `minotaurus`)
 
 ## Known Risks
 
-- graph becoming overloaded
-- export payload growth (now includes Mermaid sources)
-- AI context compaction
-- Mermaid bundle size on first render (~1MB, lazy-loaded)
+- no pagination on list endpoints; version-history loads all events into memory
+- validation engine is O(n²) and loads the whole project — fine for demo, slow at scale
+- export payload growth (`ExportPackage.content` freezes the snapshot + diagram SVGs)
+- PDF diagram color remap is hardcoded to the current frontend theme (verify visually)
+- AI latency / cost (non-streaming, opt-in); Mermaid bundle ~1MB on first render
+- JWT secret fallback + unguarded destructive scripts (hardening items, see NEXT_STEPS.md)

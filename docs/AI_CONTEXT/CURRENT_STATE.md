@@ -1,71 +1,100 @@
 # Current Platform State
 
-## Stack
-Frontend:
-- Next.js
-- React
-- TypeScript
-- Tailwind
+> Living snapshot of what is actually shipped. Last refreshed for the pre-submission
+> documentation pass (2026-06-01). For the authoritative architecture contract see the
+> root `CLAUDE.md`; for honest trade-offs see `KNOWN_LIMITATIONS.md`.
 
-Backend:
-- Express
-- TypeScript
-- Prisma + PostgreSQL (Phase 6)
+## Stack
+
+Frontend (`frontend/nextjs/`):
+- Next.js 14 (App Router), React 18, TypeScript
+- Tailwind, React Flow, Mermaid, Zustand
+
+Backend (`backend/`):
+- Express + TypeScript (ESM / NodeNext, run via `tsx`)
+- Prisma ORM + PostgreSQL (Phase 6 — live)
+- Anthropic SDK for the two AI features (opt-in via `ANTHROPIC_API_KEY`)
 
 ## Working Features
-- Auth
-- Projects
-- **Project Team Management + Roles (Phase 7)** — ProjectMember table with OWNER /
-  ARCHITECT / DEVELOPER / VIEWER roles. Project access is now membership-based across
-  every controller. OWNER manages members, ARCHITECT runs validation + exports,
-  DEVELOPER edits artifacts/APIs/DB/diagrams/docs, VIEWER is read-only.
-- Artifacts (**title unique per project, case- and whitespace-insensitive** —
-  enforced by the `normalizedTitle` column + unique index on `(projectId, normalizedTitle)`)
-- Relations
-- Documentation (per-artifact Markdown editor) + **Documentation Hub** with
-  project-wide coverage stats, search, filter, and direct deep-links to the
-  artifact detail's Documentation tab via `?tab=documentation`.
-- **Ingestion Hub with four live parsers** —
-  - Foundation (Ingestion Phase 1): `IngestionRecord` table, draft CRUD API,
-    sidebar entry, source type cards, history.
-  - **Markdown parser (Phase 2)**: paste / upload `.md` → DOCUMENTATION
-    artifact (LINK_EXISTING / CREATE_NEW).
-  - **OpenAPI JSON parser (Phase 3)**: paste / upload `.json` → ApiSpec +
-    ApiEndpoints (CREATE_API_SPEC), editable base URL.
-  - **Mermaid parser (Phase 4)**: paste / upload `.mmd` or `.md` with a
-    `\`\`\`mermaid` fence → Diagram (CREATE_DIAGRAM), live MermaidPreview in
-    the wizard, optional artifact link.
-  - **SQL Schema parser (Phase 5)**: paste / upload `.sql` (subset of
-    CREATE TABLE DDL) → DatabaseModel + DatabaseEntity + DatabaseField with
-    resolved FKs (CREATE_DATABASE_MODEL), generated Mermaid ERD preview.
-- API Specs
-- Database Models (with visual Mermaid ERD)
-- Diagrams — visual gallery of Mermaid diagrams. List page renders each
-  diagram as a card with a live Mermaid thumbnail, type chip and linked
-  artifact. Detail page is read-first (rendered diagram up top, source in a
-  collapsible block); explicit Edit button toggles the split editor. New
-  diagram flow is a purpose picker (Architecture overview / Request flow /
-  Login sequence / Checkout sequence / Database ERD / Domain model /
-  Validation lifecycle / Impact analysis / Roadmap) and seeds the editor
-  with a Minotaurus-relevant template. Sequence-diagram actor boxes get a
-  dark fill + accent border via the shared renderer.
-- Validation (artifact relation, doc, security, API, DB, diagram, churn, deprecated-still-used, single-member rules)
-- Version History (every CUD records a VersionEvent — including member add/role-change/remove; timeline + filters)
-- Impact Analysis (per-artifact blast radius: deps, dependents, APIs, DBs, diagrams, docs, recent events)
-- Export (TEAM, artifacts, relations, API specs, DB models, diagrams, validation report, graph, version history, impact analysis)
-- Graph
-- Settings
 
-## Current Persistence
+### Core platform
+- **Auth** — JWT bearer, bcrypt password hashing, single `toPublicUser` serializer.
+- **Projects** — CRUD; creator auto-inserted as OWNER membership.
+- **Project Team Management + Roles (Phase 7)** — `ProjectMember` with OWNER /
+  ARCHITECT / DEVELOPER / VIEWER. Access is membership-based across every controller
+  via `lib/project-access.ts`. Last-OWNER protection.
+- **Artifacts** — CRUD; **title unique per project**, case- and whitespace-insensitive
+  (`normalizedTitle` column + unique index `(projectId, normalizedTitle)`).
+- **Relations** — `ArtifactRelation`, the single source of truth for the graph.
+- **Documentation** — per-artifact Markdown editor + project-wide **Documentation Hub**
+  (coverage stats, search, filter, `?tab=documentation` deep-links).
+- **API Specs** — specs + endpoints CRUD.
+- **Database Models** — models / entities / fields with auto-generated Mermaid ERD.
+- **Diagrams** — visual Mermaid gallery + read-first detail page + purpose-picker create flow.
+- **Ingestion Hub** — four deterministic parsers (Markdown / OpenAPI JSON / Mermaid /
+  SQL Schema), draft → parse → confirm. No AI. `IngestionRecord` is an audit log only.
+
+### Architecture intelligence
+- **Knowledge Graph** — React Flow canvas; artifact-only nodes, `ArtifactRelation` edges.
+- **Validation engine** — rule-based, deterministic (17 rules: relation hygiene, missing
+  docs, security, API/DB completeness, diagram links, churn, deprecated-but-used,
+  single-member). Wipe-and-recompute per run; writes a `VALIDATED` VersionEvent.
+- **Deterministic Analysis Engine** — `modules/exports/analysis/`, pure (no I/O, no
+  `Date.now()`, no AI). Computes health score, documentation coverage, connectivity,
+  traceability, governance, validation roll-up, and rule-keyed risks.
+- **Traceability** — requirement coverage (IMPLEMENTS) + resource linkage, computed in
+  the analysis engine.
+- **Impact Analysis** — per-artifact blast radius (depth-1: deps, dependents, linked
+  APIs/DBs/diagrams, docs, recent events). No transitive traversal, no scoring (by design).
+- **Version History** — every CUD records a `VersionEvent`; timeline + filters + dashboard
+  "Recent changes" widget.
+
+### Export (Export Engine V2 — shipped)
+- Three strictly separated layers: `buildExportContent` (SSOT assembly) →
+  `analyzeExportSnapshot` (pure analysis) → `renderArchitecturePdf` (pure presentation).
+- **JSON export** — full SSOT payload.
+- **Markdown export** — human-readable document with documentation + Mermaid blocks.
+- **PDF Architecture Report** — `pdfmake` (standard-14 fonts, **no headless browser**),
+  deterministic (CreationDate/ModDate/`_id` pinned from snapshot identity), section-gated
+  via `buildReportPlan`, with frozen client-captured diagram SVGs.
+- **On-demand download** — `GET /exports/:exportId/download` renders the PDF from the
+  persisted snapshot and streams it; JSON/MARKDOWN stream the stored content.
+- **ZIP** — advertised in `EXPORT_FORMATS` but **not implemented** (falls back to JSON);
+  see `KNOWN_LIMITATIONS.md`.
+
+### AI (additive, proposal/explanation only — never writes SSOT directly)
+- **AI Bootstrap Wizard** (`modules/ai/`) — from an empty project, the user describes an
+  idea → Claude proposes artifacts (created `DRAFT`) + relations + 1–3 Mermaid diagrams →
+  the user reviews/selects → confirmed items are applied through a deterministic,
+  server-re-validated apply step. AI never calls `prisma.create/update/delete` except on
+  the human-gated apply path.
+- **AI Architecture Review** (`modules/ai/review/`) — the first **read-only** AI feature:
+  reads the SSOT + deterministic `AnalysisResult`, emits an evidence-verified narrative,
+  persisted as an `AiSession(REVIEW)` audit row. AI explains scores; it never computes them.
+- **AiSession audit trail** — lightweight audit metadata (idea, model, tokens, status,
+  proposal snapshot, `analysisHash`). Never a graph node, never scored.
+- **Mermaid normalization** — AI Mermaid is structure-only; styling stripped at propose +
+  apply + validate.
+- **Truncation handling** — `stop_reason:"max_tokens"` → honest `422 AI_OUTPUT_TRUNCATED`
+  (bootstrap) / prefix salvage with `truncated:true` (review); repair retry is skipped.
+
+### Settings
+- Theme / accent / font / graph node style (Zustand "tweaks" store, localStorage).
+
+## Persistence
+
 PostgreSQL (Prisma ORM) — **live and verified**.
 
-- Runtime: PostgreSQL 18 on `localhost:5433` (the local install uses 5433, not the
-  spec's default 5432).
-- Connection: `DATABASE_URL=postgresql://postgres:postgres123!@localhost:5433/minotaurus`
-  in `backend/.env`.
-- Initial migration applied: `backend/prisma/migrations/20260527120000_init/migration.sql`.
-- 13 tables + `_prisma_migrations`; 13 enums; all FK indexes created.
-- Healthcheck: `GET /api/health/db` returns `{ database: "connected", provider: "postgresql", port }`.
+- Runtime: PostgreSQL on `localhost:5433` (the local install uses 5433, not 5432).
+- Connection: `DATABASE_URL` in `backend/.env`.
+- **16 models** + `_prisma_migrations`; **18 enums**; FK indexes throughout; **9 migrations**
+  (linear, drift-free) under `backend/prisma/migrations/`.
+- **Database-level unique constraints back the SSOT:** artifact titles
+  `(projectId, normalizedTitle)`, project membership `(projectId, userId)`, and the
+  knowledge-graph edge `(sourceArtifactId, targetArtifactId, relationType)` (migration
+  `20260601120000_unique_artifact_relation_edge`). The relation controller maps the unique
+  violation to a clean `409 RELATION_EXISTS` (race-safe vs. the application pre-check).
+- Healthcheck: `GET /api/health/db` → `{ database: "connected", provider: "postgresql", port }`.
 
 To bootstrap a fresh local environment:
 ```
@@ -75,36 +104,41 @@ psql -U postgres -h localhost -p 5433 -c "CREATE DATABASE minotaurus;"
 npx prisma migrate deploy
 npm run seed
 npm run dev
+
+# separate terminal:
+cd frontend/nextjs && npm install && npm run dev
 ```
+Demo login: `deyvid@minotaurus.dev` / `minotaurus`.
 
-## Graph Source of Truth
-ArtifactRelation
+## Sources of truth
+- **Graph:** `ArtifactRelation` (artifact nodes only).
+- **Export:** `ExportPackage` snapshot (`content` Json, frozen at create time).
+- **Validation:** `validation.engine.ts` (rule-based, deterministic).
+- **Analysis / scores:** `modules/exports/analysis/` (pure, deterministic).
 
-## Export Source of Truth
-ExportPackage
+## Current modules (`backend/src/modules/`)
+auth · projects · artifacts (+ documentation, artifact-title) · relations · graph ·
+api-specs · database-models · diagrams · validation · versions (history + impact) ·
+members · ingestion (4 parser engines) · exports (engine + analysis/ + pdf/) ·
+ai (providers/, proposal/ bootstrap, review/)
 
-## Validation Engine
-validation.engine.ts
+## AI safety posture (deterministic-first)
+Minotaurus is deterministic-first. AI is an additive proposal/explanation layer **outside**
+the deterministic core. The five mandatory rules (see `CLAUDE.md` → *AI Safety & Determinism
+Rules*) are all enforced in code and were re-verified in the pre-submission audit:
+1. AI never writes the DB directly (only the human-gated apply path writes, after re-validation).
+2. AI output is not SSOT until a user confirms it.
+3. `AnalysisResult` stays deterministic — `AnalysisResult → AI` is allowed; `AI → AnalysisResult` is forbidden.
+4. Validation stays deterministic — AI may explain findings, never create/resolve them.
+5. Every AI-proposed entity passes the same deterministic validation as hand-authored entities before apply.
 
-## Current Modules
-- documentation
-- api-specs
-- database-models
-- diagrams
-- exports
-- validation
-- versions (version history + impact analysis)
+## Current goal
+Pre-submission hardening: manual testing, bug fixing, UI polish, diploma documentation,
+and defense preparation. No large new features. See `NEXT_STEPS.md`.
 
-## Current Commit
-cf2611f
-
-## Current Goal
-Phase 6 finalized; the platform runs on Prisma + PostgreSQL end-to-end. The project
-workspace overview's "Recent changes" widget is wired to live VersionEvent data
-(newest-first, refreshes on validate). Recommended next phase: AI architecture
-analysis.
-
-## Important Constraints
-- Do not break existing API contracts
-- Do not redesign frontend shell
-- Postgres is the source of truth (was JSON before Phase 6)
+## Important constraints
+- Do not break the API envelope contract (`{ success, data | error }`).
+- Do not redesign the frontend shell.
+- PostgreSQL is the source of truth (the old `data.json` JSON store is gone).
+- Keep the graph contract intact (`ArtifactRelation` only; artifact nodes only).
+- Keep AI outside the deterministic core (the five safety rules).

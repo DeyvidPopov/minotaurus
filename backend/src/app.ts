@@ -1,3 +1,8 @@
+// Side-effect import: patches Express's router layer so a rejected promise from
+// any async handler is forwarded to `next(err)` and reaches `errorHandler`,
+// instead of hanging the request. Must be imported before routers handle
+// requests. No controllers/routes change as a result.
+import "express-async-errors";
 import express from "express";
 import cors from "cors";
 import { apiRouter } from "./routes.js";
