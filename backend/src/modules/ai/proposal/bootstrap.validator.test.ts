@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateBootstrapProposal, type ValidationContext } from "./bootstrap.validator.js";
-import type { BootstrapProposal } from "../ai.types.js";
+import type { BootstrapProposal, ProposedApiSpec, ProposedDatabaseModel } from "../ai.types.js";
 
 const FLOW = "flowchart TD\n  A[Auth Service] --> B[Player Management]";
 
@@ -23,8 +23,53 @@ function proposal(over: Partial<BootstrapProposal> = {}): BootstrapProposal {
       { sourceTitle: "Player Management", targetTitle: "Auth Service", relationType: "USES", rationale: "", confidence: 0.7 },
     ],
     diagrams: [{ title: "Overview", mermaidSource: FLOW, confidence: 0.6 }],
+    databaseModels: [],
+    apiSpecs: [],
     ...over,
   };
+}
+
+// A DB-only proposal: no artifacts/relations/diagrams, just one database model. Lets
+// the database tests stand alone without dragging in the default artifacts/diagram.
+function dbModel(over: Partial<ProposedDatabaseModel> = {}): ProposedDatabaseModel {
+  return {
+    title: "Player Database",
+    databaseType: "PostgreSQL",
+    entities: [
+      {
+        name: "Player",
+        confidence: 0.9,
+        fields: [
+          { name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 },
+          { name: "name", type: "text", required: true, isPrimaryKey: false, isForeignKey: false, confidence: 0.8 },
+        ],
+      },
+    ],
+    confidence: 0.85,
+    ...over,
+  };
+}
+
+function dbOnly(models: ProposedDatabaseModel[]): BootstrapProposal {
+  return { summary: "x", artifacts: [], relations: [], diagrams: [], databaseModels: models, apiSpecs: [] };
+}
+
+// An API-only proposal: no artifacts/relations/diagrams/models, just API specs.
+function apiSpec(over: Partial<ProposedApiSpec> = {}): ProposedApiSpec {
+  return {
+    title: "Booking API",
+    version: "1.0.0",
+    endpoints: [
+      { method: "GET", path: "/bookings", summary: "List bookings", requiresAuth: true, confidence: 0.9 },
+      { method: "POST", path: "/bookings", summary: "Create a booking", requiresAuth: true, confidence: 0.8 },
+    ],
+    confidence: 0.85,
+    ...over,
+  };
+}
+
+function apiOnly(specs: ProposedApiSpec[]): BootstrapProposal {
+  return { summary: "x", artifacts: [], relations: [], diagrams: [], databaseModels: [], apiSpecs: specs };
 }
 
 test("valid proposal: everything accepted, ok true", () => {
@@ -239,9 +284,355 @@ test("diagram check is case/whitespace-insensitive (matches title normalization)
 
 test("nothing acceptable ⇒ ok false with a batch error", () => {
   const r = validateBootstrapProposal(
-    { summary: "", artifacts: [], relations: [], diagrams: [] },
+    { summary: "", artifacts: [], relations: [], diagrams: [], databaseModels: [], apiSpecs: [] },
     emptyCtx(),
   );
   assert.equal(r.ok, false);
   assert.equal(r.errors.length, 1);
+});
+
+// ────────────────────────── Database models (Bootstrap V2, Phase 1) ──────────────────────────
+
+test("valid database model: model + entity + fields all accepted, ok true", () => {
+  const r = validateBootstrapProposal(dbOnly([dbModel()]), emptyCtx());
+  assert.equal(r.ok, true);
+  assert.equal(r.databaseModels.length, 1);
+  assert.equal(r.databaseModels[0].accepted, true);
+  assert.equal(r.databaseModels[0].entities[0].accepted, true);
+  assert.deepEqual(r.databaseModels[0].entities[0].fields.map((f) => f.accepted), [true, true]);
+});
+
+test("database-only proposal still applies (ok true even with no artifacts)", () => {
+  const r = validateBootstrapProposal(dbOnly([dbModel()]), emptyCtx());
+  assert.equal(r.ok, true);
+  assert.equal(r.errors.length, 0);
+});
+
+test("FK referencesEntityName resolves to a sibling entity → field accepted + resolvedReference", () => {
+  const model = dbModel({
+    entities: [
+      {
+        name: "Team",
+        confidence: 0.9,
+        fields: [{ name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 }],
+      },
+      {
+        name: "Player",
+        confidence: 0.9,
+        fields: [
+          { name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 },
+          { name: "team_id", type: "uuid", required: true, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "Team", confidence: 0.8 },
+        ],
+      },
+    ],
+  });
+  const r = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  const playerFields = r.databaseModels[0].entities[1].fields;
+  assert.equal(playerFields[1].accepted, true);
+  assert.equal(playerFields[1].resolvedReference, true);
+});
+
+test("FK to a forward-declared sibling resolves (order-independent within the model)", () => {
+  // Player references Team, but Team is declared AFTER Player. Pass 1 fixes the
+  // entity set before pass 2 resolves FKs, so declaration order doesn't matter.
+  const model = dbModel({
+    entities: [
+      {
+        name: "Player",
+        confidence: 0.9,
+        fields: [
+          { name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 },
+          { name: "team_id", type: "uuid", required: true, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "Team", confidence: 0.8 },
+        ],
+      },
+      {
+        name: "Team",
+        confidence: 0.9,
+        fields: [{ name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 }],
+      },
+    ],
+  });
+  const r = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  assert.equal(r.databaseModels[0].entities[0].fields[1].accepted, true);
+  assert.equal(r.databaseModels[0].entities[0].fields[1].resolvedReference, true);
+});
+
+test("FK to a nonexistent entity → that field is rejected with a reason", () => {
+  const model = dbModel({
+    entities: [
+      {
+        name: "Player",
+        confidence: 0.9,
+        fields: [
+          { name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 },
+          { name: "ghost_id", type: "uuid", required: false, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "Ghost", confidence: 0.6 },
+        ],
+      },
+    ],
+  });
+  const r = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  const fields = r.databaseModels[0].entities[0].fields;
+  assert.equal(fields[0].accepted, true);
+  assert.equal(fields[1].accepted, false);
+  assert.match(fields[1].reason ?? "", /unknown entity/i);
+  // The model + its valid field still apply.
+  assert.equal(r.databaseModels[0].accepted, true);
+  assert.equal(r.ok, true);
+});
+
+test("FK self-reference resolves (an entity may reference itself)", () => {
+  const model = dbModel({
+    entities: [
+      {
+        name: "Category",
+        confidence: 0.9,
+        fields: [
+          { name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 },
+          { name: "parent_id", type: "uuid", required: false, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "Category", confidence: 0.7 },
+        ],
+      },
+    ],
+  });
+  const r = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  assert.equal(r.databaseModels[0].entities[0].fields[1].accepted, true);
+  assert.equal(r.databaseModels[0].entities[0].fields[1].resolvedReference, true);
+});
+
+test("FK match is case/whitespace-insensitive (matches title normalization)", () => {
+  const model = dbModel({
+    entities: [
+      {
+        name: "Team",
+        confidence: 0.9,
+        fields: [{ name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 }],
+      },
+      {
+        name: "Player",
+        confidence: 0.9,
+        fields: [
+          { name: "team_id", type: "uuid", required: true, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "  team  ", confidence: 0.8 },
+        ],
+      },
+    ],
+  });
+  const r = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  assert.equal(r.databaseModels[0].entities[1].fields[0].accepted, true);
+  assert.equal(r.databaseModels[0].entities[1].fields[0].resolvedReference, true);
+});
+
+test("duplicate entity name within a model → second entity rejected", () => {
+  const model = dbModel({
+    entities: [
+      {
+        name: "Player",
+        confidence: 0.9,
+        fields: [{ name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 }],
+      },
+      {
+        name: " player ",
+        confidence: 0.9,
+        fields: [{ name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 }],
+      },
+    ],
+  });
+  const r = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  assert.equal(r.databaseModels[0].entities[0].accepted, true);
+  assert.equal(r.databaseModels[0].entities[1].accepted, false);
+  assert.match(r.databaseModels[0].entities[1].reason ?? "", /duplicate entity/i);
+});
+
+test("entity with no fields → rejected", () => {
+  const model = dbModel({
+    entities: [{ name: "Empty", confidence: 0.9, fields: [] }],
+  });
+  const r = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  assert.equal(r.databaseModels[0].entities[0].accepted, false);
+  assert.match(r.databaseModels[0].entities[0].reason ?? "", /no fields/i);
+  // No valid entity ⇒ the whole model is rejected.
+  assert.equal(r.databaseModels[0].accepted, false);
+  assert.match(r.databaseModels[0].reason ?? "", /no valid entities/i);
+});
+
+test("model with an empty title → rejected", () => {
+  const r = validateBootstrapProposal(dbOnly([dbModel({ title: "   " })]), emptyCtx());
+  assert.equal(r.databaseModels[0].accepted, false);
+  assert.match(r.databaseModels[0].reason ?? "", /empty model title/i);
+});
+
+test("artifactTitle resolves to a proposed artifact → model linked", () => {
+  const r = validateBootstrapProposal(
+    proposal({ databaseModels: [dbModel({ artifactTitle: "Player Management" })] }),
+    emptyCtx(),
+  );
+  assert.equal(r.databaseModels[0].accepted, true);
+  assert.equal(r.databaseModels[0].artifactLinked, true);
+});
+
+test("artifactTitle that doesn't resolve → model still accepted, link dropped", () => {
+  const r = validateBootstrapProposal(
+    proposal({ databaseModels: [dbModel({ artifactTitle: "Nonexistent Service" })] }),
+    emptyCtx(),
+  );
+  assert.equal(r.databaseModels[0].accepted, true);
+  assert.equal(r.databaseModels[0].artifactLinked, false);
+});
+
+test("artifactTitle resolves against an already-existing project artifact", () => {
+  const ctx: ValidationContext = {
+    existingArtifacts: [{ id: "a9", normalizedTitle: "billing service" }],
+    existingRelations: [],
+  };
+  const r = validateBootstrapProposal(dbOnly([dbModel({ artifactTitle: "Billing Service" })]), ctx);
+  assert.equal(r.databaseModels[0].artifactLinked, true);
+});
+
+test("multi-model: one valid, one invalid → no cross-contamination", () => {
+  const good = dbModel({ title: "Player Database" });
+  const bad = dbModel({ title: "Broken", entities: [{ name: "X", confidence: 0.5, fields: [] }] });
+  const r = validateBootstrapProposal(dbOnly([good, bad]), emptyCtx());
+  assert.equal(r.databaseModels[0].accepted, true);
+  assert.equal(r.databaseModels[1].accepted, false);
+  assert.equal(r.ok, true);
+});
+
+test("database validation is deterministic (same input ⇒ deep-equal report)", () => {
+  const model = dbModel({
+    entities: [
+      { name: "Team", confidence: 0.9, fields: [{ name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 }] },
+      { name: "Player", confidence: 0.9, fields: [{ name: "team_id", type: "uuid", required: true, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "Team", confidence: 0.8 }] },
+    ],
+  });
+  const a = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  const b = validateBootstrapProposal(dbOnly([model]), emptyCtx());
+  assert.deepEqual(a, b);
+});
+
+// ────────────────────────── API catalog (Bootstrap V2, Phase 2) ──────────────────────────
+
+test("valid API spec: spec + endpoints all accepted, ok true", () => {
+  const r = validateBootstrapProposal(apiOnly([apiSpec()]), emptyCtx());
+  assert.equal(r.ok, true);
+  assert.equal(r.apiSpecs.length, 1);
+  assert.equal(r.apiSpecs[0].accepted, true);
+  assert.deepEqual(r.apiSpecs[0].endpoints.map((e) => e.accepted), [true, true]);
+});
+
+test("API-only proposal still applies (ok true even with no artifacts)", () => {
+  const r = validateBootstrapProposal(apiOnly([apiSpec()]), emptyCtx());
+  assert.equal(r.ok, true);
+  assert.equal(r.errors.length, 0);
+});
+
+test("artifactTitle resolves to a proposed artifact → spec linked", () => {
+  const r = validateBootstrapProposal(
+    proposal({ apiSpecs: [apiSpec({ artifactTitle: "Player Management" })] }),
+    emptyCtx(),
+  );
+  assert.equal(r.apiSpecs[0].accepted, true);
+  assert.equal(r.apiSpecs[0].artifactLinked, true);
+});
+
+test("unresolved artifactTitle drops the link but keeps the spec", () => {
+  const r = validateBootstrapProposal(
+    proposal({ apiSpecs: [apiSpec({ artifactTitle: "Nonexistent Service" })] }),
+    emptyCtx(),
+  );
+  assert.equal(r.apiSpecs[0].accepted, true);
+  assert.equal(r.apiSpecs[0].artifactLinked, false);
+});
+
+test("duplicate API spec title within the proposal → second spec rejected", () => {
+  const r = validateBootstrapProposal(apiOnly([apiSpec(), apiSpec({ title: " booking   api " })]), emptyCtx());
+  assert.equal(r.apiSpecs[0].accepted, true);
+  assert.equal(r.apiSpecs[1].accepted, false);
+  assert.match(r.apiSpecs[1].reason ?? "", /duplicate api spec title/i);
+});
+
+test("duplicate endpoint (method + path) within a spec → second endpoint rejected", () => {
+  const spec = apiSpec({
+    endpoints: [
+      { method: "GET", path: "/bookings", summary: "List", requiresAuth: true, confidence: 0.9 },
+      { method: "GET", path: "/bookings", summary: "List again", requiresAuth: true, confidence: 0.9 },
+    ],
+  });
+  const r = validateBootstrapProposal(apiOnly([spec]), emptyCtx());
+  assert.equal(r.apiSpecs[0].endpoints[0].accepted, true);
+  assert.equal(r.apiSpecs[0].endpoints[1].accepted, false);
+  assert.match(r.apiSpecs[0].endpoints[1].reason ?? "", /duplicate endpoint/i);
+  // The spec still applies via the surviving endpoint.
+  assert.equal(r.apiSpecs[0].accepted, true);
+});
+
+test("invalid path (not starting with /) → endpoint rejected", () => {
+  const spec = apiSpec({
+    endpoints: [
+      { method: "GET", path: "bookings", summary: "List", requiresAuth: true, confidence: 0.9 },
+      { method: "POST", path: "/bookings", summary: "Create", requiresAuth: true, confidence: 0.9 },
+    ],
+  });
+  const r = validateBootstrapProposal(apiOnly([spec]), emptyCtx());
+  assert.equal(r.apiSpecs[0].endpoints[0].accepted, false);
+  assert.match(r.apiSpecs[0].endpoints[0].reason ?? "", /must start with \//i);
+  assert.equal(r.apiSpecs[0].endpoints[1].accepted, true);
+});
+
+test("invalid HTTP method → endpoint rejected", () => {
+  const spec = apiSpec({
+    endpoints: [
+      { method: "FETCH" as never, path: "/bookings", summary: "List", requiresAuth: true, confidence: 0.9 },
+      { method: "GET", path: "/bookings", summary: "List", requiresAuth: true, confidence: 0.9 },
+    ],
+  });
+  const r = validateBootstrapProposal(apiOnly([spec]), emptyCtx());
+  assert.equal(r.apiSpecs[0].endpoints[0].accepted, false);
+  assert.match(r.apiSpecs[0].endpoints[0].reason ?? "", /unknown http method/i);
+});
+
+test("empty / overlong endpoint summary → endpoint rejected", () => {
+  const spec = apiSpec({
+    endpoints: [
+      { method: "GET", path: "/a", summary: "", requiresAuth: true, confidence: 0.9 },
+      { method: "GET", path: "/b", summary: "x".repeat(121), requiresAuth: true, confidence: 0.9 },
+      { method: "GET", path: "/c", summary: "ok", requiresAuth: true, confidence: 0.9 },
+    ],
+  });
+  const r = validateBootstrapProposal(apiOnly([spec]), emptyCtx());
+  assert.equal(r.apiSpecs[0].endpoints[0].accepted, false);
+  assert.match(r.apiSpecs[0].endpoints[0].reason ?? "", /empty endpoint summary/i);
+  assert.equal(r.apiSpecs[0].endpoints[1].accepted, false);
+  assert.match(r.apiSpecs[0].endpoints[1].reason ?? "", /exceeds 120/i);
+  assert.equal(r.apiSpecs[0].endpoints[2].accepted, true);
+});
+
+test("spec with no valid endpoints → spec rejected", () => {
+  const spec = apiSpec({
+    endpoints: [{ method: "GET", path: "no-slash", summary: "bad", requiresAuth: true, confidence: 0.9 }],
+  });
+  const r = validateBootstrapProposal(apiOnly([spec]), emptyCtx());
+  assert.equal(r.apiSpecs[0].accepted, false);
+  assert.match(r.apiSpecs[0].reason ?? "", /no valid endpoints/i);
+});
+
+test("empty spec title → spec rejected", () => {
+  const r = validateBootstrapProposal(apiOnly([apiSpec({ title: "   " })]), emptyCtx());
+  assert.equal(r.apiSpecs[0].accepted, false);
+  assert.match(r.apiSpecs[0].reason ?? "", /empty api spec title/i);
+});
+
+test("mixed valid/invalid API specs → no cross-contamination, ok true", () => {
+  const good = apiSpec({ title: "Booking API" });
+  const bad = apiSpec({
+    title: "Broken API",
+    endpoints: [{ method: "GET", path: "nope", summary: "bad", requiresAuth: true, confidence: 0.5 }],
+  });
+  const r = validateBootstrapProposal(apiOnly([good, bad]), emptyCtx());
+  assert.equal(r.apiSpecs[0].accepted, true);
+  assert.equal(r.apiSpecs[1].accepted, false);
+  assert.equal(r.ok, true);
+});
+
+test("API validation is deterministic (same input ⇒ deep-equal report)", () => {
+  const a = validateBootstrapProposal(apiOnly([apiSpec()]), emptyCtx());
+  const b = validateBootstrapProposal(apiOnly([apiSpec()]), emptyCtx());
+  assert.deepEqual(a, b);
 });

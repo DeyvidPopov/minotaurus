@@ -165,6 +165,14 @@ export async function proposeBootstrap(params: ProposeParams): Promise<ProposeRe
       artifactsProposed: proposal.artifacts.length,
       relationsProposed: proposal.relations.length,
       diagramsProposed: proposal.diagrams.length,
+      databaseModelsProposed: proposal.databaseModels.length,
+      databaseEntitiesProposed: proposal.databaseModels.reduce((n, m) => n + m.entities.length, 0),
+      databaseFieldsProposed: proposal.databaseModels.reduce(
+        (n, m) => n + m.entities.reduce((k, e) => k + e.fields.length, 0),
+        0,
+      ),
+      apiSpecsProposed: proposal.apiSpecs.length,
+      apiEndpointsProposed: proposal.apiSpecs.reduce((n, s) => n + s.endpoints.length, 0),
       createdById: params.userId,
     },
   });

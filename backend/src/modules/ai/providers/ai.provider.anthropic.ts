@@ -6,7 +6,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AiProviderError, type AiProvider, type StructuredRequest, type StructuredResult } from "./ai.provider.js";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
-const DEFAULT_MAX_TOKENS = 8192;
+// Bootstrap V2 added an optional, trailing database block to the proposal; the
+// extra headroom keeps a typical artifacts+relations+diagrams+models response from
+// truncating. Caps + last-position emit are the primary guard; this is secondary.
+// Override with AI_MAX_TOKENS.
+const DEFAULT_MAX_TOKENS = 12000;
 
 export class AnthropicProvider implements AiProvider {
   private readonly client: Anthropic;

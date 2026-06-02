@@ -6,6 +6,7 @@ import {
   reviewByIdEndpoint,
   reviewHistoryEndpoint,
 } from "./review/review.controller.js";
+import { documentationDraftEndpoint } from "./documentation/doc-draft.controller.js";
 
 // Mounted at /projects/:projectId/ai (see routes.ts), so mergeParams is required
 // to read :projectId in the controllers.
@@ -19,3 +20,11 @@ projectAiRouter.post("/review", reviewArchitectureEndpoint);
 projectAiRouter.get("/review/latest", latestReviewEndpoint);
 projectAiRouter.get("/reviews", reviewHistoryEndpoint);
 projectAiRouter.get("/reviews/:reviewId", reviewByIdEndpoint);
+
+// Artifact Documentation Assistant: generate an on-demand Markdown draft for one
+// artifact (DEVELOPER+). Draft only — AI never writes documentation; the user
+// reviews/edits and saves via PUT /artifacts/:id/documentation.
+projectAiRouter.post(
+  "/documentation/artifacts/:artifactId/draft",
+  documentationDraftEndpoint,
+);

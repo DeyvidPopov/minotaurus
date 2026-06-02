@@ -62,6 +62,19 @@ export default function GraphPage({ params }: { params: { projectId: string } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  // One-shot auto-relayout: after an AI Bootstrap apply (which creates artifacts with
+  // scatter positions), the wizard sets a flag so the graph arranges itself cleanly the
+  // first time it opens — instead of landing on an overlapping mess. The flag is consumed
+  // once, so manual drag positions are respected on every subsequent visit.
+  useEffect(() => {
+    if (artifacts.length === 0 || typeof window === "undefined") return;
+    const key = `mino:graph:relayout:${projectId}`;
+    if (localStorage.getItem(key)) {
+      localStorage.removeItem(key);
+      setRelayoutSignal((n) => n + 1);
+    }
+  }, [artifacts.length, projectId]);
+
   const counts = useMemo(() => {
     const m: Record<string, number> = {};
     artifacts.forEach((a) => { m[a.type] = (m[a.type] || 0) + 1; });

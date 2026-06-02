@@ -4,23 +4,31 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Save, RefreshCw, BookOpen } from "lucide-react";
+import { Save, RefreshCw, BookOpen, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
 import { documentationApi } from "@/lib/api/documentation";
+import { aiApi } from "@/lib/api/ai";
 import { ApiError } from "@/lib/api/client";
 import { timeAgo } from "@/lib/utils";
 
 type Mode = "view" | "edit";
 
-export function DocumentationEditor({ artifactId }: { artifactId: string }) {
+export function DocumentationEditor({
+  projectId,
+  artifactId,
+}: {
+  projectId: string;
+  artifactId: string;
+}) {
   const [content, setContent] = useState("");
   const [draft, setDraft] = useState("");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("view");
 
@@ -61,6 +69,30 @@ export function DocumentationEditor({ artifactId }: { artifactId: string }) {
     }
   };
 
+  // Generate an AI draft and open the editor pre-filled with it. AI never saves —
+  // the user reviews/edits and clicks Save (the existing flow). The current
+  // content is preserved; only the editable `draft` is replaced.
+  const generate = async () => {
+    setGenerating(true);
+    try {
+      const result = await aiApi.generateDocumentationDraft(projectId, artifactId);
+      setDraft(result.markdown);
+      setMode("edit");
+      toast.success(
+        result.mode === "replacement_suggestion"
+          ? "AI draft ready — review your improved draft, then Save to keep it"
+          : "AI draft ready — review it, then Save to keep it",
+      );
+      if (result.truncated) {
+        toast.warning("The draft was shortened to fit — review for completeness.");
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not generate a draft");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-fg-muted text-[13px]">Loading documentation…</div>;
   }
@@ -73,15 +105,30 @@ export function DocumentationEditor({ artifactId }: { artifactId: string }) {
     );
   }
 
+  const aiButton = (size: "sm" | "md", className?: string) => (
+    <Button
+      size={size}
+      className={className}
+      icon={generating ? <RefreshCw size={size === "sm" ? 12 : 14} className="animate-spin" /> : <Sparkles size={size === "sm" ? 12 : 14} />}
+      onClick={generate}
+      disabled={generating}
+    >
+      {generating ? "Generating…" : content.trim() ? "Improve with AI" : "Generate with AI"}
+    </Button>
+  );
+
   if (mode === "view") {
     return (
       <Card
         title="Documentation"
         subtitle={updatedAt ? `Last updated ${timeAgo(updatedAt)}` : undefined}
         action={
-          <Button size="sm" onClick={() => { setDraft(content); setMode("edit"); }}>
-            {content.trim() ? "Edit" : "Add documentation"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {aiButton("sm")}
+            <Button size="sm" onClick={() => { setDraft(content); setMode("edit"); }}>
+              {content.trim() ? "Edit" : "Add documentation"}
+            </Button>
+          </div>
         }
       >
         {content.trim() ? (
@@ -92,11 +139,14 @@ export function DocumentationEditor({ artifactId }: { artifactId: string }) {
           <Empty
             icon={<BookOpen size={28} />}
             title="No documentation yet"
-            message="Add Markdown notes about this artifact — purpose, runbooks, contracts."
+            message="Add Markdown notes about this artifact — purpose, runbooks, contracts — or generate a draft with AI to review and edit."
             action={
-              <Button variant="primary" onClick={() => { setDraft(""); setMode("edit"); }}>
-                Add documentation
-              </Button>
+              <div className="grid grid-cols-2 gap-2 w-full max-w-[360px] mx-auto">
+                {aiButton("md", "w-full")}
+                <Button variant="primary" className="w-full" onClick={() => { setDraft(""); setMode("edit"); }}>
+                  Add documentation
+                </Button>
+              </div>
             }
           />
         )}
@@ -110,11 +160,12 @@ export function DocumentationEditor({ artifactId }: { artifactId: string }) {
       subtitle="Markdown supports headings, lists, tables, code blocks."
       action={
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => { setDraft(content); setMode("view"); }} disabled={saving}>
+          {aiButton("sm")}
+          <Button size="sm" onClick={() => { setDraft(content); setMode("view"); }} disabled={saving || generating}>
             Cancel
           </Button>
           <Button size="sm" variant="primary" icon={saving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
-            onClick={save} disabled={saving || draft === content}>
+            onClick={save} disabled={saving || generating || draft === content}>
             {saving ? "Saving…" : "Save"}
           </Button>
         </div>

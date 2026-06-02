@@ -488,6 +488,7 @@ model IngestionRecord {
 enum AiSessionKind {
   BOOTSTRAP
   REVIEW
+  DOCUMENTATION_DRAFT
 }
 
 enum AiSessionStatus {
@@ -512,6 +513,19 @@ model AiSession {
   artifactsCreated  Int             @default(0)
   relationsCreated  Int             @default(0)
   diagramsCreated   Int             @default(0)
+  /// Bootstrap V2 (Phase 1 — Database) audit counts. Like the artifact/relation/diagram
+  /// counts above: proposed = what the model emitted, created = what apply persisted.
+  databaseModelsProposed   Int        @default(0)
+  databaseEntitiesProposed Int        @default(0)
+  databaseFieldsProposed   Int        @default(0)
+  databaseModelsCreated    Int        @default(0)
+  databaseEntitiesCreated  Int        @default(0)
+  databaseFieldsCreated    Int        @default(0)
+  /// Bootstrap V2 (Phase 2 — API catalog) audit counts. Same proposed/created split.
+  apiSpecsProposed     Int        @default(0)
+  apiEndpointsProposed Int        @default(0)
+  apiSpecsCreated      Int        @default(0)
+  apiEndpointsCreated  Int        @default(0)
   /// Set for REVIEW sessions: stable hash of the AnalysisResult the review interpreted (for staleness detection).
   analysisHash      String?
   createdById       String

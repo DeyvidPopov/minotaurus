@@ -15,6 +15,8 @@ import { ApiError } from "@/lib/api/client";
 import {
   aiApi,
   type BootstrapProposal,
+  type ProposedApiSpec,
+  type ProposedDatabaseModel,
   type ProposeResult,
   type ValidationReport,
 } from "@/lib/api/ai";
@@ -68,6 +70,8 @@ export function BootstrapWizard({
   const [selArtifacts, setSelArtifacts] = useState<boolean[]>([]);
   const [selRelations, setSelRelations] = useState<boolean[]>([]);
   const [selDiagrams, setSelDiagrams] = useState<boolean[]>([]);
+  const [selDatabaseModels, setSelDatabaseModels] = useState<boolean[]>([]);
+  const [selApiSpecs, setSelApiSpecs] = useState<boolean[]>([]);
 
   const ideaValid = idea.trim().length >= 10;
 
@@ -84,6 +88,8 @@ export function BootstrapWizard({
       setSelArtifacts(res.validation.artifacts.map((d) => d.accepted));
       setSelRelations(res.validation.relations.map((d) => d.accepted));
       setSelDiagrams(res.validation.diagrams.map((d) => d.accepted));
+      setSelDatabaseModels(res.validation.databaseModels.map((d) => d.accepted));
+      setSelApiSpecs(res.validation.apiSpecs.map((d) => d.accepted));
       setStep("review");
     } catch (err) {
       const { status, code, message } = errInfo(err);
@@ -108,7 +114,7 @@ export function BootstrapWizard({
   // Selected artifact titles (normalized) + live counts of what would actually apply.
   const { selected, titles } = useMemo(() => {
     const titles = new Set<string>();
-    if (!proposal) return { selected: { a: 0, r: 0, d: 0 }, titles };
+    if (!proposal) return { selected: { a: 0, r: 0, d: 0, m: 0, s: 0 }, titles };
     let a = 0;
     proposal.artifacts.forEach((art, i) => {
       if (selArtifacts[i]) {
@@ -124,13 +130,21 @@ export function BootstrapWizard({
     proposal.diagrams.forEach((_, i) => {
       if (selDiagrams[i]) d++;
     });
-    return { selected: { a, r, d }, titles };
-  }, [proposal, selArtifacts, selRelations, selDiagrams]);
+    let m = 0;
+    proposal.databaseModels.forEach((_, i) => {
+      if (selDatabaseModels[i]) m++;
+    });
+    let s = 0;
+    proposal.apiSpecs.forEach((_, i) => {
+      if (selApiSpecs[i]) s++;
+    });
+    return { selected: { a, r, d, m, s }, titles };
+  }, [proposal, selArtifacts, selRelations, selDiagrams, selDatabaseModels, selApiSpecs]);
 
   const endpointSelected = (r: { sourceTitle: string; targetTitle: string }) =>
     titles.has(normTitle(r.sourceTitle)) && titles.has(normTitle(r.targetTitle));
 
-  const nothingSelected = selected.a + selected.r + selected.d === 0;
+  const nothingSelected = selected.a + selected.r + selected.d + selected.m + selected.s === 0;
 
   const toggleAt = (setter: Dispatch<SetStateAction<boolean[]>>, i: number) =>
     setter((arr) => arr.map((v, idx) => (idx === i ? !v : v)));
@@ -143,7 +157,16 @@ export function BootstrapWizard({
       (r, i) => selRelations[i] && keep.has(normTitle(r.sourceTitle)) && keep.has(normTitle(r.targetTitle)),
     );
     const diagrams = proposal.diagrams.filter((_, i) => selDiagrams[i]);
-    const selectedProposal: BootstrapProposal = { summary: proposal.summary, artifacts, relations, diagrams };
+    const databaseModels = proposal.databaseModels.filter((_, i) => selDatabaseModels[i]);
+    const apiSpecs = proposal.apiSpecs.filter((_, i) => selApiSpecs[i]);
+    const selectedProposal: BootstrapProposal = {
+      summary: proposal.summary,
+      artifacts,
+      relations,
+      diagrams,
+      databaseModels,
+      apiSpecs,
+    };
 
     setApplying(true);
     try {
@@ -151,11 +174,22 @@ export function BootstrapWizard({
       const a = res.applied.artifacts.length;
       const r = res.applied.relations.length;
       const d = res.applied.diagrams.length;
+      const m = res.applied.databaseModels.length;
+      const s = res.applied.apiSpecs.length;
       toast.success(
-        `Applied ${a} artifact${a === 1 ? "" : "s"}, ${r} relation${r === 1 ? "" : "s"}, ${d} diagram${d === 1 ? "" : "s"}`,
+        `Applied ${a} artifact${a === 1 ? "" : "s"}, ${r} relation${r === 1 ? "" : "s"}, ${d} diagram${d === 1 ? "" : "s"}` +
+          (m > 0 ? `, ${m} database model${m === 1 ? "" : "s"}` : "") +
+          (s > 0 ? `, ${s} API spec${s === 1 ? "" : "s"}` : ""),
       );
       if (res.skipped.length > 0) {
         toast.message(`${res.skipped.length} item${res.skipped.length === 1 ? "" : "s"} skipped during apply.`);
+      }
+      // Freshly applied artifacts carry scatter positions; flag the project graph to
+      // auto-arrange (dagre) the next time it opens, so the user doesn't land on a mess.
+      try {
+        localStorage.setItem(`mino:graph:relayout:${projectId}`, "1");
+      } catch {
+        /* localStorage unavailable — non-fatal, the manual Relayout button still works */
       }
       await onApplied();
       onClose();
@@ -368,6 +402,50 @@ export function BootstrapWizard({
               </Section>
             )}
 
+            {/* Database models */}
+            {proposal.databaseModels.length > 0 && (
+              <Section title="Database models" count={proposal.databaseModels.length}>
+                {proposal.databaseModels.map((m, i) => {
+                  const dec = validation.databaseModels[i];
+                  const invalid = dec && !dec.accepted;
+                  return (
+                    <DatabaseModelRow
+                      key={i}
+                      model={m}
+                      invalid={!!invalid}
+                      reason={dec?.reason}
+                      linked={!!dec?.artifactLinked}
+                      checked={!!selDatabaseModels[i]}
+                      disabled={!!invalid}
+                      onToggle={() => toggleAt(setSelDatabaseModels, i)}
+                    />
+                  );
+                })}
+              </Section>
+            )}
+
+            {/* API specs */}
+            {proposal.apiSpecs.length > 0 && (
+              <Section title="API specs" count={proposal.apiSpecs.length}>
+                {proposal.apiSpecs.map((s, i) => {
+                  const dec = validation.apiSpecs[i];
+                  const invalid = dec && !dec.accepted;
+                  return (
+                    <ApiSpecRow
+                      key={i}
+                      spec={s}
+                      invalid={!!invalid}
+                      reason={dec?.reason}
+                      linked={!!dec?.artifactLinked}
+                      checked={!!selApiSpecs[i]}
+                      disabled={!!invalid}
+                      onToggle={() => toggleAt(setSelApiSpecs, i)}
+                    />
+                  );
+                })}
+              </Section>
+            )}
+
             {/* Footer */}
             <div className="flex items-center justify-between gap-2 mt-1 sticky bottom-0 bg-panel pt-3 border-t border-border">
               <Button
@@ -383,6 +461,8 @@ export function BootstrapWizard({
                 <span className="text-[12px] text-fg-muted hidden sm:inline">
                   {selected.a} artifact{selected.a === 1 ? "" : "s"} · {selected.r} relation
                   {selected.r === 1 ? "" : "s"} · {selected.d} diagram{selected.d === 1 ? "" : "s"}
+                  {selected.m > 0 ? ` · ${selected.m} database model${selected.m === 1 ? "" : "s"}` : ""}
+                  {selected.s > 0 ? ` · ${selected.s} API spec${selected.s === 1 ? "" : "s"}` : ""}
                 </span>
                 <Button
                   type="button"
@@ -483,6 +563,133 @@ function DiagramRefWarning({ missing }: { missing: string[] }) {
           <li key={m}>{m}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+// A proposed database model: whole-model selection (v1), with entities and fields
+// rendered read-only beneath so the user can inspect structure + FK links before
+// confirming. Finer-grained per-entity/field selection is intentionally deferred.
+function DatabaseModelRow({
+  model,
+  invalid,
+  reason,
+  linked,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  model: ProposedDatabaseModel;
+  invalid: boolean;
+  reason?: string;
+  linked: boolean;
+  checked: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-panel-2 p-3 flex flex-col gap-2">
+      <label className={"flex items-center gap-2.5 " + (disabled ? "opacity-60" : "cursor-pointer")}>
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={onToggle}
+          className="w-4 h-4 shrink-0 accent-[var(--accent)]"
+        />
+        <span className="text-[13.5px] font-medium flex-1">{model.title}</span>
+        <Badge tone="default" mono square>
+          {model.databaseType}
+        </Badge>
+        {linked && model.artifactTitle && (
+          <Badge tone="info">↳ {model.artifactTitle}</Badge>
+        )}
+        <Badge tone={confidenceTone(model.confidence)}>{Math.round(model.confidence * 100)}%</Badge>
+      </label>
+      {invalid ? (
+        <Warn reason={reason} />
+      ) : (
+        <div className="flex flex-col gap-2 pl-1">
+          {model.entities.map((e, ei) => (
+            <div key={ei} className="rounded-sm border border-border bg-panel px-2.5 py-2">
+              <div className="text-[12.5px] font-medium mb-1">{e.name}</div>
+              <div className="flex flex-col gap-0.5">
+                {e.fields.map((f, fi) => (
+                  <div key={fi} className="flex items-center gap-1.5 text-[11.5px] text-fg-muted font-mono flex-wrap">
+                    <span className="text-fg">{f.name}</span>
+                    <span className="text-fg-subtle">{f.type}</span>
+                    {f.isPrimaryKey && <Badge tone="success" mono>PK</Badge>}
+                    {(f.isForeignKey || f.referencesEntityName) && (
+                      <Badge tone="warning" mono>
+                        FK{f.referencesEntityName ? ` → ${f.referencesEntityName}` : ""}
+                      </Badge>
+                    )}
+                    {f.required && <span className="text-fg-subtle">required</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A proposed API spec: whole-spec selection (v1), with its endpoints rendered
+// read-only beneath (method + path + summary + auth). Catalog only — no request/
+// response bodies are generated. Per-endpoint selection is intentionally deferred.
+function ApiSpecRow({
+  spec,
+  invalid,
+  reason,
+  linked,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  spec: ProposedApiSpec;
+  invalid: boolean;
+  reason?: string;
+  linked: boolean;
+  checked: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-panel-2 p-3 flex flex-col gap-2">
+      <label className={"flex items-center gap-2.5 " + (disabled ? "opacity-60" : "cursor-pointer")}>
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={onToggle}
+          className="w-4 h-4 shrink-0 accent-[var(--accent)]"
+        />
+        <span className="text-[13.5px] font-medium flex-1">{spec.title}</span>
+        <Badge tone="default" mono square>
+          v{spec.version}
+        </Badge>
+        {linked && spec.artifactTitle && <Badge tone="info">↳ {spec.artifactTitle}</Badge>}
+        <Badge tone={confidenceTone(spec.confidence)}>{Math.round(spec.confidence * 100)}%</Badge>
+      </label>
+      {spec.description && <div className="text-[12px] text-fg-muted">{spec.description}</div>}
+      {invalid ? (
+        <Warn reason={reason} />
+      ) : (
+        <div className="flex flex-col gap-0.5 pl-1">
+          {spec.endpoints.map((ep, ei) => (
+            <div key={ei} className="flex items-center gap-2 text-[11.5px] flex-wrap">
+              <Badge tone="info" mono>
+                {ep.method}
+              </Badge>
+              <span className="font-mono text-fg">{ep.path}</span>
+              <span className="text-fg-muted">{ep.summary}</span>
+              <span className="text-fg-subtle">{ep.requiresAuth ? "🔒 auth" : "public"}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -315,7 +315,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
       )}
 
       {tab === "documentation" && (
-        <DocumentationEditor artifactId={a.id} />
+        <DocumentationEditor projectId={projectId} artifactId={a.id} />
       )}
 
       {tab === "validation" && (

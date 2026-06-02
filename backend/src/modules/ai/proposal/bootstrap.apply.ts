@@ -66,6 +66,34 @@ function buildSkipped(report: ValidationReport): SkippedItem[] {
   for (const d of report.diagrams) {
     if (!d.accepted) out.push({ kind: "DIAGRAM", label: d.title, reason: d.reason ?? "skipped" });
   }
+  for (const m of report.databaseModels) {
+    if (!m.accepted) {
+      out.push({ kind: "DATABASE_MODEL", label: m.title, reason: m.reason ?? "skipped" });
+      continue;
+    }
+    for (const e of m.entities) {
+      if (!e.accepted) {
+        out.push({ kind: "DATABASE_ENTITY", label: `${m.title} / ${e.name}`, reason: e.reason ?? "skipped" });
+        continue;
+      }
+      for (const f of e.fields) {
+        if (!f.accepted) {
+          out.push({ kind: "DATABASE_FIELD", label: `${m.title} / ${e.name}.${f.name}`, reason: f.reason ?? "skipped" });
+        }
+      }
+    }
+  }
+  for (const s of report.apiSpecs) {
+    if (!s.accepted) {
+      out.push({ kind: "API_SPEC", label: s.title, reason: s.reason ?? "skipped" });
+      continue;
+    }
+    for (const ep of s.endpoints) {
+      if (!ep.accepted) {
+        out.push({ kind: "API_ENDPOINT", label: `${s.title} / ${ep.method} ${ep.path}`, reason: ep.reason ?? "skipped" });
+      }
+    }
+  }
   return out;
 }
 
@@ -107,6 +135,32 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
       targetArtifactId: string;
     }[];
     diagrams: { id: string; title: string }[];
+    databaseModels: {
+      id: string;
+      title: string;
+      databaseType: BootstrapProposal["databaseModels"][number]["databaseType"];
+      entityCount: number;
+      fieldCount: number;
+    }[];
+    databaseEntities: { id: string; name: string; modelTitle: string; databaseModelId: string }[];
+    databaseFields: {
+      id: string;
+      entityName: string;
+      fieldName: string;
+      type: string;
+      isPrimaryKey: boolean;
+      isForeignKey: boolean;
+      entityId: string;
+      databaseModelId: string;
+    }[];
+    apiSpecs: { id: string; title: string; version: string; baseUrl: string; endpointCount: number }[];
+    apiEndpoints: {
+      id: string;
+      specTitle: string;
+      apiSpecId: string;
+      method: BootstrapProposal["apiSpecs"][number]["endpoints"][number]["method"];
+      path: string;
+    }[];
   };
   try {
     created = await prisma.$transaction(async (tx) => {
@@ -180,7 +234,150 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
         diagrams.push({ id: row.id, title: row.title });
       }
 
-      return { artifacts, relations, diagrams };
+      // ── Database models (two-pass per model so FKs can reference any sibling) ──
+      const databaseModels: typeof created.databaseModels = [];
+      const databaseEntities: typeof created.databaseEntities = [];
+      const databaseFields: typeof created.databaseFields = [];
+      for (let i = 0; i < proposal.databaseModels.length; i++) {
+        const dec = report.databaseModels[i];
+        if (!dec.accepted) continue;
+        const m = proposal.databaseModels[i];
+        const linkId =
+          dec.artifactLinked && m.artifactTitle
+            ? normToId.get(normalizeArtifactTitle(m.artifactTitle)) ?? null
+            : null;
+        const modelRow = await tx.databaseModel.create({
+          data: {
+            projectId,
+            artifactId: linkId,
+            title: m.title.trim(),
+            databaseType: m.databaseType,
+            description: "", // never copy AI prose onto the entity
+            createdById: userId,
+          },
+        });
+
+        // Pass A — create all entities first, so a FK may reference an entity that
+        // appears later in the array; build the name→id map the FKs resolve through.
+        const entityNameToId = new Map<string, string>();
+        let modelEntityCount = 0;
+        let modelFieldCount = 0;
+        for (let j = 0; j < m.entities.length; j++) {
+          if (!dec.entities[j].accepted) continue;
+          const e = m.entities[j];
+          const entityRow = await tx.databaseEntity.create({
+            data: { databaseModelId: modelRow.id, name: e.name.trim(), description: "" },
+          });
+          entityNameToId.set(normalizeArtifactTitle(e.name), entityRow.id);
+          databaseEntities.push({ id: entityRow.id, name: entityRow.name, modelTitle: modelRow.title, databaseModelId: modelRow.id });
+          modelEntityCount++;
+        }
+
+        // Pass B — create fields, mapping referencesEntityName → referencesEntityId.
+        for (let j = 0; j < m.entities.length; j++) {
+          const entDec = dec.entities[j];
+          if (!entDec.accepted) continue;
+          const e = m.entities[j];
+          const entityId = entityNameToId.get(normalizeArtifactTitle(e.name));
+          if (!entityId) continue; // defensive — Pass A created every accepted entity
+          for (let k = 0; k < e.fields.length; k++) {
+            if (!entDec.fields[k].accepted) continue;
+            const f = e.fields[k];
+            const ref = (f.referencesEntityName ?? "").trim();
+            const refId = ref ? entityNameToId.get(normalizeArtifactTitle(ref)) ?? null : null;
+            const fieldRow = await tx.databaseField.create({
+              data: {
+                entityId,
+                name: f.name.trim(),
+                type: (f.type ?? "text").trim() || "text",
+                required: !!f.required,
+                isPrimaryKey: !!f.isPrimaryKey,
+                isForeignKey: !!f.isForeignKey || !!refId, // controller parity
+                referencesEntityId: refId,
+                description: "",
+              },
+            });
+            databaseFields.push({
+              id: fieldRow.id,
+              entityName: e.name.trim(),
+              fieldName: fieldRow.name,
+              type: fieldRow.type,
+              isPrimaryKey: fieldRow.isPrimaryKey,
+              isForeignKey: fieldRow.isForeignKey,
+              entityId,
+              databaseModelId: modelRow.id,
+            });
+            modelFieldCount++;
+          }
+        }
+
+        databaseModels.push({
+          id: modelRow.id,
+          title: modelRow.title,
+          databaseType: modelRow.databaseType,
+          entityCount: modelEntityCount,
+          fieldCount: modelFieldCount,
+        });
+      }
+
+      // ── API catalog (spec → endpoints; no request/response bodies) ──
+      const apiSpecs: typeof created.apiSpecs = [];
+      const apiEndpoints: typeof created.apiEndpoints = [];
+      for (let i = 0; i < proposal.apiSpecs.length; i++) {
+        const dec = report.apiSpecs[i];
+        if (!dec.accepted) continue;
+        const s = proposal.apiSpecs[i];
+        const linkId =
+          dec.artifactLinked && s.artifactTitle
+            ? normToId.get(normalizeArtifactTitle(s.artifactTitle)) ?? null
+            : null;
+        const specRow = await tx.apiSpec.create({
+          data: {
+            projectId,
+            artifactId: linkId,
+            title: s.title.trim(),
+            version: (s.version ?? "").trim() || "1.0.0",
+            baseUrl: (s.baseUrl ?? "").trim(),
+            description: (s.description ?? "").trim(),
+            createdById: userId,
+          },
+        });
+
+        let endpointCount = 0;
+        for (let k = 0; k < s.endpoints.length; k++) {
+          if (!dec.endpoints[k].accepted) continue;
+          const ep = s.endpoints[k];
+          const epRow = await tx.apiEndpoint.create({
+            data: {
+              apiSpecId: specRow.id,
+              path: ep.path.trim(),
+              method: ep.method,
+              summary: (ep.summary ?? "").trim(),
+              requestSchema: "", // Phase 2: catalog only — no schema bodies
+              responseSchema: "",
+              requiresAuth: ep.requiresAuth !== false, // default secured
+            },
+          });
+          apiEndpoints.push({
+            id: epRow.id,
+            specTitle: specRow.title,
+            apiSpecId: specRow.id,
+            method: epRow.method,
+            path: epRow.path,
+          });
+          endpointCount++;
+        }
+
+        apiSpecs.push({
+          id: specRow.id,
+          title: specRow.title,
+          version: specRow.version,
+          baseUrl: specRow.baseUrl,
+          endpointCount,
+        });
+      }
+
+      return { artifacts, relations, diagrams, databaseModels, databaseEntities, databaseFields, apiSpecs, apiEndpoints };
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -235,12 +432,77 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
       metadata: meta({}),
     });
   }
+  for (const m of created.databaseModels) {
+    await recordVersionEvent({
+      projectId,
+      entityType: "DATABASE_MODEL",
+      entityId: m.id,
+      action: "CREATED",
+      title: m.title,
+      description: m.databaseType,
+      triggeredBy: userId,
+      metadata: meta({ databaseType: m.databaseType, entityCount: m.entityCount, fieldCount: m.fieldCount }),
+    });
+  }
+  for (const e of created.databaseEntities) {
+    await recordVersionEvent({
+      projectId,
+      entityType: "DATABASE_ENTITY",
+      entityId: e.id,
+      action: "CREATED",
+      title: e.name,
+      description: `Added to "${e.modelTitle}"`,
+      triggeredBy: userId,
+      metadata: meta({ databaseModelId: e.databaseModelId }),
+    });
+  }
+  for (const f of created.databaseFields) {
+    await recordVersionEvent({
+      projectId,
+      entityType: "DATABASE_FIELD",
+      entityId: f.id,
+      action: "CREATED",
+      title: `${f.entityName}.${f.fieldName}`,
+      description: `${f.type}${f.isPrimaryKey ? " · PK" : ""}${f.isForeignKey ? " · FK" : ""}`,
+      triggeredBy: userId,
+      metadata: meta({ entityId: f.entityId, databaseModelId: f.databaseModelId }),
+    });
+  }
+  for (const s of created.apiSpecs) {
+    await recordVersionEvent({
+      projectId,
+      entityType: "API_SPEC",
+      entityId: s.id,
+      action: "CREATED",
+      title: s.title,
+      description: `v${s.version}${s.baseUrl ? " · " + s.baseUrl : ""}`,
+      triggeredBy: userId,
+      metadata: meta({ version: s.version, baseUrl: s.baseUrl, endpointCount: s.endpointCount }),
+    });
+  }
+  for (const ep of created.apiEndpoints) {
+    await recordVersionEvent({
+      projectId,
+      entityType: "API_ENDPOINT",
+      entityId: ep.id,
+      action: "CREATED",
+      title: `${ep.method} ${ep.path}`,
+      description: `Added to "${ep.specTitle}"`,
+      triggeredBy: userId,
+      metadata: meta({ specId: ep.apiSpecId, method: ep.method, path: ep.path }),
+    });
+  }
 
   // ── Audit: mark the session APPLIED (or create one if applied without propose) ──
   const counts = {
     artifactsCreated: created.artifacts.length,
     relationsCreated: created.relations.length,
     diagramsCreated: created.diagrams.length,
+    databaseModelsCreated: created.databaseModels.length,
+    databaseEntitiesCreated: created.databaseEntities.length,
+    databaseFieldsCreated: created.databaseFields.length,
+    apiSpecsCreated: created.apiSpecs.length,
+    apiEndpointsCreated: created.apiEndpoints.length,
   };
   const priorId = params.sessionId ?? null;
   const existingSession = priorId
@@ -263,6 +525,14 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
         artifactsProposed: proposal.artifacts.length,
         relationsProposed: proposal.relations.length,
         diagramsProposed: proposal.diagrams.length,
+        databaseModelsProposed: proposal.databaseModels.length,
+        databaseEntitiesProposed: proposal.databaseModels.reduce((n, m) => n + m.entities.length, 0),
+        databaseFieldsProposed: proposal.databaseModels.reduce(
+          (n, m) => n + m.entities.reduce((k, e) => k + e.fields.length, 0),
+          0,
+        ),
+        apiSpecsProposed: proposal.apiSpecs.length,
+        apiEndpointsProposed: proposal.apiSpecs.reduce((n, s) => n + s.endpoints.length, 0),
         ...counts,
         createdById: userId,
         appliedById: userId,

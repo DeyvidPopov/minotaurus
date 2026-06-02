@@ -23,13 +23,16 @@ npm run build            # prisma generate && tsc -p tsconfig.json  → dist/
 npm run seed             # tsx scripts/seed-demo.ts — wipes + reseeds demo dataset
 npm run test:api         # bash scripts/test-api.sh — full HTTP smoke pass (needs backend running)
 npm run test:unit        # node --import tsx --test "src/**/*.test.ts" — pure-logic unit tests
+npm run typecheck        # tsc -p tsconfig.json --noEmit — use THIS, not a bare `tsc`/`npx tsc`
 npm run prisma:generate  # regenerate Prisma client
 npm run prisma:migrate   # prisma migrate dev (interactive)
-npm run prisma:reset     # prisma migrate reset --force (DESTRUCTIVE)
+npm run prisma:reset     # guard-destructive.ts && prisma migrate reset --force (DESTRUCTIVE, guarded)
 npm run prisma:studio    # Prisma Studio GUI
 ```
 
-Two test layers: `scripts/test-api.sh` is the HTTP smoke pass, and `test:unit` runs Node's built-in test runner (`node:test` + `node:assert`, no Jest/Vitest) over `*.test.ts` files for pure-logic modules — currently the Export Engine V2 analysis engine and PDF SVG normalizer. New pure engines should ship a colocated `*.test.ts`. To run a single endpoint, hit it with `curl` (patterns in `backend/API_TEST_EXAMPLES.md`).
+Two test layers: `scripts/test-api.sh` is the HTTP smoke pass, and `test:unit` runs Node's built-in test runner (`node:test` + `node:assert`, no Jest/Vitest) over `*.test.ts` files for pure-logic modules — currently the Export Engine V2 analysis engine, PDF SVG normalizer, AI proposal/review engines, JWT-secret config guard, async-error handler, and destructive-script guard. New pure engines should ship a colocated `*.test.ts`. To run a single endpoint, hit it with `curl` (patterns in `backend/API_TEST_EXAMPLES.md`).
+
+**Always typecheck via `npm run typecheck`, never a bare `tsc`/`npx tsc`.** A global `tsc` may sit on `PATH` (seen as an old 3.9.7) and shadow the pinned local `typescript`; npm scripts prepend `node_modules/.bin`, so the script is the only PATH-order-independent entry point. (Same reason CI must call `npm run typecheck`.)
 
 ### Frontend (`cd frontend/nextjs`)
 
@@ -95,6 +98,16 @@ Wrappers: `utils/response.ts` (`ok`, `created`, `fail`, `HttpError`) on the back
 ### Prisma client singleton
 
 `lib/prisma.ts` exports one `PrismaClient` instance, cached on `globalThis.__prisma__` so `tsx watch` reloads don't pile up connection pools. Always import from there — do not `new PrismaClient()` anywhere else.
+
+### Backend hardening invariants (security / reliability / ops)
+
+Three guards added in a hardening pass. Each is the *only* sanctioned path for its concern — don't reintroduce the unsafe shortcut they replaced.
+
+- **JWT secret has NO fallback.** `config/env.ts` is the single validated secret source: `getJwtSecret()` throws a `ConfigError` if `JWT_SECRET` is missing, a known placeholder (`change-me-in-production`, `dev-secret-change-me`, the `.env.example` value, …), or shorter than 16 chars; it never logs the value. **Both** `signToken` and `requireAuth` (`middleware/auth.ts`) read the secret through `getJwtSecret()` — they can't diverge. `server.ts` calls `validateConfig()` before `app.listen` and `process.exit(1)`s on `ConfigError`, so the backend **refuses to start** with an insecure secret. Never re-add a `process.env.JWT_SECRET || "…"` fallback; add new required-config checks to `validateConfig()`.
+
+- **Async handler errors reach the central error handler.** `app.ts` imports `express-async-errors` (side-effect, first import) so a rejected/thrown promise in any `async` route handler is forwarded to `next(err)` → `middleware/error.ts:errorHandler` instead of hanging the request. This is why controllers can stay thin `async` functions with no try/catch and still emit the `{success:false}` envelope. `HttpError` mapping is unchanged. Don't remove that import or wrap handlers in redundant try/catch to compensate; the harness in `middleware/error.test.ts` pins the behavior (HttpError → mapped status, generic throw → 500).
+
+- **Destructive scripts are guarded.** `lib/destructive-guard.ts` (`checkDestructiveSafety` pure fn + `assertDestructiveAllowed` env wrapper) blocks a DB wipe when `NODE_ENV=production` or the `DATABASE_URL` host looks remote/managed (railway, neon, supabase, amazonaws, render, …) — both **hard blocks**; only `localhost`/`127.0.0.1`/`::1` run unguarded. `ALLOW_DESTRUCTIVE_SEED=true` is an escape hatch for an *unrecognized-but-local* host only (it does **not** bypass production/remote). `seed-demo.ts` calls `assertDestructiveAllowed()` as the first line of `main()`; `prisma:reset` is prefixed with `tsx scripts/guard-destructive.ts &&`. Any new wipe/reset script must call the guard before touching the DB. Error prefix: `Refusing to run destructive seed against non-development database.`
 
 ### Knowledge graph contract
 
