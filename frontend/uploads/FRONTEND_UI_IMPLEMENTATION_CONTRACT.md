@@ -1420,8 +1420,9 @@ Previous exports list
 JSON
 MARKDOWN
 PDF
-ZIP
 ```
+
+<!-- ZIP was specified here but never implemented; removed from the product contract. Possible future enhancement. -->
 
 ### Included Sections
 
@@ -1450,7 +1451,7 @@ GET /api/exports/:exportId/download
 
 ```json
 {
-  "format": "ZIP",
+  "format": "PDF",
   "sections": [
     "ARTIFACTS",
     "RELATIONS",
@@ -1647,7 +1648,7 @@ Resolved issues disappear or change status
 
 ```text
 Open Export page
-Select ZIP or Markdown
+Select PDF or Markdown
 Choose included sections
 Generate export
 Download package

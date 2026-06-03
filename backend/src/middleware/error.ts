@@ -7,15 +7,26 @@ export function notFound(_req: Request, res: Response) {
 
 export function errorHandler(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ) {
+  // Known application errors are intentionally user-facing: their code + message
+  // are part of the API contract (UNAUTHORIZED, NOT_FOUND, AI_OUTPUT_TRUNCATED, …).
   if (err instanceof HttpError) {
     return fail(res, err.status, err.code, err.message);
   }
-  const message = err instanceof Error ? err.message : "Unknown server error";
+
+  // Unexpected failures (runtime exceptions, Prisma/DB errors, null refs, …) must
+  // NEVER leak internal details to the client — log full diagnostics, respond generic.
   // eslint-disable-next-line no-console
-  console.error("[error]", err);
-  return fail(res, 500, "INTERNAL_ERROR", message);
+  console.error("[error]", {
+    timestamp: new Date().toISOString(),
+    name: err instanceof Error ? err.name : "NonError",
+    message: err instanceof Error ? err.message : String(err),
+    method: req.method,
+    path: req.originalUrl,
+    stack: err instanceof Error ? err.stack : undefined,
+  });
+  return fail(res, 500, "INTERNAL_ERROR", "Internal server error");
 }

@@ -59,8 +59,10 @@ Backend (`backend/`):
   via `buildReportPlan`, with frozen client-captured diagram SVGs.
 - **On-demand download** — `GET /exports/:exportId/download` renders the PDF from the
   persisted snapshot and streams it; JSON/MARKDOWN stream the stored content.
-- **ZIP** — advertised in `EXPORT_FORMATS` but **not implemented** (falls back to JSON);
-  see `KNOWN_LIMITATIONS.md`.
+- **ZIP** — **removed** from `EXPORT_FORMATS` and the Prisma `ExportFormat` enum
+  (migration `20260602120000_remove_zip_export_format`). It was never implemented (the
+  download path fell through to JSON). A bundled multi-file ZIP archive is a possible
+  future enhancement, not current functionality.
 
 ### AI (additive, proposal/explanation only — never writes SSOT directly)
 - **AI Bootstrap Wizard** (`modules/ai/`) — from an empty project, the user describes an

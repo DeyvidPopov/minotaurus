@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Sun, Moon, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTweaks } from "@/components/providers";
+import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
 
@@ -109,7 +110,7 @@ export function Topbar({ onOpenSearch, onOpenMobileNav }: { onOpenSearch: () => 
       >
         <Search size={14} className="shrink-0" />
         <span className="flex-1 text-left text-fg-subtle truncate">Jump to a page…</span>
-        <span className="kbd">⌘K</span>
+        <ShortcutHint className="kbd" />
       </button>
 
       <div className="flex items-center gap-1.5 ml-auto flex-none">

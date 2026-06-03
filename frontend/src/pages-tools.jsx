@@ -624,7 +624,7 @@ function VersionsPage({ projectId }) {
 // ──────────────────────────────────────────────────────────
 function ExportPage({ projectId }) {
   const project = PROJECTS.find(p => p.id === projectId);
-  const [format, setFormat] = tUseState("ZIP");
+  const [format, setFormat] = tUseState("PDF");
   const [sections, setSections] = tUseState({
     ARTIFACTS: true, RELATIONS: true, GRAPH: true, API_SPECS: true,
     DATABASE_MODELS: true, DIAGRAMS: true, VALIDATION_REPORT: true, VERSION_HISTORY: true,
@@ -654,7 +654,6 @@ function ExportPage({ projectId }) {
           <Card title="1 · Format">
             <div className="grid cols-4" style={{ gap: 10 }}>
               {[
-                { id: "ZIP", label: "ZIP archive", desc: "Everything as files", icon: <I.Pkg /> },
                 { id: "MARKDOWN", label: "Markdown", desc: "Human readable", icon: <I.Doc /> },
                 { id: "JSON", label: "JSON", desc: "Machine readable", icon: <I.Cube /> },
                 { id: "PDF", label: "PDF", desc: "Printable book", icon: <I.Book /> },
@@ -699,7 +698,7 @@ function ExportPage({ projectId }) {
 
           <Card title="3 · Preview">
             <div className="mono" style={{ background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: 6, padding: 14, fontSize: 12, lineHeight: 1.6, color: "var(--fg-muted)" }}>
-              {`helix-commerce-ssot.${format.toLowerCase() === "zip" ? "zip" : format.toLowerCase()}\n`}
+              {`helix-commerce-ssot.${format.toLowerCase()}\n`}
               {`├── README.md\n`}
               {Object.entries(sections).filter(([_, v]) => v).map(([k]) => `├── ${k.toLowerCase()}/\n`).join("")}
               {`└── manifest.json`}
@@ -726,7 +725,7 @@ function ExportPage({ projectId }) {
               {EXPORTS.map((e, i) => (
                 <div key={e.id} className="row" style={{ padding: "10px 14px", borderBottom: i < EXPORTS.length - 1 ? "1px solid var(--border)" : 0 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--panel-2)", display: "grid", placeItems: "center" }}>
-                    {e.format === "ZIP" ? <I.Pkg size={14} /> : e.format === "JSON" ? <I.Cube size={14} /> : <I.Doc size={14} />}
+                    {e.format === "JSON" ? <I.Cube size={14} /> : <I.Doc size={14} />}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 500 }} className="mono">{e.format} · {e.size}</div>

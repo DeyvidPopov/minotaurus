@@ -4,7 +4,7 @@
 import type { Artifact, ExportFormat } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 
-export const EXPORT_FORMATS: ExportFormat[] = ["JSON", "MARKDOWN", "PDF", "ZIP"];
+export const EXPORT_FORMATS: ExportFormat[] = ["JSON", "MARKDOWN", "PDF"];
 
 export function serializeArtifactForExport(a: Artifact) {
   const { documentationContent, ...rest } = a;

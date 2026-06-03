@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.body.setAttribute("data-mobile-nav", mobileNav ? "open" : "closed");
   }, [mobileNav]);
 
-  // ⌘K
+  // ⌘K (macOS) / Ctrl+K (Windows/Linux) — toggle the command palette
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {

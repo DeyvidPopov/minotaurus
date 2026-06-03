@@ -114,7 +114,7 @@ function LandingPage() {
               <div className="ic"><I.Pkg size={16} /></div>
               <div className="n">04 · EXPORT</div>
               <h3>Ship the SSOT</h3>
-              <p>Generate a JSON, Markdown, PDF or ZIP bundle that documents the whole system — versioned, reproducible, ready for handoff.</p>
+              <p>Generate a JSON, Markdown or PDF report that documents the whole system — versioned, reproducible, ready for handoff.</p>
             </div>
           </div>
         </div>
@@ -135,7 +135,7 @@ function LandingPage() {
             <Feature icon={<I.Shield size={16} />} title="Validation engine" body="Consistency rules across documentation, APIs, databases, security and relationships. Severity-tiered." />
             <Feature icon={<I.History size={16} />} title="Versioned everything" body="Every artifact, relation, doc edit and validation run is recorded — a full audit trail with diffs." />
             <Feature icon={<I.Book size={16} />} title="Markdown + Mermaid" body="Editor with live preview. Sequence diagrams, flowcharts and ERDs render inline next to the code they describe." />
-            <Feature icon={<I.Pkg size={16} />} title="One-click SSOT export" body="Bundle the whole project — artifacts, graph, validation report, version history — as ZIP, JSON, Markdown or PDF." />
+            <Feature icon={<I.Pkg size={16} />} title="One-click SSOT export" body="Export the whole project — artifacts, graph, validation report, version history — as JSON, Markdown or PDF." />
             <Feature icon={<I.Cmd size={16} />} title="Keyboard-first" body="⌘K palette indexes everything. Open any artifact, endpoint or doc from one keystroke." />
           </div>
         </div>

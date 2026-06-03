@@ -1,4 +1,4 @@
-// components/shell/cmdk.tsx — command palette (⌘K)
+// components/shell/cmdk.tsx — command palette (⌘K on macOS, Ctrl+K elsewhere)
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";

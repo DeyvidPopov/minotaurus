@@ -377,7 +377,6 @@ enum ExportFormat {
   JSON
   MARKDOWN
   PDF
-  ZIP
 }
 
 model ExportPackage {

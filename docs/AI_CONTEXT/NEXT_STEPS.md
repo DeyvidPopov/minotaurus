@@ -60,7 +60,10 @@ These came out of the pre-submission audit and are blockers for a credible submi
 - Pagination across the remaining list endpoints; N+1 serializer cleanup.
 - Validation-engine O(n²) optimisation for large projects.
 - Controller / validation-engine / parser unit tests + a frontend test runner.
-- ZIP export (today it silently returns JSON — either implement or stop advertising it).
+- ZIP export — **future enhancement only** (removed from the contract surface in migration
+  `20260602120000_remove_zip_export_format` since it was never implemented). If revived, ship
+  a real multi-file archive (JSON + Markdown + PDF + diagram SVGs) with deterministic entry
+  timestamps/order, mirroring the PDF determinism pinning.
 - AI generation of DB models / API specs / security policies (Bootstrap is artifacts +
   relations + diagrams only).
 - Transitive impact analysis + blast-radius scoring.

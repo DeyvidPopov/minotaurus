@@ -251,9 +251,12 @@ Living list of trade-offs and partial implementations in the current MVP. Update
   `svg-to-pdfkit` with string-level regex surgery, including a **hardcoded dark→print color
   remap** coupled to the exact hex values the frontend bakes in. If the UI theme palette
   changes, PDF diagram colors can drift and no test catches it. Verify diagrams visually.
-- **ZIP is advertised but NOT implemented** — `ZIP` appears in `EXPORT_FORMATS` but the
-  download path falls through to the JSON branch and returns JSON. Do not demo "ZIP export"
-  as a real archive; either implement it or remove it from the format list.
+- **ZIP export was removed (RESOLVED)** — `ZIP` was never implemented (the download path
+  fell through to the JSON branch). It has been removed from `EXPORT_FORMATS`, the
+  `ExportFormat` TS types, and the Prisma enum (migration
+  `20260602120000_remove_zip_export_format`; 0 rows used it, so no data migration). The
+  format list now reflects reality: JSON / MARKDOWN / PDF. A bundled multi-file ZIP archive
+  remains a possible future enhancement.
 - **No unit test on `buildExportContent` itself** (including the Markdown path) — only the
   downstream analyzer and PDF renderer are unit-tested.
 

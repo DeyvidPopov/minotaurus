@@ -66,7 +66,7 @@ export type DiagramType =
   | "SEQUENCE"
   | "COMPONENT";
 
-export type ExportFormat = "JSON" | "MARKDOWN" | "PDF" | "ZIP";
+export type ExportFormat = "JSON" | "MARKDOWN" | "PDF";
 
 export interface User {
   id: string;

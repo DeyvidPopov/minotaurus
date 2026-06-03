@@ -444,8 +444,8 @@ Export formats:
 JSON
 MARKDOWN
 PDF
-ZIP
 ```
+<!-- ZIP was removed from the ExportFormat enum (migration 20260602120000_remove_zip_export_format) — never implemented; possible future enhancement. -->
 
 ## Important Constraints
 

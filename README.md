@@ -40,8 +40,8 @@ The five mandatory AI Safety & Determinism Rules are spelled out in
 - **Ingestion:** four deterministic parsers — Markdown / OpenAPI JSON / Mermaid / SQL Schema
   (draft → parse → confirm; no AI).
 - **Export:** JSON, Markdown, and a real deterministic **PDF report** (`pdfmake`, no headless
-  browser) with on-demand server-side download. *(ZIP is listed but not implemented — it
-  falls back to JSON.)*
+  browser) with on-demand server-side download. *(A bundled ZIP archive is a possible future
+  enhancement — deliberately kept out of the format list until implemented.)*
 - **AI (opt-in, advisory):** Bootstrap Wizard + read-only Architecture Review, both fenced
   outside the deterministic core, with an `AiSession` audit trail.
 

@@ -63,24 +63,32 @@ test("async HttpError throw reaches errorHandler with preserved status/code", as
   });
 });
 
-test("generic async throw becomes a 500 JSON envelope (no hang)", async () => {
+test("generic async throw becomes a 500 envelope WITHOUT leaking the internal message", async () => {
   await withServer(async (base) => {
     const res = await fetch(`${base}/throw-generic`);
     assert.equal(res.status, 500);
     const body = await res.json();
     assert.equal(body.success, false);
     assert.equal(body.error.code, "INTERNAL_ERROR");
-    assert.equal(body.error.message, "boom from async handler");
+    // The client gets a generic message — never the raw internal error text.
+    assert.equal(body.error.message, "Internal server error");
+    assert.notEqual(body.error.message, "boom from async handler");
+    // No stack / details leak into the response.
+    assert.ok(!("details" in body.error));
+    assert.ok(!("stack" in body.error));
+    assert.ok(!JSON.stringify(body).includes("boom from async handler"));
   });
 });
 
-test("a rejected promise (no explicit throw) also reaches the error handler", async () => {
+test("a rejected promise (no explicit throw) also returns the generic 500 envelope", async () => {
   await withServer(async (base) => {
     const res = await fetch(`${base}/reject`);
     assert.equal(res.status, 500);
     const body = await res.json();
     assert.equal(body.success, false);
     assert.equal(body.error.code, "INTERNAL_ERROR");
+    assert.equal(body.error.message, "Internal server error");
+    assert.ok(!JSON.stringify(body).includes("rejected promise"));
   });
 });
 

@@ -62,7 +62,7 @@ Every route below is functional and backed by real Postgres data:
 - WebSocket live updates / notifications
 - Project members + RBAC
 - Avatar upload
-- PDF / ZIP export rendering on the server (formats are accepted; payload is the same JSON content)
+- Bundled ZIP archive export (JSON / Markdown / PDF exports are implemented; a multi-file ZIP bundle is a possible future enhancement)
 
 Standalone routes `/projects/[id]/docs` and `/projects/[id]/docs/[id]` are intentionally stubbed — Markdown documentation lives **inside** each artifact's detail page (Documentation tab), so there is no project-wide docs index.
 

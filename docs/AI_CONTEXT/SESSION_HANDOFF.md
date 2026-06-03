@@ -48,8 +48,9 @@ Determinism Rules:
   export-create time, frozen into the snapshot, normalized in `pdf/diagram-svg.ts`.
 - On-demand download `GET /exports/:exportId/download` (registered before the `:exportId`
   catch-all) renders PDF from the persisted snapshot; JSON/MARKDOWN stream stored content.
-  Create requires ARCHITECT+; download mirrors read access. ZIP advertised but not
-  implemented (falls back to JSON).
+  Create requires ARCHITECT+; download mirrors read access. ZIP was **removed** from the
+  format list / Prisma enum (migration `20260602120000_remove_zip_export_format`) — it was
+  never implemented; a bundled archive is a possible future enhancement.
 
 ## Previous feature pass
 
@@ -488,7 +489,7 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 - **AI works** (opt-in via `ANTHROPIC_API_KEY`): Bootstrap propose/apply + read-only Review
   with persisted `AiSession` audit rows. Without the key the endpoints return `503`.
 - **exports work** — JSON / Markdown / **real deterministic PDF** + on-demand download
-  endpoint. ZIP advertised but not implemented (falls back to JSON).
+  endpoint. ZIP removed from the format list (never implemented; future enhancement).
 - validation works (rule-based, deterministic — relation/doc/security/API/DB/diagram/churn/
   deprecated/single-member rules)
 - analysis engine works (pure, deterministic — health score, coverage, traceability, risks)

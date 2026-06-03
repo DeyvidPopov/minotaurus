@@ -384,13 +384,13 @@ Triggers a run. Returns immediately with a run id; emits `validation:completed` 
 
 ### 2.12 Export
 
-`ExportFormat`: `JSON | MARKDOWN | PDF | ZIP`
+`ExportFormat`: `JSON | MARKDOWN | PDF`  <!-- ZIP removed: was never implemented. Possible future enhancement. -->
 `Section`: `REQUIREMENTS | ARTIFACTS | RELATIONS | GRAPH | API_SPECS | DATABASE_MODELS | DIAGRAMS | VALIDATION_REPORT | VERSION_HISTORY | SECURITY_POLICIES`
 
 #### `POST /api/projects/:projectId/export`
 ```json
 {
-  "format": "ZIP",
+  "format": "PDF",
   "sections": ["ARTIFACTS", "RELATIONS", "GRAPH", "API_SPECS", "DATABASE_MODELS", "DIAGRAMS", "VALIDATION_REPORT", "VERSION_HISTORY"]
 }
 ```
@@ -441,7 +441,7 @@ Events to handle:
 - [ ] **WebSocket server** with the events above
 - [ ] **OpenAPI parser** for `POST /api-specs/import` — needs to derive `API_ENDPOINT` artifacts from the uploaded spec
 - [ ] **Validation engine** — rules for each `Category` listed above (currently: 9 hand-authored issues)
-- [ ] **Export generator** — JSON / Markdown / PDF / ZIP packagers
+- [ ] **Export generator** — JSON / Markdown / PDF packagers <!-- ZIP is a possible future enhancement, not current functionality -->
 - [ ] **Graph layout persistence** — if we keep hand-positioned nodes, decide where they live (artifact metadata or per-user)
 - [ ] **Real auth + session management** — refresh tokens, MFA enrollment flow, session revocation
 

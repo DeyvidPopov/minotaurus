@@ -162,7 +162,7 @@ export async function downloadExport(req: AuthedRequest, res: Response) {
     return res.end(body);
   }
 
-  // JSON (and ZIP fallback) — stream the stored snapshot as JSON.
+  // JSON — stream the stored snapshot as JSON.
   const json = JSON.stringify(exp.content ?? {}, null, 2);
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${base}.json"`);

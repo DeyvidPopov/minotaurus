@@ -257,7 +257,7 @@ const VERSIONS = [
   { id: "v_6",  entityType: "ARTIFACT",      entityId: "doc-payments",   changeType: "CREATED", oldValue: null, newValue: { type: "DOCUMENTATION", status: "DRAFT" }, changedBy: USERS[1], createdAt: daysAgo(3) },
   { id: "v_7",  entityType: "RELATION",      entityId: "r_req-pci__svc-payments__VALIDATES", changeType: "LINKED", oldValue: null, newValue: { type: "VALIDATES" }, changedBy: USERS[3], createdAt: daysAgo(4) },
   { id: "v_8",  entityType: "ARTIFACT",      entityId: "api-public",     changeType: "CREATED", oldValue: null, newValue: { type: "API_SPEC", status: "ACTIVE" }, changedBy: USERS[3], createdAt: daysAgo(7) },
-  { id: "v_9",  entityType: "EXPORT",        entityId: "exp_2",          changeType: "EXPORTED", oldValue: null, newValue: { format: "ZIP", sections: 8 }, changedBy: USERS[0], createdAt: daysAgo(9) },
+  { id: "v_9",  entityType: "EXPORT",        entityId: "exp_2",          changeType: "EXPORTED", oldValue: null, newValue: { format: "PDF", sections: 8 }, changedBy: USERS[0], createdAt: daysAgo(9) },
   { id: "v_10", entityType: "ARTIFACT",      entityId: "svc-orders",     changeType: "UPDATED", oldValue: { status: "DRAFT" }, newValue: { status: "ACTIVE" }, changedBy: USERS[0], createdAt: daysAgo(12) },
 ];
 
@@ -273,7 +273,7 @@ const ACTIVITY = [
 
 // ───── previous exports ─────────────────────────────────────────
 const EXPORTS = [
-  { id: "exp_1", format: "ZIP",      sections: 8, size: "2.4 MB", createdBy: USERS[0], createdAt: daysAgo(0), status: "READY" },
+  { id: "exp_1", format: "PDF",      sections: 8, size: "2.4 MB", createdBy: USERS[0], createdAt: daysAgo(0), status: "READY" },
   { id: "exp_2", format: "MARKDOWN", sections: 6, size: "412 KB", createdBy: USERS[0], createdAt: daysAgo(9), status: "READY" },
   { id: "exp_3", format: "JSON",     sections: 9, size: "880 KB", createdBy: USERS[3], createdAt: daysAgo(22), status: "READY" },
 ];
