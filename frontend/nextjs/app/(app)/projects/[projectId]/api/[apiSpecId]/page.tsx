@@ -1,10 +1,10 @@
 // app/(app)/projects/[projectId]/api/[apiSpecId]/page.tsx — API spec detail
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Edit, Trash2, Plus, X, Lock, LockOpen, Save } from "lucide-react";
+import { ChevronRight, Edit, Trash2, Plus, X, Lock, LockOpen, Save } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,15 @@ export default function ApiSpecDetailPage({
   const [editingSpec, setEditingSpec] = useState(false);
   const [creatingEndpoint, setCreatingEndpoint] = useState(false);
   const [editingEndpoint, setEditingEndpoint] = useState<ApiEndpoint | null>(null);
+  const [expandedEndpoints, setExpandedEndpoints] = useState<Set<string>>(new Set());
+
+  const toggleEndpoint = (id: string) =>
+    setExpandedEndpoints((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const load = async () => {
     try {
@@ -179,35 +188,69 @@ export default function ApiSpecDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {endpoints.map((ep) => (
-                  <tr key={ep.id} className="border-b border-border last:border-0 hover:bg-panel-hover">
-                    <td className="px-3.5 py-2.5">
-                      <span className="font-mono text-[11px] font-bold px-2 py-1 rounded" style={{
-                        color: METHOD_TONE[ep.method],
-                        border: `1px solid ${METHOD_TONE[ep.method]}33`,
-                        background: `${METHOD_TONE[ep.method]}11`,
-                      }}>
-                        {ep.method}
-                      </span>
-                    </td>
-                    <td className="px-3.5 py-2.5 font-mono text-[12.5px]">{ep.path}</td>
-                    <td className="px-3.5 py-2.5">{ep.summary || <em className="text-fg-subtle">No summary</em>}</td>
-                    <td className="px-3.5 py-2.5">
-                      {ep.requiresAuth ? (
-                        <span className="inline-flex items-center gap-1 text-[12px] text-fg"><Lock size={11} /> required</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[12px] text-fg-muted"><LockOpen size={11} /> public</span>
-                      )}
-                    </td>
-                    <td className="px-3.5 py-2.5 text-fg-muted text-[12px]">{timeAgo(ep.updatedAt)}</td>
-                    <td className="px-3.5 py-2.5 text-right">
-                      <div className="flex items-center gap-1 justify-end">
-                        <Button size="sm" icon={<Edit size={12} />} onClick={() => setEditingEndpoint(ep)} />
-                        <Button size="sm" icon={<Trash2 size={12} />} onClick={() => onDeleteEndpoint(ep.id)} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {endpoints.map((ep) => {
+                  const isOpen = expandedEndpoints.has(ep.id);
+                  return (
+                    <Fragment key={ep.id}>
+                      <tr
+                        className="hover:bg-panel-hover cursor-pointer select-none outline-none focus-visible:bg-panel-hover"
+                        onClick={() => toggleEndpoint(ep.id)}
+                      >
+                        <td className="px-3.5 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              aria-expanded={isOpen}
+                              aria-label={isOpen ? "Hide payload" : "View payload"}
+                              onClick={(e) => { e.stopPropagation(); toggleEndpoint(ep.id); }}
+                              className="text-fg-muted hover:text-fg shrink-0 outline-none focus-visible:text-fg"
+                            >
+                              <ChevronRight
+                                size={14}
+                                className={`transition-transform duration-200 motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
+                              />
+                            </button>
+                            <span className="font-mono text-[11px] font-bold px-2 py-1 rounded" style={{
+                              color: METHOD_TONE[ep.method],
+                              border: `1px solid ${METHOD_TONE[ep.method]}33`,
+                              background: `${METHOD_TONE[ep.method]}11`,
+                            }}>
+                              {ep.method}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3.5 py-2.5 font-mono text-[12.5px]">{ep.path}</td>
+                        <td className="px-3.5 py-2.5">{ep.summary || <em className="text-fg-subtle">No summary</em>}</td>
+                        <td className="px-3.5 py-2.5">
+                          {ep.requiresAuth ? (
+                            <span className="inline-flex items-center gap-1 text-[12px] text-fg"><Lock size={11} /> required</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[12px] text-fg-muted"><LockOpen size={11} /> public</span>
+                          )}
+                        </td>
+                        <td className="px-3.5 py-2.5 text-fg-muted text-[12px]">{timeAgo(ep.updatedAt)}</td>
+                        <td className="px-3.5 py-2.5 text-right">
+                          <div className="flex items-center gap-1 justify-end">
+                            <Button size="sm" icon={<Edit size={12} />} onClick={(e) => { e.stopPropagation(); setEditingEndpoint(ep); }} />
+                            <Button size="sm" icon={<Trash2 size={12} />} onClick={(e) => { e.stopPropagation(); onDeleteEndpoint(ep.id); }} />
+                          </div>
+                        </td>
+                      </tr>
+                      <tr className="border-b border-border last:border-0">
+                        <td colSpan={6} className="p-0">
+                          <div
+                            className="grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
+                            style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                          >
+                            <div className="overflow-hidden min-h-0">
+                              <EndpointPayloadDetails ep={ep} />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -436,6 +479,66 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="flex flex-col gap-1.5">
       <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
       {children}
+    </div>
+  );
+}
+
+// ────────────────────────── endpoint payload (read-only) ──────────────────────────
+
+/** Pretty-print a schema string if it is valid JSON; otherwise keep it as-is (free text). */
+function formatSchema(raw: string): { text: string; isJson: boolean } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { text: "", isJson: false };
+  try {
+    const parsed = JSON.parse(trimmed);
+    // Only treat structured values (objects/arrays) as JSON — a bare string/number is
+    // technically valid JSON but is better shown verbatim as free text.
+    if (parsed && typeof parsed === "object") {
+      return { text: JSON.stringify(parsed, null, 2), isJson: true };
+    }
+  } catch {
+    /* not JSON — fall through to free text */
+  }
+  return { text: trimmed, isJson: false };
+}
+
+function SchemaBlock({ label, value, emptyText }: { label: string; value: string; emptyText: string }) {
+  const formatted = useMemo(() => formatSchema(value), [value]);
+  return (
+    <div className="flex flex-col gap-1.5 min-w-0">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wider text-fg-muted font-medium">{label}</span>
+        {formatted.text && <Badge mono>{formatted.isJson ? "JSON" : "TEXT"}</Badge>}
+      </div>
+      {formatted.text ? (
+        <pre
+          className={`bg-panel-2 border border-border rounded-md p-2.5 text-[12px] leading-relaxed overflow-auto font-mono ${formatted.isJson ? "whitespace-pre" : "whitespace-pre-wrap break-words"}`}
+          style={{ maxHeight: 280 }}
+        >
+          {formatted.text}
+        </pre>
+      ) : (
+        <div className="text-[12.5px] text-fg-subtle italic px-0.5 py-1.5">{emptyText}</div>
+      )}
+    </div>
+  );
+}
+
+function EndpointPayloadDetails({ ep }: { ep: ApiEndpoint }) {
+  return (
+    <div className="px-3.5 py-3.5 bg-panel-2/40 flex flex-col gap-3.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <SchemaBlock label="Request schema" value={ep.requestSchema} emptyText="No request schema defined" />
+        <SchemaBlock label="Response schema" value={ep.responseSchema} emptyText="No response schema defined" />
+      </div>
+      <div className="flex items-center gap-2 text-[12.5px]">
+        <span className="text-[11px] uppercase tracking-wider text-fg-muted font-medium">Auth</span>
+        {ep.requiresAuth ? (
+          <span className="inline-flex items-center gap-1.5 text-fg"><Lock size={12} /> Authentication required</span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-fg-muted"><LockOpen size={12} /> Public — no authentication</span>
+        )}
+      </div>
     </div>
   );
 }

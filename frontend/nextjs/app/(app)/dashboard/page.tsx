@@ -64,7 +64,7 @@ export default function DashboardPage() {
       )}
 
       {projects !== null && projects.length === 0 && (
-        <Card title="What does Minotaurus do?" subtitle="A quick map of the workspace before you create your first project.">
+        <Card title="What does Minotaurus do?" subtitle="A quick map of the workspace before you create your first project." className="mb-6">
           <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-2 text-[13.5px] text-fg-muted list-disc list-inside">
             <li><strong className="text-fg">Artifacts</strong> — services, APIs, databases, docs, diagrams (11 typed kinds)</li>
             <li><strong className="text-fg">Relations</strong> — DEPENDS_ON, USES, EXPOSES, SECURES, DOCUMENTS, …</li>

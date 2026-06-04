@@ -13,8 +13,11 @@ export function errorHandler(
 ) {
   // Known application errors are intentionally user-facing: their code + message
   // are part of the API contract (UNAUTHORIZED, NOT_FOUND, AI_OUTPUT_TRUNCATED, …).
+  // `details` is only ever set explicitly on an HttpError (e.g. WEAK_PASSWORD's
+  // unmet rules), never from an unexpected error, so forwarding it cannot leak
+  // internals — the generic-500 branch below still never exposes err.message.
   if (err instanceof HttpError) {
-    return fail(res, err.status, err.code, err.message);
+    return fail(res, err.status, err.code, err.message, err.details);
   }
 
   // Unexpected failures (runtime exceptions, Prisma/DB errors, null refs, …) must

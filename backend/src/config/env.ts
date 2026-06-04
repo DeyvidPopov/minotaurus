@@ -69,3 +69,56 @@ export function getJwtSecret(): string {
 export function validateConfig(): void {
   getJwtSecret();
 }
+
+// ────────────────────────────── Email configuration ──────────────────────────────
+//
+// Email config is intentionally OPTIONAL and is NOT part of validateConfig():
+// the app must run locally with zero email credentials (the dev provider just
+// logs a masked code). A real provider is selected with EMAIL_PROVIDER=resend
+// (RESEND_API_KEY) or EMAIL_PROVIDER=smtp (SMTP_* vars) plus MAIL_FROM; if the
+// required creds are missing the provider surfaces a 503 EMAIL_NOT_CONFIGURED at
+// send time rather than blocking startup.
+
+export type EmailProvider = "dev" | "smtp" | "resend";
+
+export interface EmailConfig {
+  provider: EmailProvider;
+  smtp: {
+    host?: string;
+    port?: number;
+    user?: string;
+    pass?: string;
+  };
+  resend: {
+    apiKey?: string;
+  };
+  /** From address; falls back to a non-routable dev default. */
+  from: string;
+}
+
+/** Resolve email configuration from the environment. Never throws. */
+export function getEmailConfig(): EmailConfig {
+  const raw = (process.env.EMAIL_PROVIDER || "dev").trim().toLowerCase();
+  const provider: EmailProvider =
+    raw === "resend" ? "resend" : raw === "smtp" ? "smtp" : "dev";
+  const portRaw = process.env.SMTP_PORT;
+  const port = portRaw && portRaw.trim() !== "" ? Number(portRaw) : undefined;
+  return {
+    provider,
+    smtp: {
+      host: process.env.SMTP_HOST?.trim() || undefined,
+      port: Number.isFinite(port) ? port : undefined,
+      user: process.env.SMTP_USER?.trim() || undefined,
+      pass: process.env.SMTP_PASS || undefined,
+    },
+    resend: {
+      apiKey: process.env.RESEND_API_KEY?.trim() || undefined,
+    },
+    from: process.env.MAIL_FROM?.trim() || "Minotaurus Team <noreply@minotaurus.dev>",
+  };
+}
+
+/** True only outside production — gates the dev provider's plaintext code logging. */
+export function isDevEmailLoggingAllowed(): boolean {
+  return (process.env.NODE_ENV || "development").toLowerCase() !== "production";
+}

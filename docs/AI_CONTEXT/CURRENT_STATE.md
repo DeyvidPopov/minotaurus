@@ -1,8 +1,8 @@
 # Current Platform State
 
-> Living snapshot of what is actually shipped. Last refreshed for the pre-submission
-> documentation pass (2026-06-01). For the authoritative architecture contract see the
-> root `CLAUDE.md`; for honest trade-offs see `KNOWN_LIMITATIONS.md`.
+> Living snapshot of what is actually shipped. Last refreshed 2026-06-03 (multi-step
+> registration wizard, backend + frontend). For the authoritative architecture contract
+> see the root `CLAUDE.md`; for honest trade-offs see `KNOWN_LIMITATIONS.md`.
 
 ## Stack
 
@@ -19,6 +19,15 @@ Backend (`backend/`):
 
 ### Core platform
 - **Auth** — JWT bearer, bcrypt password hashing, single `toPublicUser` serializer.
+- **Multi-step verified registration (backend + frontend)** — `/auth/register/{start,verify,complete,resend}`
+  (emailed 6-digit code → short-lived registration token → password → User + JWT). Backend:
+  `modules/auth/registration/` (pure engine + injectable-deps service) + `modules/email/`
+  (`DevEmailService` default, `SmtpEmailService` placeholder) + in-memory rate limiting
+  (`middleware/rate-limit.ts`, `TRUST_PROXY` opt-in). Frontend: the 4-step wizard at
+  `app/(auth)/register/page.tsx` (stepper, OTP input with paste/backspace/arrow nav,
+  resend cooldown, inline error mapping, reduced-motion + a11y; token persisted exactly
+  like login → `/dashboard`). Legacy single-step `POST /auth/register` kept + deprecated;
+  login is not yet gated on `emailVerifiedAt`. See `KNOWN_LIMITATIONS.md → Auth`.
 - **Projects** — CRUD; creator auto-inserted as OWNER membership.
 - **Project Team Management + Roles (Phase 7)** — `ProjectMember` with OWNER /
   ARCHITECT / DEVELOPER / VIEWER. Access is membership-based across every controller

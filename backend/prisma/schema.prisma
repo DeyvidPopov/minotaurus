@@ -28,6 +28,12 @@ model User {
   role         UserRole @default(ENGINEER)
   createdAt    DateTime @default(now())
 
+  // Set when the account's email was confirmed. Nullable for back-compat: legacy
+  // rows (and the single-step /auth/register path) leave it NULL. Accounts created
+  // through the multi-step verified flow set it at completion. Login does NOT gate
+  // on this yet — it exists so gating can be enabled later without a schema change.
+  emailVerifiedAt DateTime?
+
   // Optional "default workspace": the project the user lands in after login.
   // Null = no default (land on the dashboard). SetNull on the FK so deleting the
   // project self-heals the preference instead of leaving a dangling reference.
@@ -45,6 +51,39 @@ model User {
   memberships       ProjectMember[]
   ingestionRecords  IngestionRecord[]
   aiSessions        AiSession[]
+}
+
+// ────────────────────────────── Email verification (multi-step registration) ──────────────────────────────
+// Pending registration state — NOT a User yet. One row per (normalized) email,
+// holding the hashed 6-digit code, expiry/cooldown/attempt counters, and (after
+// the code is verified) a hashed short-lived registration token that the final
+// "complete" step consumes to create the real User. Never stores the plaintext
+// code or token. Expired rows are pruned opportunistically on the next start.
+model EmailVerification {
+  id        String @id @default(uuid())
+  // Normalized (trimmed + lowercased) email. Unique so start/resend upsert one
+  // pending record per email.
+  email     String @unique
+  firstName String
+  lastName  String
+
+  // bcrypt hash of the 6-digit numeric code (low entropy → needs the work factor).
+  codeHash          String
+  expiresAt         DateTime // code expiry (created + 10m)
+  attempts          Int      @default(0) // failed verify attempts (cap 5 → resend required)
+  resendCount       Int      @default(0) // audit / abuse signal
+  resendAvailableAt DateTime // resend cooldown gate (created + 30s)
+  verifiedAt        DateTime? // set on successful code verification
+
+  // Short-lived handoff between verify and complete. sha256 hash of a high-entropy
+  // random token (fast hash is fine — token is not brute-forceable).
+  registrationTokenHash      String?
+  registrationTokenExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
 }
 
 // ────────────────────────────── Projects ──────────────────────────────

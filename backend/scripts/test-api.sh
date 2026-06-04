@@ -66,6 +66,40 @@ R=$(curl -s -X POST "$BASE/api/auth/register" \
 assert_success "POST /api/auth/register" "$R"
 TOKEN=$(jget "$R" "data.token")
 
+hr; echo "2b. Multi-step registration (start / verify / resend wiring)"
+# The verification code is intentionally never returned (only logged in dev), so
+# this smoke pass exercises wiring + safe-failure paths, not the full happy path
+# (that is covered deterministically by registration.service.test.ts).
+RS_EMAIL="wizard+$(date +%s)@minotaurus.dev"
+RS=$(curl -s -X POST "$BASE/api/auth/register/start" \
+  -H "Content-Type: application/json" \
+  -d "{\"firstName\":\"Wiz\",\"lastName\":\"Ard\",\"email\":\"$RS_EMAIL\"}")
+assert_success "POST /api/auth/register/start" "$RS"
+
+# Already-registered (completed) email is blocked at start so the user isn't sent
+# to verify a code that will never arrive.
+RS_DUP=$(curl -s -X POST "$BASE/api/auth/register/start" \
+  -H "Content-Type: application/json" \
+  -d "{\"firstName\":\"Test\",\"lastName\":\"User\",\"email\":\"$EMAIL\"}")
+assert_error "POST /api/auth/register/start (existing email blocked)" "$RS_DUP" "EMAIL_TAKEN"
+
+# Wrong code → INVALID_CODE.
+RV=$(curl -s -X POST "$BASE/api/auth/register/verify" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$RS_EMAIL\",\"code\":\"000000\"}")
+assert_error "POST /api/auth/register/verify (wrong code)" "$RV" "INVALID_CODE"
+
+# Immediate resend → blocked by the 30s cooldown.
+RR=$(curl -s -X POST "$BASE/api/auth/register/resend" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$RS_EMAIL\"}")
+assert_error "POST /api/auth/register/resend (cooldown)" "$RR" "RESEND_COOLDOWN"
+
+# Missing fields → VALIDATION_ERROR.
+RVAL=$(curl -s -X POST "$BASE/api/auth/register/start" \
+  -H "Content-Type: application/json" -d '{"email":"not-an-email"}')
+assert_error "POST /api/auth/register/start (bad body)" "$RVAL" "VALIDATION_ERROR"
+
 hr; echo "3. Login"
 L=$(curl -s -X POST "$BASE/api/auth/login" \
   -H "Content-Type: application/json" \

@@ -140,6 +140,9 @@ async function main() {
   ]);
 
   // ── users ──
+  // Seeded accounts are pre-verified (emailVerifiedAt set) so they behave like
+  // accounts created through the multi-step verified registration flow.
+  const verifiedAt = new Date();
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const user = await prisma.user.create({
     data: {
@@ -148,18 +151,19 @@ async function main() {
       firstName: "Deyvid",
       lastName: "Popov",
       role: "ADMIN",
+      emailVerifiedAt: verifiedAt,
     },
   });
 
   const teamPasswordHash = await bcrypt.hash("minotaurus", 10);
   const maya = await prisma.user.create({
-    data: { email: "maya@helix.dev",  passwordHash: teamPasswordHash, firstName: "Maya", lastName: "Okafor",  role: "ENGINEER"  },
+    data: { email: "maya@helix.dev",  passwordHash: teamPasswordHash, firstName: "Maya", lastName: "Okafor",  role: "ENGINEER",  emailVerifiedAt: verifiedAt },
   });
   const iris = await prisma.user.create({
-    data: { email: "iris@helix.dev",  passwordHash: teamPasswordHash, firstName: "Iris", lastName: "Lindholm", role: "ARCHITECT" },
+    data: { email: "iris@helix.dev",  passwordHash: teamPasswordHash, firstName: "Iris", lastName: "Lindholm", role: "ARCHITECT", emailVerifiedAt: verifiedAt },
   });
   const ren = await prisma.user.create({
-    data: { email: "ren@helix.dev",   passwordHash: teamPasswordHash, firstName: "Ren",  lastName: "Tanaka",   role: "ENGINEER"  },
+    data: { email: "ren@helix.dev",   passwordHash: teamPasswordHash, firstName: "Ren",  lastName: "Tanaka",   role: "ENGINEER",  emailVerifiedAt: verifiedAt },
   });
 
   // ── project ──

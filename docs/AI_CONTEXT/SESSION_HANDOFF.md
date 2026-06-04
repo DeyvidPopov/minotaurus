@@ -1,6 +1,108 @@
 # Session Handoff
 
+## Authentication — final state (complete)
+
+**Lifecycle:** Register → Email verification via Resend → Password setup → JWT login → Dashboard redirect.
+
+**Email providers** (`modules/email/`, selected by `EMAIL_PROVIDER`, single seam `EmailService`):
+- `dev` — logs a masked verification code to the console (no credentials; default for local dev).
+- `resend` — sends a real verification email via the Resend API (`RESEND_API_KEY`, `MAIL_FROM`; `minotaurus.dev` verified).
+- `smtp` — fallback placeholder (not implemented; throws `503 EMAIL_NOT_CONFIGURED`).
+
+**Remaining (deferred, not blockers):**
+- Redis-backed rate limiting before any multi-instance deployment (current limiter is in-memory/single-instance).
+- Optional CAPTCHA on `register/start` if signup enumeration becomes a concern (start intentionally returns `409 EMAIL_TAKEN` for completed accounts).
+- Optional login gating on `emailVerifiedAt` for legacy/unverified users (login is currently not gated).
+
 ## Last Completed Feature
+
+**Registration wizard — UX follow-up** (two fixes):
+- **Duplicate completed-account email now blocks on Step 1.** `register/start` returns
+  `409 EMAIL_TAKEN` when a `User` already owns the email (a deliberate signup-enumeration
+  tradeoff that replaced the neutral-start response — see `KNOWN_LIMITATIONS.md → Auth`).
+  The wizard catches it, stays on Step 1, and shows an inline under-email error
+  ("An account with this email already exists. Sign in instead.") with **Sign in** linking
+  to `/login`; the error clears as the user edits the email. Pending/incomplete
+  registrations (no `User`) and fresh emails still proceed normally. Backend change scoped
+  to `startRegistration`; `resend`/`verify`/`complete`/`login` stay neutral/generic.
+- **OTP auto-submit removed.** Typing/pasting all 6 digits now only fills the boxes; the
+  user submits via the "Verify email" button (or Enter while the form is focused and the
+  button is enabled). Autofocus-next, paste-full-code, and backspace behavior are unchanged.
+- Verified: backend `npm run typecheck` + `test:unit` (224 pass) + `test:api` smoke (now
+  asserts the existing-email block); frontend `npm run typecheck`; live checks for
+  duplicate / case-insensitive duplicate / fresh / pending-restart.
+
+## Previous feature pass
+
+**Multi-Step Registration Wizard — Frontend** (`app/(auth)/register/page.tsx`) —
+the UI on top of the hardened backend below. Single-file, wired to the real contract
+(`authApi.registerStart/Verify/Resend/Complete`); no simulated success, only local
+loading spinners. Token is persisted by `registerComplete` exactly like login, then
+step 4 → `/dashboard`.
+- 4-step flow: Account → Verify → Password → Done, with a numbered stepper whose labels
+  collapse on mobile (`hidden sm:inline`). OTP code input supports autofocus, paste
+  (incl. iOS `one-time-code` distribution), backspace, Delete/clear, and arrow-key nav.
+- 30s resend cooldown driven by `resendAvailableAt` (and `RESEND_COOLDOWN.retryAfterSeconds`);
+  inline error mapping for INVALID_CODE / WEAK_PASSWORD (shows `details.failures`) /
+  RESEND_COOLDOWN / RATE_LIMITED-429 / EMAIL_NOT_CONFIGURED (neutral wording) / 500.
+- Login and the backend were untouched (per scope). Legacy `POST /auth/register` still
+  there + deprecated.
+- **Post-implementation focused quality audit** (5-lens multi-agent + per-finding verify,
+  20 worth-fixing / 9 refuted) → all fixes applied in `register/page.tsx` only:
+  - a11y: visible `<label>`s + `id`/`aria-invalid`/`aria-describedby` on all 5 text inputs;
+    OTP `role="group"` + label; stepper `role="list"`/`listitem` + sr-only "Step N of 4"
+    + decorative icons `aria-hidden`; success step `role="status"` + autofocus; resend
+    cooldown text bumped off the low-contrast `--fg-subtle` token.
+  - flow: gate "Change email" / step-3 "Back" / "Resend" on in-flight `loading` (no
+    navigation racing a resolving request); clear the consumed code when going Back to verify.
+  - correctness: terminal stepper node shows the check (not a hollow "4"); OTP boxes redden
+    only for code-validity errors (`codeInvalid`), and the error clears on retype; step 2 is
+    a real `<form>` so Enter submits; the post-success redirect `setTimeout` is held in a ref
+    and cleared on unmount / on "Enter workspace" (no double-navigate).
+- Verified: frontend `npm run typecheck` + `npm run lint` clean; `/register` renders 200
+  with the new a11y markup; backend contract re-confirmed end-to-end the prior pass.
+
+## Previous feature pass
+
+**Multi-Step Registration Backend** (`modules/auth/registration/` + `modules/email/`) —
+production-oriented verified signup, backend only (no UI yet, by design):
+- Endpoints (mounted under `/auth/register`, each rate-limited): `start` (account data →
+  emailed 6-digit code), `verify` (code → short-lived registration token), `complete`
+  (token + password → User + JWT, same shape as login), `resend` (cooldown-gated re-issue).
+  Legacy `POST /auth/register` kept + deprecated.
+- Layering mirrors the rest of the app: pure `registration.engine.ts` (normalization, code
+  gen via injected RNG, expiry/cooldown/attempt math, password strength ≥8+letter+number —
+  no clock/randomness/IO) → `registration.service.ts` (Prisma + bcrypt/sha256 + email + JWT,
+  with an injectable-deps test seam) → thin `registration.controller.ts` + zod.
+- DB: new `EmailVerification` table (separate from User) holding bcrypt-hashed code,
+  sha256-hashed registration token, expiry/cooldown/attempt/verified columns; `User`
+  gained nullable `emailVerifiedAt`. Migrations `20260603130000_add_email_verified_at` +
+  `20260603130100_add_email_verification`. Seeded users marked verified.
+- Security: codes/tokens never persisted in plaintext; `start`/`resend` enumeration-neutral
+  for verified accounts (with constant-time bcrypt compensation on the duplicate/no-record
+  paths); attempt cap enforced by an **atomic** conditional `updateMany` reservation BEFORE
+  bcrypt (no TOCTOU under concurrent `/verify`); `HttpError` gained optional `details`
+  (carried verbatim by the error handler — the generic-500 no-leak branch is unchanged).
+- Email seam: `EmailService` with `DevEmailService` (masked dev-only log) default +
+  `SmtpEmailService` placeholder (`503 EMAIL_NOT_CONFIGURED`). Optional env in `.env.example`.
+- Rate limiting: pure `rate-limit.engine.ts` + in-memory `rate-limit.ts`; `clientIp()` uses
+  `req.ip` only (never raw XFF) with `TRUST_PROXY` opt-in. Per-route limiters on login +
+  all four registration routes.
+- Tests: engine + rate-limit-engine + middleware + email-service + full service
+  orchestration (incl. concurrency-cap and P2002→EMAIL_TAKEN race). `npm run test:unit`
+  223 pass; backend + frontend typecheck clean.
+- Frontend contract only (no UI): typed `registerStart/Verify/Complete/Resend` in
+  `frontend/nextjs/lib/api/auth.ts`.
+- **Post-implementation adversarial review** (5-lens multi-agent + per-finding verify):
+  16 findings confirmed, 5 refuted. Fixed the real ones (XFF-spoofing IP-trust bypass,
+  verify attempt-cap TOCTOU, start/verify timing oracles, verify limiter keying) + added
+  the missing test coverage; the remaining low-risk items are recorded under
+  `KNOWN_LIMITATIONS.md → Auth → Accepted low-risk items`.
+- **Deferred follow-ups**: real SMTP transport; move rate-limit + verification state to
+  Redis before multi-instance; the frontend wizard; decide whether login should require
+  `emailVerifiedAt` for all users.
+
+## Previous feature pass
 
 **AI Architecture Review** (`modules/ai/review/`) — the first read-only AI feature:
 - Chain is strictly one-directional and AI-free until the model call:

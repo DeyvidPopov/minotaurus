@@ -16,9 +16,49 @@ Living list of trade-offs and partial implementations in the current MVP. Update
 - Multi-user **per project** (Phase 7). Project access is gated by the `ProjectMember`
   table with four roles: OWNER, ARCHITECT, DEVELOPER, VIEWER. No organization scoping
   yet — every user is global; membership is per-project.
-- No refresh tokens, no password reset, no email verification.
+- No refresh tokens, no password reset, no OAuth.
 - Changing the password does **not** invalidate existing JWTs — they remain valid until they expire (default 7d).
 - Email changes via `PATCH /auth/me` take effect immediately with no verification flow.
+
+### Multi-step registration (`modules/auth/registration/` + frontend wizard, shipped)
+- `POST /auth/register/{start,verify,complete,resend}`: account data → emailed 6-digit code
+  (bcrypt-hashed, 10-min TTL, 5-attempt cap, 30s resend cooldown) → short-lived
+  registration token (sha256-hashed) → password set → User created + JWT. No user/JWT
+  exists before verify+complete. Pending state lives in `EmailVerification`; codes/tokens
+  are never persisted in plaintext. Engine logic is pure + unit-tested; orchestration tested
+  with an in-memory fake DB. Frontend wizard: `app/(auth)/register/page.tsx`.
+- **`register/start` reveals an existing completed account** — it returns `409 EMAIL_TAKEN`
+  when a `User` already owns the email, so the wizard stops the user on the account-details
+  step instead of sending them to verify a code that will never arrive. This is a
+  **deliberate signup-enumeration tradeoff** (the industry norm for a registration form);
+  it replaced the earlier neutral-start response. Scope is bounded on purpose: `resend`,
+  `verify`, `complete`, and `login` remain neutral/generic, and a **pending/incomplete**
+  registration (an `EmailVerification` row with no `User`) is *not* revealed — only completed
+  accounts are. Revisit if signup enumeration ever becomes a concern (e.g. add a CAPTCHA).
+- **Legacy `POST /auth/register`** (single-step, unverified) is kept and deprecated for
+  back-compat; remove once the wizard UI fully replaces it.
+- **Login does NOT yet gate on `User.emailVerifiedAt`** (nullable; legacy/seeded rows are
+  marked verified). New accounts are inherently verified. Enable gating later if needed.
+- **Email transport**: only `DevEmailService` (logs a masked code, dev-only) is wired;
+  `SmtpEmailService` is a placeholder that returns `503 EMAIL_NOT_CONFIGURED` until a real
+  provider is implemented. The app runs locally with no email credentials.
+- **Rate limiting is in-memory + single-instance** (`middleware/rate-limit.ts`): state
+  resets on restart and does not coordinate across replicas. `TRUST_PROXY` must be set when
+  behind a proxy/LB or `req.ip` (and thus IP-keyed limits) will be the proxy address; it is
+  OFF by default so a client-supplied `X-Forwarded-For` can't forge the key. Move to Redis
+  before horizontal scaling.
+- **Accepted low-risk items** (surfaced by an adversarial review, judged not worth the
+  added complexity now): (1) bootstrap **double-ADMIN race** — two users completing the
+  very first registrations on a brand-new empty DB within the same `count→create` window
+  could both become ADMIN (also pre-exists in legacy register); near-zero in practice.
+  (2) **verify token last-writer-wins** — concurrent duplicate `/verify` of the same code
+  returns one client a 200 with a token that's immediately superseded (user re-verifies);
+  can't be fixed by "reuse existing token" since the plaintext token isn't stored.
+  (3) **start/resend persist-before-send** — an SMTP send failure leaves a benign orphan
+  `EmailVerification` row (overwritten on retry, pruned on expiry) and surfaces the
+  undocumented `503 EMAIL_NOT_CONFIGURED`. (4) **resend existence oracle** — resend's
+  `429 RESEND_COOLDOWN` vs neutral `200` distinguishes an in-flight (transient, unverified)
+  registration; verified accounts are NOT distinguishable. Revisit when moving to Redis.
 
 ## Team / Roles (Phase 7 — shipped)
 - Roles enforced server-side at every mutation endpoint (controllers use the shared

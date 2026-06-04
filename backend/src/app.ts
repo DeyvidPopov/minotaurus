@@ -11,6 +11,20 @@ import { errorHandler, notFound } from "./middleware/error.js";
 export function createApp() {
   const app = express();
 
+  // Trust proxy is OFF by default so `req.ip` is the real socket peer and a
+  // client-supplied X-Forwarded-For can't forge the rate-limit key. Set
+  // TRUST_PROXY only when actually behind a known proxy/load balancer:
+  //   TRUST_PROXY=true            → trust the left-most XFF (single trusted proxy)
+  //   TRUST_PROXY=<n>             → trust n proxy hops
+  //   TRUST_PROXY=<ip|cidr,...>   → trust specific proxy addresses
+  const trustProxy = process.env.TRUST_PROXY?.trim();
+  if (trustProxy) {
+    const asNumber = Number(trustProxy);
+    if (trustProxy === "true") app.set("trust proxy", true);
+    else if (Number.isInteger(asNumber)) app.set("trust proxy", asNumber);
+    else app.set("trust proxy", trustProxy.split(",").map((s) => s.trim()));
+  }
+
   app.use(
     cors({
       origin: process.env.CORS_ORIGIN

@@ -36,8 +36,13 @@ export async function register(req: Request, res: Response) {
   if (!parsed.success) {
     return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
   }
-  const { email, password, firstName, lastName } = parsed.data;
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const { password, firstName, lastName } = parsed.data;
+  // Normalize on write so duplicate detection (and the verified flow's lookups)
+  // are consistently case-insensitive; login already matches insensitively.
+  const email = parsed.data.email.trim().toLowerCase();
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
   if (existing) {
     return fail(res, 409, "EMAIL_TAKEN", "Email is already registered");
   }

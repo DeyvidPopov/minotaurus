@@ -26,6 +26,12 @@ export class HttpError extends Error {
     public status: number,
     public code: string,
     message: string,
+    /**
+     * Optional, deliberately user-facing extra context (e.g. unmet password
+     * rules, retry-after seconds). Only ever set explicitly by us — never
+     * populated from an unexpected/internal error — so it cannot leak internals.
+     */
+    public details?: unknown,
   ) {
     super(message);
   }
