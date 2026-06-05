@@ -8,10 +8,16 @@ import { recordVersionEvent } from "../versions/versions.engine.js";
 import { analyzeApiValidation } from "../api-intel/api-validation.js";
 import { isAuthActionPath } from "../api-intel/text.js";
 import type { ApiValidationInput } from "../api-intel/api-intel.types.js";
+import { buildStatusSnapshot, restoreIssueStatuses } from "./validation.status.js";
+import { PROJECT_LEVEL_PREFIX } from "./validation.constants.js";
+import { analyzeArchitectureFindings } from "../findings/finding-rules.js";
+import { getFinding } from "../findings/finding-catalog.js";
+
+// Re-exported for back-compat; the canonical definition lives in
+// validation.constants.ts (prisma-free, so the presenter can share it).
+export { PROJECT_LEVEL_PREFIX };
 
 const CHURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-const DEPENDENCY_LIMIT = 6;
-const CHURN_LIMIT = 5;
 
 export async function runValidationForProject(
   projectId: string,
@@ -53,21 +59,10 @@ export async function runValidationForProject(
   type DraftIssue = Omit<ValidationIssue, "id" | "createdAt" | "updatedAt">;
   const drafts: DraftIssue[] = [];
 
+  // Per-artifact documentation + security-policy rules. (Orphan / fan-out /
+  // churn / deprecated-dependency rules are produced by the shared finding-rules
+  // engine below, so they have ONE implementation across Validation + Analysis.)
   for (const a of artifacts) {
-    const hasIncoming = projectRelations.some((r) => r.targetArtifactId === a.id);
-    const hasOutgoing = projectRelations.some((r) => r.sourceArtifactId === a.id);
-
-    if (!hasIncoming && !hasOutgoing) {
-      drafts.push({
-        projectId,
-        artifactId: a.id,
-        severity: "WARNING",
-        category: "RELATIONSHIP",
-        message: `Artifact "${a.title}" is orphaned — no incoming or outgoing relations.`,
-        status: "OPEN",
-      });
-    }
-
     if (a.type === "DOCUMENTATION" && (!a.documentationContent || !a.documentationContent.trim())) {
       drafts.push({
         projectId,
@@ -97,21 +92,6 @@ export async function runValidationForProject(
   }
 
   const byId = new Map(artifacts.map((a) => [a.id, a]));
-  for (const r of projectRelations) {
-    const src = byId.get(r.sourceArtifactId);
-    const tgt = byId.get(r.targetArtifactId);
-    if (!src || !tgt) continue;
-    if (tgt.status === "DEPRECATED" && src.status === "ACTIVE") {
-      drafts.push({
-        projectId,
-        artifactId: src.id,
-        severity: "ERROR",
-        category: "ARCHITECTURE",
-        message: `Active artifact "${src.title}" depends on deprecated artifact "${tgt.title}".`,
-        status: "OPEN",
-      });
-    }
-  }
 
   // ── API spec rules ──
   const artifactByIdMap = byId;
@@ -277,62 +257,47 @@ export async function runValidationForProject(
     }
   }
 
-  // ── Architecture / change-history heuristics ──
+  // ── Architecture findings (orphan, depends-on-deprecated, fan-out, churn,
+  //    deprecated-still-referenced) via the shared finding-rules engine — the
+  //    single implementation also used (read-only) by the analysis engine. ──
   const churnCounts = new Map<string, number>();
   for (const e of recentEvents) {
     churnCounts.set(e.entityId, (churnCounts.get(e.entityId) ?? 0) + 1);
   }
 
-  for (const a of artifacts) {
-    const dependencyCount = projectRelations.filter(
-      (r) => r.sourceArtifactId === a.id || r.targetArtifactId === a.id,
-    ).length;
-    if (dependencyCount > DEPENDENCY_LIMIT) {
-      drafts.push({
-        projectId,
-        artifactId: a.id,
-        severity: "INFO",
-        category: "ARCHITECTURE",
-        message: `Artifact "${a.title}" has ${dependencyCount} relations — consider splitting responsibilities.`,
-        status: "OPEN",
-      });
-    }
-
-    const recentChanges = churnCounts.get(a.id) ?? 0;
-    if (recentChanges > CHURN_LIMIT) {
-      drafts.push({
-        projectId,
-        artifactId: a.id,
-        severity: "INFO",
-        category: "ARCHITECTURE",
-        message: `Artifact "${a.title}" was changed ${recentChanges} times in the last 7 days.`,
-        status: "OPEN",
-      });
-    }
-
-    if (a.status === "DEPRECATED") {
-      const incomingRefs = projectRelations.filter((r) => r.targetArtifactId === a.id).length;
-      if (incomingRefs > 2) {
-        drafts.push({
-          projectId,
-          artifactId: a.id,
-          severity: "WARNING",
-          category: "ARCHITECTURE",
-          message: `Deprecated artifact "${a.title}" still has ${incomingRefs} incoming references.`,
-          status: "OPEN",
-        });
-      }
-    }
+  const archFindings = analyzeArchitectureFindings({
+    artifacts: artifacts.map((a) => ({ id: a.id, title: a.title, status: a.status })),
+    relations: projectRelations.map((r) => ({
+      sourceArtifactId: r.sourceArtifactId,
+      targetArtifactId: r.targetArtifactId,
+    })),
+    churnByArtifact: churnCounts,
+  });
+  for (const f of archFindings) {
+    const entry = getFinding(f.code)!; // every architecture code is in the catalog
+    drafts.push({
+      projectId,
+      artifactId: f.artifactId,
+      severity: entry.severity,
+      category: entry.category,
+      message: f.message,
+      status: "OPEN",
+    });
   }
 
   // ── Collaboration / governance heuristics ──
+  // This finding is project-level, not about any single artifact. `artifactId`
+  // is a required column (no FK), so we can't store null without a migration;
+  // instead we use the explicit project-level convention: store the projectId
+  // (never resolves to an artifact) and prefix the message with PROJECT_LEVEL_PREFIX
+  // so the UI renders "Project" instead of falling back to an arbitrary artifact.
   if (project && artifacts.length > 0 && memberCount <= 1) {
     drafts.push({
       projectId,
-      artifactId: artifacts[0].id,
+      artifactId: projectId,
       severity: "INFO",
       category: "ARCHITECTURE",
-      message: "Single-user project may reduce collaboration visibility. Consider inviting team members on the Team page.",
+      message: `${PROJECT_LEVEL_PREFIX}Single-user project may reduce collaboration visibility. Consider inviting team members on the Team page.`,
       status: "OPEN",
     });
   }
@@ -381,12 +346,21 @@ export async function runValidationForProject(
     });
   }
 
-  // Apply in one transaction: wipe old issues, insert new, record the run.
+  // Apply in one transaction: carry forward IGNORED (waived) decisions, wipe old
+  // issues, insert new, record the run. Issue rows are recreated each run (fresh
+  // ids), so a waive is preserved by fingerprint, not by id. RESOLVED is NOT
+  // carried forward — a still-produced finding reopens (see validation.status.ts).
   const result = await prisma.$transaction(async (tx) => {
+    const previous = await tx.validationIssue.findMany({
+      where: { projectId },
+      select: { artifactId: true, category: true, severity: true, message: true, status: true },
+    });
+    const restored = restoreIssueStatuses(drafts, buildStatusSnapshot(previous));
+
     await tx.validationIssue.deleteMany({ where: { projectId } });
-    if (drafts.length > 0) {
+    if (restored.length > 0) {
       await tx.validationIssue.createMany({
-        data: drafts.map((d) => ({ ...d, createdAt: now, updatedAt: now })),
+        data: restored.map((d) => ({ ...d, createdAt: now, updatedAt: now })),
       });
     }
     return tx.validationIssue.findMany({ where: { projectId } });

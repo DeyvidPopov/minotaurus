@@ -13,8 +13,6 @@
 // analysis layer. Keep it free of presentation concerns.
 
 import {
-  CHURN_LIMIT,
-  CHURN_WINDOW_DAYS,
   COUPLING_PENALTY_CAP,
   DEGREE_LIMIT,
   EMPTY_GRADE,
@@ -41,6 +39,7 @@ import type {
   SnapshotVersionEvent,
 } from "./analysis.types.js";
 import { analyzeApiIntelCounts } from "../../api-intel/api-metrics.js";
+import { classifyFindingFromIssue, stripFindingCode } from "../../findings/finding-classifier.js";
 
 // ────────────────────────────── numeric helpers ──────────────────────────────
 
@@ -459,14 +458,18 @@ function buildRisks(ctx: RiskCtx): RiskFinding[] {
 
   const findings: RiskFinding[] = [];
 
-  // (a) Carry through every OPEN validation issue.
+  // (a) Carry through every OPEN validation issue, PRESERVING its canonical
+  //     finding code as the ruleId (never the generic "VALIDATION_ISSUE"). The
+  //     code is recovered from the message (prefix or keyword classification);
+  //     the displayed message is the CODE-stripped form.
   for (const v of openIssues) {
     const aid = v.artifactId ?? "";
+    const code = classifyFindingFromIssue({ category: v.category ?? "", message: v.message ?? "" });
     findings.push({
-      id: v.id ?? `VALIDATION_ISSUE:${aid}:${v.message ?? ""}`,
-      ruleId: "VALIDATION_ISSUE",
+      id: v.id ?? `${code}:${aid}:${v.message ?? ""}`,
+      ruleId: code,
       severity: v.severity ?? "INFO",
-      message: v.message ?? "Validation issue",
+      message: stripFindingCode(v.message ?? "Validation issue"),
       evidence: [
         { type: "artifact", id: aid, title: titleOf(aid) },
         { type: "category", value: v.category ?? "UNKNOWN" },
@@ -474,50 +477,18 @@ function buildRisks(ctx: RiskCtx): RiskFinding[] {
     });
   }
 
-  // (b) Derived architecture risks.
-  const incoming = new Map<string, number>();
-  const linkedArtifactIds = new Set<string>();
-  for (const r of validRelations) {
-    if (r.targetArtifactId) incoming.set(r.targetArtifactId, (incoming.get(r.targetArtifactId) ?? 0) + 1);
-  }
-  for (const res of resources) if (res.artifactId) linkedArtifactIds.add(res.artifactId);
-
+  // (b) Derived ANALYSIS-ONLY risks. The overlapping orphan / fan-out / churn /
+  //     deprecated-dependency rules are produced solely by the validation engine
+  //     (via the shared finding-rules engine) and reach Analysis through the
+  //     status-aware carry-through above — so they are NOT re-derived here. Only
+  //     facts with no validation equivalent remain (requirement coverage,
+  //     security-policy documentation, single-owner, stale-validation).
   const implementsTargets = new Set<string>();
   for (const r of validRelations) {
     if (r.relationType === "IMPLEMENTS" && r.targetArtifactId) implementsTargets.add(r.targetArtifactId);
   }
 
   for (const a of artifacts) {
-    const d = degree.get(a.id) ?? 0;
-    const inc = incoming.get(a.id) ?? 0;
-
-    if (a.status === "DEPRECATED" && inc > 0) {
-      findings.push({
-        id: `DEPRECATED_REFERENCED:${a.id}`,
-        ruleId: "DEPRECATED_REFERENCED",
-        severity: "ERROR",
-        message: `Deprecated artifact "${a.title ?? a.id}" still has ${inc} incoming reference(s).`,
-        evidence: [{ type: "artifact", id: a.id, title: a.title ?? a.id }, { type: "count", value: inc }],
-      });
-    }
-    if (d === 0) {
-      findings.push({
-        id: `ORPHAN_ARTIFACT:${a.id}`,
-        ruleId: "ORPHAN_ARTIFACT",
-        severity: "WARNING",
-        message: `Artifact "${a.title ?? a.id}" is orphaned — no relations.`,
-        evidence: [{ type: "artifact", id: a.id, title: a.title ?? a.id }],
-      });
-    }
-    if (d > DEGREE_LIMIT) {
-      findings.push({
-        id: `OVER_COUPLED:${a.id}`,
-        ruleId: "OVER_COUPLED",
-        severity: "INFO",
-        message: `Artifact "${a.title ?? a.id}" has ${d} relations — consider splitting responsibilities.`,
-        evidence: [{ type: "artifact", id: a.id, title: a.title ?? a.id }, { type: "degree", value: d }],
-      });
-    }
     if (a.type === "REQUIREMENT" && !implementsTargets.has(a.id)) {
       findings.push({
         id: `UNIMPLEMENTED_REQUIREMENT:${a.id}`,
@@ -533,15 +504,6 @@ function buildRisks(ctx: RiskCtx): RiskFinding[] {
         ruleId: "UNDOCUMENTED_SECURITY_POLICY",
         severity: "ERROR",
         message: `Security policy "${a.title ?? a.id}" is undocumented.`,
-        evidence: [{ type: "artifact", id: a.id, title: a.title ?? a.id }],
-      });
-    }
-    if (a.type === "SERVICE" && d === 0 && !linkedArtifactIds.has(a.id)) {
-      findings.push({
-        id: `UNLINKED_SERVICE:${a.id}`,
-        ruleId: "UNLINKED_SERVICE",
-        severity: "WARNING",
-        message: `Service "${a.title ?? a.id}" has no relations and no linked API/DB/diagram.`,
         evidence: [{ type: "artifact", id: a.id, title: a.title ?? a.id }],
       });
     }
@@ -567,34 +529,27 @@ function buildRisks(ctx: RiskCtx): RiskFinding[] {
     });
   }
 
-  // HIGH_CHURN — CREATED/UPDATED events per artifact inside the churn window.
-  if (nowMs != null) {
-    const windowStart = nowMs - CHURN_WINDOW_DAYS * MS_PER_DAY;
-    const churn = new Map<string, number>();
-    for (const e of events) {
-      if (e.action !== "CREATED" && e.action !== "UPDATED") continue;
-      const t = toMs(e.createdAt);
-      if (t == null || t < windowStart || t > nowMs) continue;
-      if (!e.entityId) continue;
-      churn.set(e.entityId, (churn.get(e.entityId) ?? 0) + 1);
-    }
-    const artifactIds = new Set(artifacts.map((a) => a.id));
-    for (const [entityId, count] of churn) {
-      if (count > CHURN_LIMIT && artifactIds.has(entityId)) {
-        findings.push({
-          id: `HIGH_CHURN:${entityId}`,
-          ruleId: "HIGH_CHURN",
-          severity: "INFO",
-          message: `Artifact "${titleOf(entityId)}" changed ${count} times in ${CHURN_WINDOW_DAYS} days.`,
-          evidence: [{ type: "artifact", id: entityId, title: titleOf(entityId) }, { type: "count", value: count }],
-        });
-      }
-    }
-  }
+  // (HIGH_CHURN is produced by the validation engine and carried through above —
+  //  the analysis engine no longer re-derives it from version events.)
 
-  // Deterministic ordering: severity, then ruleId, then primary artifact id.
+  // Deduplicate by (ruleId, primary artifact id, message): a safety net so the
+  // same canonical finding can never appear twice (e.g. a carried validation
+  // finding and a derived one). Message is part of the key so genuinely distinct
+  // findings on the same artifact (e.g. two deprecated dependencies) are kept.
   const primaryArtifactId = (f: RiskFinding): string =>
     f.evidence.find((e) => e.type === "artifact")?.id ?? "";
+  const seen = new Set<string>();
+  const deduped: RiskFinding[] = [];
+  for (const f of findings) {
+    const key = `${f.ruleId} ${primaryArtifactId(f)} ${f.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(f);
+  }
+  findings.length = 0;
+  findings.push(...deduped);
+
+  // Deterministic ordering: severity, then ruleId, then primary artifact id.
   findings.sort(
     (a, b) =>
       (SEVERITY_RANK[a.severity] ?? 99) - (SEVERITY_RANK[b.severity] ?? 99) ||

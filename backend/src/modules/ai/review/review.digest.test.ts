@@ -95,6 +95,18 @@ test("evidenceKeys include fixed metric paths, keyed maps, and SHOWN ids only", 
   assert.ok(keys.has("o0"), "a shown orphan id is citable");
   assert.ok(!keys.has("o11"), "a capped (unseen) orphan id is NOT citable");
   assert.ok(keys.has("r1") && keys.has("ORPHAN_ARTIFACT"), "risk id + ruleId citable");
+  assert.ok(keys.has("finding:ORPHAN_ARTIFACT"), "namespaced finding code citable");
+});
+
+test("the model can cite a specific finding code (finding:<code>) but not an unshown one", () => {
+  const d = buildReviewDigest(analysis({
+    risks: [{ id: "r1", ruleId: "DEPENDS_ON_DEPRECATED", severity: "ERROR", message: "a depends on deprecated b", evidence: [] }],
+  }), snapshot());
+  const keys = new Set(d.evidenceKeys);
+  assert.ok(keys.has("finding:DEPENDS_ON_DEPRECATED"), "shown code is citable by identity");
+  assert.ok(keys.has("DEPENDS_ON_DEPRECATED"), "bare ruleId citable");
+  assert.ok(!keys.has("finding:USER_SCOPED_ENDPOINT_WITHOUT_AUTH"), "a code that was never shown is not citable");
+  assert.ok(!keys.has("VALIDATION_ISSUE"), "no generic VALIDATION_ISSUE key");
 });
 
 test("deterministic: same inputs produce a deep-equal digest", () => {

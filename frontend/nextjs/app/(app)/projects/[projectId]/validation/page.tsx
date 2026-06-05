@@ -1,8 +1,10 @@
 // app/(app)/projects/[projectId]/validation/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { Play, Check, MinusCircle, RotateCcw } from "lucide-react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { Play, Check, MinusCircle, RotateCcw, ChevronRight, Info, Crosshair, Wrench, ShieldCheck } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { CATEGORIES_LIST } from "@/lib/mock-data-extra";
 import { PageHeader } from "@/components/ui/page-header";
@@ -12,13 +14,88 @@ import { Badge } from "@/components/ui/badge";
 import { SeverityBadge } from "@/components/ui/severity-badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TypeChip } from "@/components/ui/type-chip";
+import { ProjectChip } from "@/components/ui/project-chip";
+import { OpenLink } from "@/components/ui/open-link";
 import { Empty } from "@/components/ui/empty";
 import { validationApi } from "@/lib/api";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { ApiError } from "@/lib/api/client";
 import { timeAgo } from "@/lib/utils";
-import type { Artifact, IssueStatus, Project, ValidationIssue } from "@/lib/types";
+import type { Artifact, IssueStatus, IssueTarget, Project, ValidationIssue } from "@/lib/types";
+
+// Mirrors PROJECT_LEVEL_PREFIX in backend validation.engine.ts: project-level
+// issues are not artifact-scoped, so they carry this prefix and store the
+// projectId in artifactId (which never resolves to an artifact). Keep in sync.
+const PROJECT_LEVEL_PREFIX = "PROJECT_LEVEL · ";
+
+const KIND_LABEL: Record<IssueTarget["kind"], string> = {
+  TEAM: "Team",
+  ARTIFACT: "artifact",
+  API_SPEC: "API spec",
+  DATABASE_MODEL: "database model",
+  DIAGRAM: "diagram",
+};
+
+// Map a resolved issue target to its in-app route. A null id (resource not
+// found / deleted) falls back to the relevant module index page.
+function targetHref(projectId: string, t: IssueTarget): string {
+  switch (t.kind) {
+    case "TEAM":
+      return `/projects/${projectId}/team`;
+    case "ARTIFACT":
+      return t.id
+        ? `/projects/${projectId}/artifacts/${t.id}${t.tab ? `?tab=${t.tab}` : ""}`
+        : `/projects/${projectId}/graph`;
+    case "API_SPEC":
+      return t.id ? `/projects/${projectId}/api/${t.id}` : `/projects/${projectId}/api`;
+    case "DATABASE_MODEL":
+      return t.id ? `/projects/${projectId}/database/${t.id}` : `/projects/${projectId}/database`;
+    case "DIAGRAM":
+      return t.id ? `/projects/${projectId}/diagrams/${t.id}` : `/projects/${projectId}/diagrams`;
+  }
+}
+
+// Human description of the affected target for the details panel.
+function targetDescription(t: IssueTarget): string {
+  if (t.kind === "TEAM") return "Project · Team";
+  const noun = KIND_LABEL[t.kind];
+  const head = t.title ? `${noun} “${t.title}”` : `${noun} (unresolved)`;
+  return t.endpoint ? `${head} · ${t.endpoint.method} ${t.endpoint.path}` : head;
+}
+
+function DetailSection({
+  icon: Icon,
+  label,
+  accent = false,
+  children,
+}: {
+  icon: LucideIcon;
+  label: string;
+  accent?: boolean;
+  children: ReactNode;
+}) {
+  const accentStyle = accent ? { color: "var(--accent)" } : undefined;
+  return (
+    <div className="flex gap-2.5">
+      <Icon
+        size={14}
+        className={`mt-0.5 shrink-0 ${accent ? "" : "text-fg-subtle"}`}
+        style={accentStyle}
+        aria-hidden="true"
+      />
+      <div className="min-w-0">
+        <div
+          className={`text-[10.5px] uppercase tracking-wider mb-0.5 ${accent ? "" : "text-fg-subtle"}`}
+          style={accentStyle}
+        >
+          {label}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function ValidationPage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
@@ -31,6 +108,15 @@ export default function ValidationPage({ params }: { params: { projectId: string
   const [cat, setCat] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("OPEN");
   const [running, setRunning] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const load = async () => {
     try {
@@ -152,6 +238,7 @@ export default function ValidationPage({ params }: { params: { projectId: string
             <table className="w-full text-[13px]">
               <thead className="bg-panel">
                 <tr className="text-fg-muted text-[11.5px] uppercase tracking-wider">
+                  <th className="w-8 px-2 py-2.5 border-b border-border" aria-label="Expand" />
                   <th className="text-left px-3.5 py-2.5 border-b border-border">Severity</th>
                   <th className="text-left px-3.5 py-2.5 border-b border-border">Category</th>
                   <th className="text-left px-3.5 py-2.5 border-b border-border">Message</th>
@@ -163,16 +250,43 @@ export default function ValidationPage({ params }: { params: { projectId: string
               </thead>
               <tbody>
                 {visible.map((i) => {
-                  const art = artifactsById[i.artifactId];
+                  const isProjectLevel = i.message.startsWith(PROJECT_LEVEL_PREFIX);
+                  const message =
+                    i.meta?.cleanMessage ??
+                    (isProjectLevel ? i.message.slice(PROJECT_LEVEL_PREFIX.length) : i.message);
+                  const art = isProjectLevel ? undefined : artifactsById[i.artifactId];
+                  const meta = i.meta;
+                  const target = meta?.target ?? null;
+                  const isOpen = expanded.has(i.id);
                   return (
-                    <tr key={i.id} className="border-b border-border last:border-0 hover:bg-panel-hover">
+                    <Fragment key={i.id}>
+                    <tr
+                      className="border-b border-border hover:bg-panel-hover cursor-pointer"
+                      onClick={() => meta && toggleExpanded(i.id)}
+                    >
+                      <td className="px-2 py-3 align-middle">
+                        {meta && (
+                          <ChevronRight
+                            size={14}
+                            className={`text-fg-subtle transition-transform motion-reduce:transition-none ${isOpen ? "rotate-90" : ""}`}
+                          />
+                        )}
+                      </td>
                       <td className="px-3.5 py-3"><SeverityBadge severity={i.severity} /></td>
                       <td className="px-3.5 py-3"><Badge mono>{i.category}</Badge></td>
-                      <td className="px-3.5 py-3">{i.message}</td>
-                      <td className="px-3.5 py-3">{art && <div className="flex items-center gap-2"><TypeChip type={art.type} /><span className="font-medium">{art.title}</span></div>}</td>
+                      <td className="px-3.5 py-3">{message}</td>
+                      <td className="px-3.5 py-3">
+                        {isProjectLevel ? (
+                          <ProjectChip />
+                        ) : art ? (
+                          <div className="flex items-center gap-2"><TypeChip type={art.type} /><span className="font-medium">{art.title}</span></div>
+                        ) : (
+                          <span className="text-fg-muted">—</span>
+                        )}
+                      </td>
                       <td className="px-3.5 py-3 text-fg-muted text-[12.5px]">{timeAgo(i.createdAt)}</td>
                       <td className="px-3.5 py-3"><StatusBadge status={i.status} /></td>
-                      <td className="px-3.5 py-3">
+                      <td className="px-3.5 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5">
                           {i.status !== "RESOLVED" && (
                             <button onClick={() => updateStatus(i.id, "RESOLVED")} title="Mark resolved"
@@ -189,6 +303,63 @@ export default function ValidationPage({ params }: { params: { projectId: string
                         </div>
                       </td>
                     </tr>
+                    {meta && isOpen && (
+                      <tr className="border-b border-border last:border-0">
+                        <td colSpan={8} className="bg-panel/30 px-3.5 pt-1 pb-5">
+                          <div className="grid gap-4 text-[12.5px]">
+                            {/* header spans full width so "Open" sits at the right edge;
+                                the body below stays max-w-3xl for readable line length */}
+                            <div className="flex items-center gap-2">
+                              <Badge mono>{meta.code ?? meta.ruleId}</Badge>
+                              {meta.deterministic && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10.5px] font-mono uppercase tracking-wider"
+                                  style={{ color: "var(--c-success)" }}
+                                  title="Computed by the deterministic rule engine — no AI"
+                                >
+                                  <ShieldCheck size={11} aria-hidden="true" /> Deterministic
+                                </span>
+                              )}
+                              {target && (
+                                <OpenLink
+                                  href={targetHref(projectId, target)}
+                                  label={`Open ${KIND_LABEL[target.kind]}`}
+                                  className="ml-auto -mr-2 shrink-0 rounded-md px-2 py-1 hover:bg-panel-hover"
+                                />
+                              )}
+                            </div>
+
+                            <div className="max-w-3xl grid gap-4">
+                              <DetailSection icon={Info} label="Why it fired">
+                                <span className="text-fg-muted leading-relaxed">{meta.why}</span>
+                              </DetailSection>
+
+                              {target && (
+                                <DetailSection icon={Crosshair} label="Affected target">
+                                  {target.id ? (
+                                    <Link
+                                      href={targetHref(projectId, target)}
+                                      className="font-medium text-fg hover:text-accent transition-colors"
+                                    >
+                                      {targetDescription(target)}
+                                    </Link>
+                                  ) : (
+                                    <span className="text-fg-muted">{targetDescription(target)}</span>
+                                  )}
+                                </DetailSection>
+                              )}
+
+                              {/* suggested fix — the actionable part; emphasised with an
+                                  accent icon + label and brighter body text, no nested box */}
+                              <DetailSection icon={Wrench} label="Suggested fix" accent>
+                                <p className="text-fg leading-relaxed">{meta.suggestedFix}</p>
+                              </DetailSection>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>

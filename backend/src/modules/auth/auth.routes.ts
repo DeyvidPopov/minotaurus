@@ -3,6 +3,7 @@ import { changePassword, login, me, register, updateMe } from "./auth.controller
 import { requireAuth } from "../../middleware/auth.js";
 import { rateLimit, clientIp, bodyEmail } from "../../middleware/rate-limit.js";
 import { registrationRouter } from "./registration/registration.routes.js";
+import { passwordResetRouter } from "./password-reset/password-reset.routes.js";
 
 export const authRouter = Router();
 
@@ -16,6 +17,9 @@ const loginLimiter = rateLimit({
 
 // Multi-step verified registration: /auth/register/{start,verify,complete,resend}.
 authRouter.use("/register", registrationRouter);
+
+// Forgot-password flow: /auth/password/{forgot,verify,reset,resend}.
+authRouter.use("/password", passwordResetRouter);
 
 // DEPRECATED: single-step, unverified registration. Kept temporarily for
 // back-compat with the existing frontend register page; new clients should use

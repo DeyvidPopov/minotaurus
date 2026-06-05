@@ -1,9 +1,10 @@
-// app/(auth)/register/page.tsx — multi-step verified registration wizard.
+// app/(auth)/forgot-password/page.tsx — forgot-password wizard.
 //
-// Wired to the real backend contract (no simulated success — only local loading
-// spinners): start → verify → complete, plus resend. Auth is persisted exactly
-// like the login page (registerComplete sets the token via the API client), then
-// step 4 routes to /dashboard.
+// Mirrors the registration wizard (same look + shared CodeInput) but for an
+// existing account: request a code → verify it → set a new password. Wired to
+// the real backend contract (forgot → verify → reset, plus resend); the request
+// step is enumeration-neutral server-side, so step 1 always advances on a 200.
+// A successful reset does NOT log the user in — step 4 routes back to /login.
 "use client";
 
 import Link from "next/link";
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { CodeInput } from "../_components/code-input";
 
 const CODE_LENGTH = 6;
-const STEPS = ["Account", "Verify", "Password", "Done"] as const;
+const STEPS = ["Email", "Verify", "Password", "Done"] as const;
 
 // Mirror of the backend WEAK_PASSWORD failure codes → human guidance.
 const PW_RULE_TEXT: Record<string, string> = {
@@ -86,14 +87,9 @@ function messageFor(info: DecodedError): string {
     }
     case "PASSWORD_MISMATCH":
       return "Passwords don't match.";
-    case "INVALID_REGISTRATION_TOKEN":
-    case "REGISTRATION_TOKEN_EXPIRED":
-      return "Your registration session expired. Please start again.";
-    case "EMAIL_TAKEN":
-      return "This email is already registered. Try signing in instead.";
-    case "EMAIL_NOT_CONFIGURED":
-      // Deliberately neutral, admin-facing wording — not alarming end-user text.
-      return "Email service is not configured.";
+    case "INVALID_RESET_TOKEN":
+    case "RESET_TOKEN_EXPIRED":
+      return "Your reset session expired. Please start again.";
     case "RATE_LIMITED": {
       const s = Number(info.details?.retryAfterSeconds);
       return s
@@ -110,12 +106,10 @@ function messageFor(info: DecodedError): string {
 
 // ───────────────────────── form schemas ─────────────────────────
 
-const startSchema = z.object({
-  firstName: z.string().trim().min(1, "Required"),
-  lastName: z.string().trim().min(1, "Required"),
+const emailSchema = z.object({
   email: z.string().trim().email("Enter a valid email"),
 });
-type StartValues = z.infer<typeof startSchema>;
+type EmailValues = z.infer<typeof emailSchema>;
 
 const passwordSchema = z
   .object({
@@ -134,27 +128,26 @@ type PasswordValues = z.infer<typeof passwordSchema>;
 
 // ───────────────────────── page ─────────────────────────
 
-export default function RegisterPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [account, setAccount] = useState<StartValues>({ firstName: "", lastName: "", email: "" });
+  const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [codeResetSignal, setCodeResetSignal] = useState(0);
   const [codeInvalid, setCodeInvalid] = useState(false);
-  const [registrationToken, setRegistrationToken] = useState("");
+  const [resetToken, setResetToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [emailTaken, setEmailTaken] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const startForm = useForm<StartValues>({
-    resolver: zodResolver(startSchema),
-    defaultValues: { firstName: "", lastName: "", email: "" },
+  const emailForm = useForm<EmailValues>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: { email: "" },
   });
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
@@ -176,8 +169,6 @@ export default function RegisterPage() {
     if (redirectTimer.current) clearTimeout(redirectTimer.current);
   }, []);
 
-  // Cooldown is active if the timer says so OR the deadline is still in the
-  // future — the latter covers the first frame before the ticker effect runs.
   const cooldownActive =
     secondsLeft > 0 || (resendAvailableAt != null && resendAvailableAt > Date.now());
 
@@ -188,42 +179,32 @@ export default function RegisterPage() {
     setStep(s);
   };
 
-  const goToDashboard = () => {
+  const goToLogin = () => {
     if (redirectTimer.current) clearTimeout(redirectTimer.current);
-    router.push("/dashboard");
+    router.push("/login");
   };
 
-  // Clear a stale inline error / red boxes as soon as the user edits the code.
   const onCodeChange = (value: string) => {
     setCode(value);
     if (error) setError(null);
     if (codeInvalid) setCodeInvalid(false);
   };
 
-  // Step 1 → start registration.
-  const onStart = startForm.handleSubmit(async (values) => {
+  // Step 1 → request a reset code. Always advances on a 200 (the backend is
+  // enumeration-neutral — it never says whether the account exists).
+  const onRequest = emailForm.handleSubmit(async (values) => {
     setError(null);
-    setEmailTaken(false);
     setLoading(true);
     try {
-      const res = await authApi.registerStart(values);
-      setAccount(values);
+      const res = await authApi.passwordForgot(values);
+      setEmail(values.email);
       setCode("");
       setCodeInvalid(false);
       setCodeResetSignal((n) => n + 1);
       setResendAvailableAt(new Date(res.resendAvailableAt).getTime());
-      setError(null);
       setStep(2);
     } catch (err) {
-      const info = decodeError(err);
-      if (info.code === "EMAIL_TAKEN") {
-        // A completed account owns this email → stay on Step 1, show the inline
-        // email error with a Sign in link. Do NOT advance to verify.
-        setEmailTaken(true);
-        startForm.setFocus("email");
-      } else {
-        setError(messageFor(info));
-      }
+      setError(messageFor(decodeError(err)));
     } finally {
       setLoading(false);
     }
@@ -238,17 +219,14 @@ export default function RegisterPage() {
     setCodeInvalid(false);
     setLoading(true);
     try {
-      const res = await authApi.registerVerify({ email: account.email, code: value });
-      setRegistrationToken(res.registrationToken);
+      const res = await authApi.passwordVerify({ email, code: value });
+      setResetToken(res.resetToken);
       passwordForm.reset({ password: "", confirmPassword: "" });
-      setError(null);
       setStep(3);
     } catch (err) {
       const info = decodeError(err);
       setError(messageFor(info));
-      // Only the code-validity errors should redden the boxes.
       setCodeInvalid(info.code ? CODE_ERROR_CODES.has(info.code) : true);
-      // Clear the boxes so the user can retype the next code.
       setCode("");
       setCodeResetSignal((n) => n + 1);
     } finally {
@@ -263,7 +241,7 @@ export default function RegisterPage() {
     setCodeInvalid(false);
     setResending(true);
     try {
-      const res = await authApi.registerResend({ email: account.email });
+      const res = await authApi.passwordResend({ email });
       setResendAvailableAt(new Date(res.resendAvailableAt).getTime());
       setCode("");
       setCodeResetSignal((n) => n + 1);
@@ -280,23 +258,22 @@ export default function RegisterPage() {
     }
   };
 
-  // Step 3 → set password + create the account.
-  const onComplete = passwordForm.handleSubmit(async (values) => {
+  // Step 3 → set the new password.
+  const onReset = passwordForm.handleSubmit(async (values) => {
     setError(null);
     setLoading(true);
     try {
-      // registerComplete persists the token via the API client (same as login).
-      await authApi.registerComplete({
-        registrationToken,
+      await authApi.passwordReset({
+        resetToken,
         password: values.password,
         confirmPassword: values.confirmPassword,
       });
-      toast.success("Account created");
+      toast.success("Password updated");
       setStep(4);
-      redirectTimer.current = setTimeout(() => router.push("/dashboard"), 1000);
+      redirectTimer.current = setTimeout(() => router.push("/login"), 1200);
     } catch (err) {
       const info = decodeError(err);
-      if (info.code === "INVALID_REGISTRATION_TOKEN" || info.code === "REGISTRATION_TOKEN_EXPIRED") {
+      if (info.code === "INVALID_RESET_TOKEN" || info.code === "RESET_TOKEN_EXPIRED") {
         setSessionExpired(true);
       }
       setError(messageFor(info));
@@ -307,21 +284,12 @@ export default function RegisterPage() {
 
   const restart = () => {
     setSessionExpired(false);
-    setRegistrationToken("");
+    setResetToken("");
     setCode("");
     setCodeInvalid(false);
     setCodeResetSignal((n) => n + 1);
     passwordForm.reset({ password: "", confirmPassword: "" });
     goToStep(1);
-  };
-
-  // Step 3 → back to verify: drop the consumed code so the boxes start fresh.
-  const backToVerify = () => {
-    if (loading) return;
-    setCode("");
-    setCodeInvalid(false);
-    setCodeResetSignal((n) => n + 1);
-    goToStep(2);
   };
 
   const codeComplete = code.replace(/\D/g, "").length === CODE_LENGTH;
@@ -333,57 +301,25 @@ export default function RegisterPage() {
       <StepPanel key={step}>
         {step === 1 && (
           <>
-            <Heading title="Create your account" subtitle="Start documenting your architecture in minutes." />
-            <form className="flex flex-col gap-3" onSubmit={onStart} noValidate>
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="First name" htmlFor="reg-firstName" error={startForm.formState.errors.firstName?.message}>
-                  <input
-                    {...startForm.register("firstName")}
-                    {...a11y("reg-firstName", startForm.formState.errors.firstName)}
-                    autoFocus
-                    autoComplete="given-name"
-                    className={inputClass}
-                    placeholder="First name"
-                  />
-                </Field>
-                <Field label="Last name" htmlFor="reg-lastName" error={startForm.formState.errors.lastName?.message}>
-                  <input
-                    {...startForm.register("lastName")}
-                    {...a11y("reg-lastName", startForm.formState.errors.lastName)}
-                    autoComplete="family-name"
-                    className={inputClass}
-                    placeholder="Last name"
-                  />
-                </Field>
-              </div>
-              <Field label="Email" htmlFor="reg-email" error={startForm.formState.errors.email?.message}>
+            <Heading
+              title="Reset your password"
+              subtitle="Enter your email and we'll send you a 6-digit code to reset it."
+            />
+            <form className="flex flex-col gap-3" onSubmit={onRequest} noValidate>
+              <Field label="Email" htmlFor="fp-email" error={emailForm.formState.errors.email?.message}>
                 <div className="relative">
                   <Mail size={14} aria-hidden className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
                   <input
-                    {...startForm.register("email", {
-                      onChange: () => {
-                        if (emailTaken) setEmailTaken(false);
-                      },
-                    })}
-                    {...a11y("reg-email", startForm.formState.errors.email)}
+                    {...emailForm.register("email")}
+                    {...a11y("fp-email", emailForm.formState.errors.email)}
+                    autoFocus
                     type="email"
                     autoComplete="email"
-                    aria-invalid={emailTaken || !!startForm.formState.errors.email || undefined}
-                    aria-describedby={emailTaken ? "reg-email-taken" : undefined}
                     className={cn(inputClass, "pl-8")}
                     placeholder="you@company.com"
                   />
                 </div>
               </Field>
-              {emailTaken && (
-                <p id="reg-email-taken" role="alert" className="-mt-1.5 text-[11px] text-danger">
-                  An account with this email already exists.{" "}
-                  <Link href="/login" className="text-accent font-medium">
-                    Sign in
-                  </Link>{" "}
-                  instead.
-                </p>
-              )}
               {error && <InlineError>{error}</InlineError>}
               <Button type="submit" variant="primary" className="h-9 mt-1" disabled={loading}>
                 {loading ? (
@@ -392,15 +328,15 @@ export default function RegisterPage() {
                   </>
                 ) : (
                   <>
-                    Continue <ArrowRight size={14} />
+                    Send reset code <ArrowRight size={14} />
                   </>
                 )}
               </Button>
             </form>
             <Footer>
-              Already have an account?{" "}
+              Remembered it?{" "}
               <Link href="/login" className="text-accent font-medium">
-                Sign in
+                Back to sign in
               </Link>
             </Footer>
           </>
@@ -409,11 +345,11 @@ export default function RegisterPage() {
         {step === 2 && (
           <>
             <Heading
-              title="Verify your email"
+              title="Enter the code"
               subtitle={
                 <>
                   Enter the 6-digit code we sent to{" "}
-                  <span className="text-fg font-medium">{account.email}</span>.
+                  <span className="text-fg font-medium">{email}</span> if an account exists.
                 </>
               }
             />
@@ -433,19 +369,14 @@ export default function RegisterPage() {
                 onChange={onCodeChange}
               />
               {error && <InlineError id="verify-error">{error}</InlineError>}
-              <Button
-                type="submit"
-                variant="primary"
-                className="h-9"
-                disabled={loading || !codeComplete}
-              >
+              <Button type="submit" variant="primary" className="h-9" disabled={loading || !codeComplete}>
                 {loading ? (
                   <>
                     <Loader2 size={14} className="motion-safe:animate-spin" /> Verifying…
                   </>
                 ) : (
                   <>
-                    Verify email <ArrowRight size={14} />
+                    Verify code <ArrowRight size={14} />
                   </>
                 )}
               </Button>
@@ -473,32 +404,32 @@ export default function RegisterPage() {
 
         {step === 3 && (
           <>
-            <Heading title="Set a password" subtitle="Choose a password to finish creating your account." />
-            <form className="flex flex-col gap-3" onSubmit={onComplete} noValidate>
-              <Field label="Password" htmlFor="reg-password" error={passwordForm.formState.errors.password?.message}>
+            <Heading title="Set a new password" subtitle="Choose a new password for your account." />
+            <form className="flex flex-col gap-3" onSubmit={onReset} noValidate>
+              <Field label="New password" htmlFor="fp-password" error={passwordForm.formState.errors.password?.message}>
                 <div className="relative">
                   <Lock size={14} aria-hidden className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
                   <input
                     {...passwordForm.register("password")}
-                    {...a11y("reg-password", passwordForm.formState.errors.password)}
+                    {...a11y("fp-password", passwordForm.formState.errors.password)}
                     autoFocus
                     type="password"
                     autoComplete="new-password"
                     className={cn(inputClass, "pl-8")}
-                    placeholder="Password (min 8 chars)"
+                    placeholder="New password (min 8 chars)"
                   />
                 </div>
               </Field>
               <Field
                 label="Confirm password"
-                htmlFor="reg-confirmPassword"
+                htmlFor="fp-confirmPassword"
                 error={passwordForm.formState.errors.confirmPassword?.message}
               >
                 <div className="relative">
                   <Lock size={14} aria-hidden className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
                   <input
                     {...passwordForm.register("confirmPassword")}
-                    {...a11y("reg-confirmPassword", passwordForm.formState.errors.confirmPassword)}
+                    {...a11y("fp-confirmPassword", passwordForm.formState.errors.confirmPassword)}
                     type="password"
                     autoComplete="new-password"
                     className={cn(inputClass, "pl-8")}
@@ -515,24 +446,14 @@ export default function RegisterPage() {
                 <Button type="submit" variant="primary" className="h-9 mt-1" disabled={loading}>
                   {loading ? (
                     <>
-                      <Loader2 size={14} className="motion-safe:animate-spin" /> Creating account…
+                      <Loader2 size={14} className="motion-safe:animate-spin" /> Updating password…
                     </>
                   ) : (
                     <>
-                      Create account <ArrowRight size={14} />
+                      Update password <ArrowRight size={14} />
                     </>
                   )}
                 </Button>
-              )}
-              {!sessionExpired && (
-                <button
-                  type="button"
-                  onClick={backToVerify}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1 self-start text-[12.5px] text-fg-muted hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ArrowLeft size={12} aria-hidden /> Back
-                </button>
               )}
             </form>
           </>
@@ -543,10 +464,10 @@ export default function RegisterPage() {
             <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-accent text-accent-fg motion-safe:animate-[pulse_1.2s_ease-in-out_1]">
               <Check size={22} aria-hidden />
             </div>
-            <h1 className="m-0 mb-1 text-xl font-semibold tracking-tight">You&apos;re all set</h1>
-            <p className="m-0 mb-5 text-[13px] text-fg-muted">Taking you to your workspace…</p>
-            <Button type="button" variant="primary" className="h-9 w-full" autoFocus onClick={goToDashboard}>
-              Enter workspace <ArrowRight size={14} />
+            <h1 className="m-0 mb-1 text-xl font-semibold tracking-tight">Password updated</h1>
+            <p className="m-0 mb-5 text-[13px] text-fg-muted">Taking you to sign in…</p>
+            <Button type="button" variant="primary" className="h-9 w-full" autoFocus onClick={goToLogin}>
+              Back to sign in <ArrowRight size={14} />
             </Button>
           </div>
         )}
@@ -643,11 +564,9 @@ function StepPanel({ children }: { children: React.ReactNode }) {
 
 function Stepper({ current }: { current: number }) {
   return (
-    <div className="mb-6 flex items-center" role="list" aria-label="Registration progress">
+    <div className="mb-6 flex items-center" role="list" aria-label="Password reset progress">
       {STEPS.map((label, i) => {
         const n = i + 1;
-        // The terminal step counts as done once reached, so the wizard's
-        // completion reads consistently between the stepper and the success panel.
         const state =
           n < current || current >= STEPS.length ? "done" : n === current ? "active" : "todo";
         const srState = state === "done" ? "Completed" : state === "active" ? "Current step" : "Step";
@@ -666,7 +585,6 @@ function Stepper({ current }: { current: number }) {
                 <span aria-hidden>{state === "done" ? <Check size={12} /> : n}</span>
                 <span className="sr-only">{`${srState} ${n} of ${STEPS.length}: ${label}`}</span>
               </span>
-              {/* Labels collapse on mobile — only the numbered circles remain. */}
               <span
                 aria-hidden
                 className={cn(
@@ -692,4 +610,3 @@ function Stepper({ current }: { current: number }) {
     </div>
   );
 }
-

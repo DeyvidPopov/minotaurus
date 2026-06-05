@@ -86,6 +86,41 @@ model EmailVerification {
   @@index([expiresAt])
 }
 
+// ────────────────────────────── Password reset (forgot-password flow) ──────────────────────────────
+// Pending password-reset state for an EXISTING user. One row per (normalized)
+// email, holding the hashed 6-digit code, expiry/cooldown/attempt counters, and
+// (after the code is verified) a hashed short-lived reset token that the final
+// "reset" step consumes to set a new password. Never stores the plaintext code
+// or token. A row exists only while a reset is in flight — it is deleted on
+// success and pruned opportunistically when expired. Deliberately keyed by email
+// (not a User FK) so the table mirrors EmailVerification and the request step can
+// stay enumeration-neutral without a join. No firstName/lastName: the greeting
+// pulls the recipient's name from the User at send time.
+model PasswordReset {
+  id    String @id @default(uuid())
+  // Normalized (trimmed + lowercased) email. Unique so request/resend upsert one
+  // pending record per email.
+  email String @unique
+
+  // bcrypt hash of the 6-digit numeric code (low entropy → needs the work factor).
+  codeHash          String
+  expiresAt         DateTime // code expiry (created + 10m)
+  attempts          Int      @default(0) // failed verify attempts (cap 5 → resend required)
+  resendCount       Int      @default(0) // audit / abuse signal
+  resendAvailableAt DateTime // resend cooldown gate (created + 30s)
+  verifiedAt        DateTime? // set on successful code verification
+
+  // Short-lived handoff between verify and reset. sha256 hash of a high-entropy
+  // random token (fast hash is fine — token is not brute-forceable).
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
 // ────────────────────────────── Projects ──────────────────────────────
 
 model Project {

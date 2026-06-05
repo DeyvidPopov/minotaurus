@@ -174,6 +174,9 @@ class CapturingEmail implements EmailService {
   async sendVerificationCode(input: SendVerificationCodeInput): Promise<void> {
     this.sent.push(input);
   }
+  async sendPasswordResetCode(): Promise<void> {
+    /* not exercised by the registration flow */
+  }
   get lastCode(): string | undefined {
     return this.sent[this.sent.length - 1]?.code;
   }

@@ -40,20 +40,14 @@ import {
 } from "./pdf.theme.js";
 import { fitDiagram, normalizeMermaidSvgForPdf } from "./diagram-svg.js";
 import { buildReportPlan, type ReportPlan } from "./report-plan.js";
+import { getFinding } from "../../findings/finding-catalog.js";
 
-// Deterministic, rule-keyed recommendations (static text — not AI).
-const RECOMMENDATIONS: Record<string, string> = {
-  ORPHAN_ARTIFACT: "Connect this artifact to at least one related architecture element, or remove it if obsolete.",
-  OVER_COUPLED: "Review responsibilities and consider splitting this component to reduce coupling.",
-  DEPRECATED_REFERENCED: "Migrate dependents off the deprecated artifact and remove remaining references.",
-  UNIMPLEMENTED_REQUIREMENT: "Link this requirement to the artifact(s) that implement it via an IMPLEMENTS relation.",
-  UNDOCUMENTED_SECURITY_POLICY: "Add documentation explaining the scope, enforcement point, and affected components.",
-  UNLINKED_SERVICE: "Link this service to its API spec, database model, or a diagram and connect it in the graph.",
-  SINGLE_OWNER: "Assign at least one additional OWNER to reduce continuity risk.",
-  STALE_VALIDATION: "Run validation to refresh findings for this project.",
-  HIGH_CHURN: "Investigate frequent changes; high churn can indicate unstable design or unclear ownership.",
-  VALIDATION_ISSUE: "Resolve the underlying validation finding.",
-};
+// Recommendations come from the canonical finding catalog (the single source for
+// every emitted finding code, validation-carried and analysis-only alike), with a
+// generic fallback for any unclassified finding. Static text — not AI.
+function recommendationFor(ruleId: string): string {
+  return getFinding(ruleId)?.suggestedFix ?? "Review and remediate.";
+}
 
 const SEVERITY_ORDER = ["CRITICAL", "ERROR", "WARNING", "INFO"];
 
@@ -556,22 +550,15 @@ function apiPayloadIntelligence(a: AnalysisResult): Content[] {
 
   out.push(paragraph(
     "Deterministic, inferred metrics derived from endpoint request/response payloads " +
-      "(field→entity name matching, sensitive-field detection). Advisory only.",
+      "(field→entity name matching, sensitive-field detection). Advisory only. The " +
+      "individual API security findings appear once, in the Architecture Risks register " +
+      "(canonical codes), so they are not duplicated here.",
   ));
 
-  if (ai.risks.length > 0) {
-    out.push(subhead("Security findings"));
-    out.push(
-      dataTable(
-        [
-          { header: "Severity", width: 56 },
-          { header: "Endpoint", width: 170, mono: true },
-          { header: "Finding", width: "*" },
-        ],
-        ai.risks.map((r) => [safe(r.severity), safe(`${r.method} ${r.path}`), safe(r.message)]),
-      ),
-    );
-  }
+  // NOTE: the per-finding "Security findings" table was removed in the SSOT-for-
+  // findings pass — those api-intel rules are persisted as ValidationIssues and
+  // surface canonically in the risk register, so rendering them here too was
+  // triplication. The metrics above (counts/coverage) are kept.
 
   return out;
 }
@@ -711,7 +698,7 @@ function risks(a: AnalysisResult): Content[] {
           severity: r.severity,
           ruleId: r.ruleId,
           finding: r.message,
-          recommendation: RECOMMENDATIONS[r.ruleId] ?? "Review and remediate.",
+          recommendation: recommendationFor(r.ruleId),
         }),
       );
     }

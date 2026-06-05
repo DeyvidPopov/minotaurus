@@ -69,8 +69,8 @@ function brokenProject(): ExportSnapshot {
       { id: "r2", sourceArtifactId: "b-sec", targetArtifactId: "b-active", relationType: "SECURES" },
     ],
     validationIssues: [
-      { id: "i1", artifactId: "b-active", severity: "CRITICAL", category: "SECURITY", message: "Public auth endpoint", status: "OPEN" },
-      { id: "i2", artifactId: "b-dep", severity: "ERROR", category: "ARCHITECTURE", message: "Depends on deprecated", status: "OPEN" },
+      { id: "i1", artifactId: "b-active", severity: "CRITICAL", category: "SECURITY", message: 'Endpoint POST /login on security-related spec "Auth API" is marked public (requiresAuth=false).', status: "OPEN" },
+      { id: "i2", artifactId: "b-dep", severity: "ERROR", category: "ARCHITECTURE", message: 'Active artifact "New gateway" depends on deprecated artifact "Old gateway".', status: "OPEN" },
       { id: "i3", artifactId: "b-req", severity: "WARNING", category: "DOCUMENTATION", message: "No docs", status: "RESOLVED" }, // excluded
     ],
     versionHistory: [],
@@ -153,21 +153,31 @@ test("sorting: shuffled input arrays produce identical result", () => {
 
 // ────────────────────────────── 6. risk detection ──────────────────────────────
 
-test("risks: derived rules emitted, open issues carried, resolved excluded", () => {
+test("risks: analysis-only rules derived; overlapping rules NOT re-derived; carried codes canonical", () => {
   const r = analyzeExportSnapshot(brokenProject());
   const ruleIds = new Set(r.risks.map((x) => x.ruleId));
 
-  assert.ok(ruleIds.has("DEPRECATED_REFERENCED"), "expected DEPRECATED_REFERENCED");
-  assert.ok(ruleIds.has("ORPHAN_ARTIFACT"), "expected ORPHAN_ARTIFACT");
+  // Analysis-only findings (no validation equivalent) are still derived here.
   assert.ok(ruleIds.has("UNIMPLEMENTED_REQUIREMENT"), "expected UNIMPLEMENTED_REQUIREMENT");
   assert.ok(ruleIds.has("UNDOCUMENTED_SECURITY_POLICY"), "expected UNDOCUMENTED_SECURITY_POLICY");
-  assert.ok(ruleIds.has("UNLINKED_SERVICE"), "expected UNLINKED_SERVICE");
   assert.ok(ruleIds.has("SINGLE_OWNER"), "expected SINGLE_OWNER");
   assert.ok(ruleIds.has("STALE_VALIDATION"), "expected STALE_VALIDATION");
 
-  // Open validation issues carried through; resolved one is NOT present.
-  const validationRisks = r.risks.filter((x) => x.ruleId === "VALIDATION_ISSUE");
-  assert.equal(validationRisks.length, 2);
+  // Phase B: overlapping rules are NO LONGER re-derived by Analysis — they come
+  // from Validation via the status-aware carry-through. The legacy/derived
+  // identities are gone for good.
+  assert.ok(!ruleIds.has("DEPRECATED_REFERENCED"), "DEPRECATED_REFERENCED removed (→ DEPRECATED_STILL_REFERENCED)");
+  assert.ok(!ruleIds.has("OVER_COUPLED"), "OVER_COUPLED removed (→ HIGH_FAN_OUT)");
+  assert.ok(!ruleIds.has("UNLINKED_SERVICE"), "UNLINKED_SERVICE removed (merged into ORPHAN_ARTIFACT)");
+  // This fixture has no carried orphan/churn validation issues, so neither appears
+  // (Analysis no longer invents them).
+  assert.ok(!ruleIds.has("ORPHAN_ARTIFACT"), "no derived ORPHAN_ARTIFACT (carry-through only)");
+  assert.ok(!ruleIds.has("HIGH_CHURN"), "no derived HIGH_CHURN (carry-through only)");
+
+  // Carried validation issues keep their CANONICAL codes; never VALIDATION_ISSUE.
+  assert.ok(!ruleIds.has("VALIDATION_ISSUE"), "no generic VALIDATION_ISSUE ruleId");
+  assert.ok(ruleIds.has("DEPENDS_ON_DEPRECATED"), "i2 carried as DEPENDS_ON_DEPRECATED");
+  assert.ok(ruleIds.has("PUBLIC_SECURITY_ENDPOINT"), "i1 carried as PUBLIC_SECURITY_ENDPOINT");
   assert.ok(!r.risks.some((x) => x.message === "No docs"), "resolved issue must not appear");
 
   // Ordering: severities are non-decreasing in rank (CRITICAL→ERROR→WARNING→INFO).
@@ -180,15 +190,19 @@ test("risks: derived rules emitted, open issues carried, resolved excluded", () 
   }
 });
 
-test("HIGH_CHURN fires for >5 CREATED/UPDATED events inside the 7-day window", () => {
-  const churnEvents = Array.from({ length: 6 }, (_, i) => ({
-    id: `e${i}`,
-    entityId: "a-svc",
-    action: "UPDATED",
-    createdAt: "2026-05-28T00:00:00.000Z", // 2 days before snapshot
-  }));
-  const snap = healthyProject();
-  snap.versionHistory = [...(snap.versionHistory ?? []), ...churnEvents];
-  const r = analyzeExportSnapshot(snap);
-  assert.ok(r.risks.some((x) => x.ruleId === "HIGH_CHURN" && x.id === "HIGH_CHURN:a-svc"));
+test("no duplicate risk for the same (code, target, message)", () => {
+  const r = analyzeExportSnapshot(brokenProject());
+  const keys = r.risks.map((x) => `${x.ruleId}|${x.evidence.find((e) => e.type === "artifact")?.id ?? ""}|${x.message}`);
+  assert.equal(keys.length, new Set(keys).size, "risk list must be free of exact duplicates");
+});
+
+test("health score is unchanged by removing derived risks (depends only on sub-scores)", () => {
+  // Risks never feed the score — only sub-scores do. Pin broken vs healthy so a
+  // regression in the score path is caught. (See validation.openCount /
+  // weightedIssues / governance assertions above for the sub-score pins.)
+  const broken = analyzeExportSnapshot(brokenProject());
+  const healthy = analyzeExportSnapshot(healthyProject());
+  assert.equal(healthy.health.subScores.validation, 100); // no open issues
+  assert.equal(broken.validation.weightedIssues, 15);
+  assert.ok((broken.health.score ?? 0) < (healthy.health.score ?? 0));
 });

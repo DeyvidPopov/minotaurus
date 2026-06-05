@@ -201,6 +201,9 @@ export function collectEvidenceKeys(d: Omit<ReviewDigest, "evidenceKeys">): stri
   for (const r of d.risks.shown) {
     add(r.id);
     add(r.ruleId);
+    // Namespaced canonical-code key so the model can cite a finding by its rule
+    // identity (e.g. "finding:DEPENDS_ON_DEPRECATED"), not only its row id.
+    add(`finding:${r.ruleId}`);
   }
 
   return [...keys].sort();

@@ -22,6 +22,20 @@ export interface RegisterResendResponse {
   resendAvailableAt: string; // ISO timestamp
 }
 
+// Forgot-password flow: forgot → verify → reset (and resend as needed). Mirrors
+// registration: only the email-bearing steps echo a cooldown; verify returns a
+// short-lived reset token; reset returns nothing (it never logs the user in).
+export interface PasswordForgotResponse {
+  resendAvailableAt: string; // ISO timestamp
+}
+export interface PasswordVerifyResponse {
+  resetToken: string;
+  expiresAt: string; // ISO timestamp
+}
+export interface PasswordResendResponse {
+  resendAvailableAt: string; // ISO timestamp
+}
+
 export const authApi = {
   login: async (body: { email: string; password: string }) => {
     const data = await apiClient.post<AuthResponse>("/auth/login", body);
@@ -55,6 +69,16 @@ export const authApi = {
   },
   registerResend: (body: { email: string }) =>
     apiClient.post<RegisterResendResponse>("/auth/register/resend", body),
+  // Forgot-password flow. None of these log the user in; on a successful reset
+  // the page redirects to /login to sign in with the new password.
+  passwordForgot: (body: { email: string }) =>
+    apiClient.post<PasswordForgotResponse>("/auth/password/forgot", body),
+  passwordVerify: (body: { email: string; code: string }) =>
+    apiClient.post<PasswordVerifyResponse>("/auth/password/verify", body),
+  passwordReset: (body: { resetToken: string; password: string; confirmPassword: string }) =>
+    apiClient.post<Record<string, never>>("/auth/password/reset", body),
+  passwordResend: (body: { email: string }) =>
+    apiClient.post<PasswordResendResponse>("/auth/password/resend", body),
   me: () => apiClient.get<{ user: User }>("/auth/me"),
   updateMe: (body: Partial<Pick<User, "firstName" | "lastName" | "email" | "defaultProjectId">>) =>
     apiClient.patch<{ user: User }>("/auth/me", body),

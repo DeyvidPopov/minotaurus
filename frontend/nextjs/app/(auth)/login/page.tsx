@@ -53,12 +53,17 @@ export default function LoginPage() {
             <input {...register("email")} className="w-full bg-panel border border-border rounded-sm py-2 pl-8 pr-3 text-[13.5px] outline-none focus:border-accent" placeholder="you@company.com" />
           </div>
         </Field>
-        <Field label="Password" error={errors.password?.message}>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[12.5px] text-fg-muted font-medium">Password</label>
+            <Link href="/forgot-password" className="text-[11.5px] text-accent font-medium">Forgot password?</Link>
+          </div>
           <div className="relative">
             <Lock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
             <input {...register("password")} type="password" className="w-full bg-panel border border-border rounded-sm py-2 pl-8 pr-3 text-[13.5px] outline-none focus:border-accent" placeholder="••••••••" />
           </div>
-        </Field>
+          {errors.password && <span className="text-[11px] text-danger">{errors.password.message}</span>}
+        </div>
         <Button type="submit" variant="primary" className="h-9 mt-1" disabled={loading}>
           {loading ? "Signing in…" : "Sign in"} <ArrowRight size={14} />
         </Button>

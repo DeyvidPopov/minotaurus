@@ -119,6 +119,28 @@ export interface Relation {
   description?: string;
 }
 
+// Actionable metadata derived deterministically by the backend presenter
+// (validation.presenter.ts). Optional because only the list endpoint enriches.
+export type IssueTargetKind = "TEAM" | "ARTIFACT" | "API_SPEC" | "DATABASE_MODEL" | "DIAGRAM";
+
+export interface IssueTarget {
+  kind: IssueTargetKind;
+  id: string | null;
+  title: string | null;
+  tab?: string;
+  endpoint?: { method: string; path: string };
+}
+
+export interface IssueMeta {
+  ruleId: string;
+  code: string | null;
+  cleanMessage: string;
+  why: string;
+  suggestedFix: string;
+  deterministic: boolean;
+  target: IssueTarget | null;
+}
+
 export interface ValidationIssue {
   id: string;
   severity: Severity;
@@ -127,6 +149,7 @@ export interface ValidationIssue {
   artifactId: string;
   status: IssueStatus;
   createdAt: string;
+  meta?: IssueMeta;
 }
 
 export interface VersionEntry {
