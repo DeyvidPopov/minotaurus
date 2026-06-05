@@ -129,6 +129,7 @@ function buildDocDefinition(input: RenderInput): TDocumentDefinitions {
     ...(inc.graphInsights ? graphInsights(analysis) : []),
     ...(inc.diagrams ? diagramsSection(content) : []),
     ...(inc.risks ? risks(analysis) : []),
+    ...(inc.apiPayload ? apiPayloadIntelligence(analysis) : []),
     ...(inc.validationFindings ? validationFindings(analysis, content) : []),
     ...(inc.traceability ? traceability(analysis, content) : []),
     ...(inc.governance ? governance(analysis) : []),
@@ -517,6 +518,63 @@ function documentationCoverage(a: AnalysisResult): Content[] {
 }
 
 // ────────────────────────────── 7. knowledge graph insights ──────────────────────────────
+
+function apiPayloadIntelligence(a: AnalysisResult): Content[] {
+  const ai = a.apiIntel;
+  const out: Content[] = [section("API Payload Intelligence")];
+
+  out.push(
+    cardGrid(
+      [
+        { label: "Endpoints", value: String(ai.totalEndpoints) },
+        {
+          label: "Payload Coverage",
+          value: pct(ai.endpointPayloadCoveragePct),
+          caption: `${ai.endpointsWithPayload}/${ai.totalEndpoints} with schemas`,
+        },
+        {
+          label: "Field → Entity Mapping",
+          value: pct(ai.fieldMappingCoveragePct),
+          caption: `${ai.mappedFields}/${ai.idLikeFields} id fields mapped`,
+        },
+        {
+          label: "Sensitive Exposures",
+          value: String(ai.sensitiveExposureCount),
+          valueColor: ai.sensitiveExposureCount > 0 ? SEVERITY_COLOR.WARNING : COLORS.ink,
+          caption: "payload fields",
+        },
+        {
+          label: "Public Endpoint Risks",
+          value: String(ai.publicEndpointRiskCount),
+          valueColor: ai.publicEndpointRiskCount > 0 ? SEVERITY_COLOR.ERROR : COLORS.ink,
+          caption: "security findings",
+        },
+      ],
+      3,
+    ),
+  );
+
+  out.push(paragraph(
+    "Deterministic, inferred metrics derived from endpoint request/response payloads " +
+      "(field→entity name matching, sensitive-field detection). Advisory only.",
+  ));
+
+  if (ai.risks.length > 0) {
+    out.push(subhead("Security findings"));
+    out.push(
+      dataTable(
+        [
+          { header: "Severity", width: 56 },
+          { header: "Endpoint", width: 170, mono: true },
+          { header: "Finding", width: "*" },
+        ],
+        ai.risks.map((r) => [safe(r.severity), safe(`${r.method} ${r.path}`), safe(r.message)]),
+      ),
+    );
+  }
+
+  return out;
+}
 
 function graphInsights(a: AnalysisResult): Content[] {
   const c = a.connectivity;

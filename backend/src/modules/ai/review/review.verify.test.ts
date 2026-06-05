@@ -26,6 +26,10 @@ function digest(keys: string[]): ReviewDigest {
       relationMix: {},
     },
     undocumented: { total: 0, shown: [] },
+    apiIntel: {
+      totalEndpoints: 0, endpointPayloadCoveragePct: null, fieldMappingCoveragePct: null,
+      sensitiveExposureCount: 0, publicEndpointRiskCount: 0,
+    },
     risks: { total: 0, shown: [] },
     evidenceKeys: keys,
     cap: 10,

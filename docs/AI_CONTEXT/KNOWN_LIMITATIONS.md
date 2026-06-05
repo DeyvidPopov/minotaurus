@@ -226,9 +226,49 @@ Living list of trade-offs and partial implementations in the current MVP. Update
   "No prose excerpt — the doc may be header-only."
 
 ## API Specs
-- Validation rule "endpoint `requiresAuth=false` on a security-related spec" uses a title heuristic and produces false positives on legitimate bootstrap endpoints (`/login`, `/register`). Use Resolve / Ignore on the validation page to dismiss.
-- No OpenAPI import/parse — schemas are stored as free-text strings.
+- The "endpoint `requiresAuth=false` on a security-related spec" rule **now allow-lists
+  auth-mechanism endpoints** (login / register / refresh / verify / forgot-password /
+  reset-password) via the shared `AUTH_ACTIONS` set in `modules/api-intel/text.ts`, so
+  legitimate public auth endpoints no longer false-positive. A genuinely-public endpoint on
+  a security spec that is *not* an auth action is still flagged. (The title heuristic that
+  marks a spec "security-related" is unchanged.)
+- No OpenAPI import/parse on the spec CRUD path — schemas are stored as free-text strings.
 - Allowed methods are `GET / POST / PUT / PATCH / DELETE` only.
+
+## API Payload Intelligence (`modules/api-intel/` — shipped, deterministic, advisory)
+- **Everything it emits is INFERRED and advisory.** Nothing is persisted, no
+  `ArtifactRelation` is created, and no AI is involved. It is the single deterministic source
+  for all payload-derived insight (architecture links, workflow, validation rules, graph
+  inferred edges, analysis metrics, PDF, AI-review evidence) — see `CLAUDE.md`.
+- **Context-aware entity matching is 1-hop.** Ambiguous field names (e.g. `email` on both
+  `User` and `Patient`) tie-break toward entities in DB models reachable **one hop** from the
+  spec's linked service via real relations (service `USES` database — the normal shape). A
+  service→database link routed through an intermediary (2+ hops) falls back to deterministic
+  **alphabetical** tie-breaking. Context only breaks ties; it never changes an unambiguous
+  match. With no linked service artifact there is no context at all.
+- **Tier-3 name matching is low-confidence.** Related/doc/security links found purely by
+  title-token match (no real relation) are graded `low` and shown distinctly from real-
+  relation (`high`) links; an unusually-named artifact can mis-match or be missed.
+- **Sub-action path parsing.** A trailing non-`{id}` verb segment is read as the resource —
+  `PATCH /appointments/{id}/reschedule` parses `reschedule` as the resource, so the workflow
+  may read "Updates Reschedule" instead of "Updates Appointment" (the unmapped
+  `rescheduleSlotId` still surfaces correctly). Known refinement, not yet applied.
+- **Validation codes are a message prefix**, not a column (`API_FIELD_UNMAPPED · …`) — no
+  schema change, but the codes are not machine-filterable until a future `code` column.
+  `API_FIELD_UNMAPPED` is advisory (INFO) and can be a legitimate derived-mapping case
+  (e.g. `amount` → `amountCents`), not necessarily an error.
+- **Graph inferred edges are sparse when specs/models aren't artifact-linked**, and the
+  TOUCHES target node is whichever artifact the DB model links to (a `SERVICE` in some
+  projects, a `DATABASE_MODEL` in others). Off by default; deduped against real relations.
+- **`AnalysisResult.apiIntel` only populates when the export scope includes `API_SPECS`**
+  (plus `DATABASE_MODELS` for field-mapping coverage). `sensitiveExposureCount` (informational
+  field detections) is intentionally distinct from `publicEndpointRiskCount` (the SECURITY
+  validation findings, which honor the auth allow-list).
+- **Free-text payloads** yield weaker field tokens than JSON; **empty schemas** produce empty
+  panels by design (no false "unmapped").
+- The **"Payload Intelligence Testbed"** project (`npm run seed:testbed`) intentionally
+  contains bad endpoints (`/debug/leak-token`) to prove the rules fire; do not treat its
+  findings as real defects.
 
 ## Database Models
 - Entity/field operations are CRUD only. No migrations, no schema diff, no constraint generation.

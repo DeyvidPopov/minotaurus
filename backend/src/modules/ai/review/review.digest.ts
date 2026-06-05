@@ -141,6 +141,13 @@ export function buildReviewDigest(
       relationMix: analysis.connectivity.relationMix,
     },
     undocumented: capList(undocumented, cap),
+    apiIntel: {
+      totalEndpoints: analysis.apiIntel.totalEndpoints,
+      endpointPayloadCoveragePct: analysis.apiIntel.endpointPayloadCoveragePct,
+      fieldMappingCoveragePct: analysis.apiIntel.fieldMappingCoveragePct,
+      sensitiveExposureCount: analysis.apiIntel.sensitiveExposureCount,
+      publicEndpointRiskCount: analysis.apiIntel.publicEndpointRiskCount,
+    },
     risks: capList(risks, cap),
     cap,
   };
@@ -170,6 +177,9 @@ export function collectEvidenceKeys(d: Omit<ReviewDigest, "evidenceKeys">): stri
     "connectivity.avgDegree", "connectivity.orphanCount",
     "traceability.requirementCoverage", "traceability.resourceLinkage",
     "governance.memberCount", "governance.lastValidatedAt", "governance.signals",
+    "apiIntel.totalEndpoints", "apiIntel.endpointPayloadCoveragePct",
+    "apiIntel.fieldMappingCoveragePct", "apiIntel.sensitiveExposureCount",
+    "apiIntel.publicEndpointRiskCount",
   ].forEach(add);
 
   // Dynamic keyed maps.

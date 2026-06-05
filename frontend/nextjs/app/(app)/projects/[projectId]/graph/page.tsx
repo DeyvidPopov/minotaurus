@@ -1,13 +1,14 @@
 // app/(app)/projects/[projectId]/graph/page.tsx — full-screen knowledge graph
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Link as LinkIcon, LayoutGrid } from "lucide-react";
+import { RefreshCw, Link as LinkIcon, LayoutGrid, Share2, ChevronDown, Check } from "lucide-react";
 import { toast } from "sonner";
 import { ARTIFACT_TYPES, EDGE_COLOR } from "@/lib/mock-data";
 import type { Artifact, ArtifactType, Project, Relation, RelationType } from "@/lib/types";
-import { GraphCanvas } from "@/components/graph/graph-canvas";
+import { GraphCanvas, type InferredGraphEdge } from "@/components/graph/graph-canvas";
+import { apiIntelApi, type InferredEdgeKind } from "@/lib/api/api-intel";
 import { GraphLegend } from "@/components/graph/graph-legend";
 import { Drawer } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,13 @@ interface GraphEdge {
   type: RelationType;
 }
 
+const INFERRED_KIND_LABEL: Record<InferredEdgeKind, string> = {
+  TOUCHES: "touches",
+  SECURED_BY: "secured by",
+  DOCUMENTED_BY: "documented by",
+  RELATED: "related",
+};
+
 export default function GraphPage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
   const { graphNodeStyle, graphLegendOpen, set } = useTweaks();
@@ -41,6 +49,9 @@ export default function GraphPage({ params }: { params: { projectId: string } })
   const [search, setSearch] = useState("");
   const [running, setRunning] = useState(false);
   const [relayoutSignal, setRelayoutSignal] = useState(0);
+  const [inferredEdges, setInferredEdges] = useState<InferredGraphEdge[]>([]);
+  const [showReal, setShowReal] = useState(true);
+  const [showInferred, setShowInferred] = useState(false);
 
   const load = async () => {
     try {
@@ -54,6 +65,22 @@ export default function GraphPage({ params }: { params: { projectId: string } })
       setRelations(graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target, type: e.type })));
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to load graph");
+    }
+    // API Payload Intelligence overlay — read-only, best-effort, never blocks the graph.
+    try {
+      const intel = await apiIntelApi.get(projectId);
+      setInferredEdges(
+        intel.inferredEdges.map((e) => ({
+          id: `inf-${e.source}-${e.target}-${e.kind}`,
+          source: e.source,
+          target: e.target,
+          kind: INFERRED_KIND_LABEL[e.kind] ?? "inferred",
+          confidence: e.confidence,
+          basis: e.basis,
+        })),
+      );
+    } catch {
+      /* intel overlay is optional */
     }
   };
 
@@ -80,6 +107,11 @@ export default function GraphPage({ params }: { params: { projectId: string } })
     artifacts.forEach((a) => { m[a.type] = (m[a.type] || 0) + 1; });
     return m;
   }, [artifacts]);
+
+  // The canvas always receives the full real `relations` (so the dagre layout
+  // stays stable regardless of edge visibility — `hideRealEdges` controls
+  // rendering, not layout). `edgesHidden` = nothing is drawn.
+  const edgesHidden = !showReal && !showInferred;
 
   const toggleType = (t: ArtifactType) => {
     setTypeFilter((prev) => {
@@ -116,7 +148,10 @@ export default function GraphPage({ params }: { params: { projectId: string } })
       <div className="px-4 py-3 border-b border-border flex items-center gap-2.5 flex-wrap">
         <div className="min-w-0">
           <div className="text-[14.5px] font-semibold">{project?.name ?? "Project"} · Knowledge graph</div>
-          <div className="text-[12px] text-fg-muted whitespace-nowrap">{artifacts.length} artifacts · {relations.length} relations</div>
+          <div className="text-[12px] text-fg-muted whitespace-nowrap">
+            {artifacts.length} artifacts · {relations.length} relations
+            {inferredEdges.length > 0 && ` · ${inferredEdges.length} inferred`}
+          </div>
         </div>
         <SearchInput value={search} onChange={setSearch} placeholder="Find a node…" className="w-[200px] ml-1" />
         <div className="flex-1" />
@@ -133,6 +168,12 @@ export default function GraphPage({ params }: { params: { projectId: string } })
         >
           Relayout
         </Button>
+        <EdgesDropdown
+          showReal={showReal}
+          showInferred={showInferred}
+          inferredCount={inferredEdges.length}
+          onChange={(real, inferred) => { setShowReal(real); setShowInferred(inferred); }}
+        />
         <Button icon={<RefreshCw size={14} />} onClick={runValidation} disabled={running}>
           {running ? "Validating…" : "Validate"}
         </Button>
@@ -156,6 +197,8 @@ export default function GraphPage({ params }: { params: { projectId: string } })
             <GraphCanvas
               artifacts={visibleArtifacts}
               relations={relations}
+              hideRealEdges={!showReal}
+              inferredEdges={showInferred ? inferredEdges : undefined}
               selectedId={selected?.id || null}
               onSelect={setSelected}
               typeFilter={typeFilter}
@@ -163,6 +206,30 @@ export default function GraphPage({ params }: { params: { projectId: string } })
               storageKey={`project:${projectId}`}
               relayoutSignal={relayoutSignal}
             />
+            {/* Edge legend explains only the VISIBLE edge types. It appears only
+                when it adds information — when inferred edges are shown (to
+                distinguish solid vs dashed) or when both sets are hidden (the
+                state hint). A default real-only view shows no chip, as before. */}
+            {(showInferred || edgesHidden) && (
+              <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 text-[11px] text-fg-muted bg-panel/90 border border-border rounded-md px-2.5 py-1.5 backdrop-blur-sm">
+                {edgesHidden ? (
+                  <span className="text-fg-subtle">Edges hidden — showing artifacts only.</span>
+                ) : (
+                  <>
+                    {showReal && (
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block w-5 border-t-2 border-fg-muted" />
+                        Real relations
+                      </span>
+                    )}
+                    <span className="flex items-center gap-2">
+                      <span className="inline-block w-5 border-t border-dashed border-fg-subtle" />
+                      Inferred API links — not saved
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
             <GraphLegend
               typeFilter={typeFilter}
               onToggle={toggleType}
@@ -205,6 +272,78 @@ export default function GraphPage({ params }: { params: { projectId: string } })
           )}
         </Drawer>
       </div>
+    </div>
+  );
+}
+
+/** Single edge-visibility control: a dropdown over the four (real × inferred) states. */
+function EdgesDropdown({
+  showReal,
+  showInferred,
+  inferredCount,
+  onChange,
+}: {
+  showReal: boolean;
+  showInferred: boolean;
+  inferredCount: number;
+  onChange: (real: boolean, inferred: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const hasInferred = inferredCount > 0;
+  const options = [
+    { real: true, inferred: false, label: "Real relations", needsInferred: false },
+    { real: false, inferred: true, label: `Inferred links${hasInferred ? ` (${inferredCount})` : ""}`, needsInferred: true },
+    { real: true, inferred: true, label: "Real + inferred", needsInferred: true },
+    { real: false, inferred: false, label: "No edges", needsInferred: false },
+  ];
+  const current = options.find((o) => o.real === showReal && o.inferred === showInferred) ?? options[0];
+
+  return (
+    <div ref={ref} className="relative">
+      <Button
+        variant={showInferred ? "primary" : "default"}
+        icon={<Share2 size={14} />}
+        iconRight={<ChevronDown size={13} />}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Choose which edges are drawn (real relations / inferred API links)"
+      >
+        Edges: {current.label}
+      </Button>
+      {open && (
+        <div role="menu" className="absolute right-0 mt-1 z-20 min-w-[200px] bg-panel border border-border rounded-md shadow-lg py-1">
+          {options.map((o) => {
+            const active = o.real === showReal && o.inferred === showInferred;
+            const disabled = o.needsInferred && !hasInferred;
+            return (
+              <button
+                key={o.label}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                disabled={disabled}
+                onClick={() => { onChange(o.real, o.inferred); setOpen(false); }}
+                className="flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-[12.5px] text-fg hover:bg-panel-hover disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Check size={13} className={active ? "opacity-100 text-accent" : "opacity-0"} />
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

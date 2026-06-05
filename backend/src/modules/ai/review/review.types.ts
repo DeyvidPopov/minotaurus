@@ -87,6 +87,14 @@ export interface ReviewDigest {
     relationMix: Record<string, number>;
   };
   undocumented: DigestList<DigestArtifactRef>;
+  /** API Payload Intelligence — deterministic metrics the model may explain. */
+  apiIntel: {
+    totalEndpoints: number;
+    endpointPayloadCoveragePct: number | null;
+    fieldMappingCoveragePct: number | null;
+    sensitiveExposureCount: number;
+    publicEndpointRiskCount: number;
+  };
   risks: DigestList<DigestRisk>;
   /** Deterministic allow-list of strings the model may cite as evidence. */
   evidenceKeys: string[];

@@ -1,8 +1,9 @@
 # Current Platform State
 
-> Living snapshot of what is actually shipped. Last refreshed 2026-06-03 (multi-step
-> registration wizard, backend + frontend). For the authoritative architecture contract
-> see the root `CLAUDE.md`; for honest trade-offs see `KNOWN_LIMITATIONS.md`.
+> Living snapshot of what is actually shipped. Last refreshed 2026-06-05 (API Payload
+> Intelligence — `modules/api-intel/`, the single deterministic source for payload-derived
+> insight). For the authoritative architecture contract see the root `CLAUDE.md`; for honest
+> trade-offs see `KNOWN_LIMITATIONS.md`.
 
 ## Stack
 
@@ -45,9 +46,19 @@ Backend (`backend/`):
 
 ### Architecture intelligence
 - **Knowledge Graph** — React Flow canvas; artifact-only nodes, `ArtifactRelation` edges.
-- **Validation engine** — rule-based, deterministic (17 rules: relation hygiene, missing
-  docs, security, API/DB completeness, diagram links, churn, deprecated-but-used,
-  single-member). Wipe-and-recompute per run; writes a `VALIDATED` VersionEvent.
+  Edge visibility has explicit **Real relations** (default ON) + **Inferred links** (default
+  OFF) toggles; the inferred overlay is dashed/badged and never persisted.
+- **API Payload Intelligence** (`modules/api-intel/`) — **the single deterministic, non-AI
+  source** for everything derived from endpoint payloads: field extraction, entity matching
+  (context-aware tie-breaking), workflow inference, the 4 API validation rules, the graph
+  inferred edges, the analysis `apiIntel` metrics, the PDF section, and the AI-review
+  evidence. Read-only `GET /projects/:id/api-intel`; nothing inferred is persisted. Surfaced
+  in the API-spec detail page as **Impact Analysis** + **Architecture Links** lenses (both
+  labelled inferred, confidence-graded, with `basis`). Testbed: `npm run seed:testbed`.
+- **Validation engine** — rule-based, deterministic (17 structural rules: relation hygiene,
+  missing docs, security, API/DB completeness, diagram links, churn, deprecated-but-used,
+  single-member; **+ 4 API-payload rules** from `modules/api-intel/`, code-in-message, with a
+  shared auth-endpoint allow-list). Wipe-and-recompute per run; writes a `VALIDATED` VersionEvent.
 - **Deterministic Analysis Engine** — `modules/exports/analysis/`, pure (no I/O, no
   `Date.now()`, no AI). Computes health score, documentation coverage, connectivity,
   traceability, governance, validation roll-up, and rule-keyed risks.
@@ -126,12 +137,17 @@ Demo login: `deyvid@minotaurus.dev` / `minotaurus`.
 - **Export:** `ExportPackage` snapshot (`content` Json, frozen at create time).
 - **Validation:** `validation.engine.ts` (rule-based, deterministic).
 - **Analysis / scores:** `modules/exports/analysis/` (pure, deterministic).
+- **Payload-derived intelligence:** `modules/api-intel/` (pure, deterministic, non-AI) — the
+  single source for field extraction, entity matching, workflow inference, the API validation
+  rules, graph inferred edges, the `apiIntel` analysis metrics, PDF output, and AI-review
+  evidence. Read-only; never persisted.
 
 ## Current modules (`backend/src/modules/`)
 auth · projects · artifacts (+ documentation, artifact-title) · relations · graph ·
-api-specs · database-models · diagrams · validation · versions (history + impact) ·
+api-specs · **api-intel (payload analyzer + workflow + validation + metrics)** ·
+database-models · diagrams · validation · versions (history + impact) ·
 members · ingestion (4 parser engines) · exports (engine + analysis/ + pdf/) ·
-ai (providers/, proposal/ bootstrap, review/)
+ai (providers/, proposal/ bootstrap, review/, documentation/)
 
 ## AI safety posture (deterministic-first)
 Minotaurus is deterministic-first. AI is an additive proposal/explanation layer **outside**

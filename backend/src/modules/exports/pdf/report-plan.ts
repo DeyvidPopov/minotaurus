@@ -25,6 +25,7 @@ export interface ReportPlan {
     graphInsights: boolean;
     risks: boolean;
     validationFindings: boolean;
+    apiPayload: boolean;
     traceability: boolean;
     governance: boolean;
     versionHistory: boolean;
@@ -106,6 +107,7 @@ export function buildReportPlan(
     graphInsights: has("RELATIONS"),
     risks: has("VALIDATION") && has("ARTIFACTS") && has("RELATIONS"),
     validationFindings: has("VALIDATION"),
+    apiPayload: has("API_SPECS") && !empty && analysis.apiIntel.totalEndpoints > 0,
     traceability: has("ARTIFACTS") && has("RELATIONS") && hasTraceData,
     governance: has("TEAM"),
     versionHistory: has("VERSION_HISTORY"),

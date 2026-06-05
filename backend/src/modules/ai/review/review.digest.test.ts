@@ -29,6 +29,12 @@ function analysis(over: Partial<AnalysisResult> = {}): AnalysisResult {
       signals: [{ label: "Has owner", passed: true, evidence: "ownerId set" }],
     },
     validation: { openCount: 4, bySeverity: { ERROR: 1, WARNING: 3 }, byCategory: { DOCS: 4 }, weightedIssues: 11 },
+    apiIntel: {
+      totalEndpoints: 10, endpointsWithPayload: 8, endpointPayloadCoveragePct: 80,
+      idLikeFields: 6, mappedFields: 5, fieldMappingCoveragePct: 83,
+      sensitiveExposureCount: 2, publicEndpointRiskCount: 1,
+      sensitiveExposures: [], risks: [],
+    },
     risks: [],
     ...over,
   };

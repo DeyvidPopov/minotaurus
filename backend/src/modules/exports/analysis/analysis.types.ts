@@ -41,7 +41,11 @@ export interface SnapshotRelation {
 
 export interface SnapshotEndpoint {
   id?: string;
+  method?: string;
+  path?: string;
   summary?: string;
+  requestSchema?: string;
+  responseSchema?: string;
   requiresAuth?: boolean;
 }
 
@@ -53,11 +57,22 @@ export interface SnapshotApiSpec {
   endpoints?: SnapshotEndpoint[];
 }
 
+export interface SnapshotDatabaseField {
+  name?: string;
+}
+
+export interface SnapshotDatabaseEntity {
+  id?: string;
+  name?: string;
+  fields?: SnapshotDatabaseField[];
+}
+
 export interface SnapshotDatabaseModel {
   id: string;
   title?: string;
   description?: string;
   artifactId?: string | null;
+  entities?: SnapshotDatabaseEntity[];
 }
 
 export interface SnapshotDiagram {
@@ -183,6 +198,20 @@ export interface AnalysisResult {
     bySeverity: Record<string, number>;
     byCategory: Record<string, number>;
     weightedIssues: number;
+  };
+
+  /** API Payload Intelligence — deterministic metrics over endpoint payloads. */
+  apiIntel: {
+    totalEndpoints: number;
+    endpointsWithPayload: number;
+    endpointPayloadCoveragePct: number | null;
+    idLikeFields: number;
+    mappedFields: number;
+    fieldMappingCoveragePct: number | null;
+    sensitiveExposureCount: number;
+    publicEndpointRiskCount: number;
+    sensitiveExposures: Array<{ method: string; path: string; field: string; location: string; kind: string }>;
+    risks: Array<{ code: string; severity: string; method: string; path: string; message: string }>;
   };
 
   risks: RiskFinding[];

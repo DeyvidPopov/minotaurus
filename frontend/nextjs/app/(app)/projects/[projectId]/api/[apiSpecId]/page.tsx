@@ -21,9 +21,15 @@ import {
   type ApiSpec,
   type HttpMethod,
 } from "@/lib/api/api-specs";
+import { apiIntelApi, type EndpointIntel } from "@/lib/api/api-intel";
 import { ApiError } from "@/lib/api/client";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import { ArchitectureLinks } from "@/components/api/architecture-links";
+import { WorkflowImpact } from "@/components/api/workflow-impact";
+import { ImpactAnalysis } from "@/components/api/impact-analysis";
+import { IntelWarnings } from "@/components/api/intel-bits";
+import { Segmented } from "@/components/ui/segmented";
 
 const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -46,6 +52,7 @@ export default function ApiSpecDetailPage({
   const [spec, setSpec] = useState<ApiSpec | null>(null);
   const [endpoints, setEndpoints] = useState<ApiEndpoint[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [intel, setIntel] = useState<Record<string, EndpointIntel>>({});
   const [tab, setTab] = useState<"endpoints" | "preview">("endpoints");
 
   const [editingSpec, setEditingSpec] = useState(false);
@@ -73,6 +80,16 @@ export default function ApiSpecDetailPage({
       setArtifacts(arts);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to load API spec");
+    }
+    // Architecture Intelligence is additive + read-only — load it separately so a
+    // failure never blocks the core spec view.
+    try {
+      const result = await apiIntelApi.get(projectId);
+      const map: Record<string, EndpointIntel> = {};
+      for (const e of result.endpoints) map[e.endpointId] = e;
+      setIntel(map);
+    } catch {
+      /* intel is best-effort; ignore */
     }
   };
 
@@ -243,7 +260,7 @@ export default function ApiSpecDetailPage({
                             style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
                           >
                             <div className="overflow-hidden min-h-0">
-                              <EndpointPayloadDetails ep={ep} />
+                              <EndpointPayloadDetails ep={ep} intel={intel[ep.id]} projectId={projectId} />
                             </div>
                           </div>
                         </td>
@@ -524,7 +541,19 @@ function SchemaBlock({ label, value, emptyText }: { label: string; value: string
   );
 }
 
-function EndpointPayloadDetails({ ep }: { ep: ApiEndpoint }) {
+function EndpointPayloadDetails({
+  ep,
+  intel,
+  projectId,
+}: {
+  ep: ApiEndpoint;
+  intel?: EndpointIntel;
+  projectId: string;
+}) {
+  // Two lenses over the SAME intel: "impact" (synthesized — what it affects) and
+  // "links" (granular architecture chips + workflow). Defaults to the synthesis.
+  const [view, setView] = useState<"impact" | "links">("impact");
+
   return (
     <div className="px-3.5 py-3.5 bg-panel-2/40 flex flex-col gap-3.5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -539,6 +568,39 @@ function EndpointPayloadDetails({ ep }: { ep: ApiEndpoint }) {
           <span className="inline-flex items-center gap-1.5 text-fg-muted"><LockOpen size={12} /> Public — no authentication</span>
         )}
       </div>
+
+      {intel && (
+        <div className="flex flex-col gap-4 border-t border-border/60 pt-3.5">
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "impact", label: "Impact Analysis" },
+              { value: "links", label: "Architecture Links" },
+            ]}
+          />
+
+          {view === "impact" ? (
+            <ImpactAnalysis intel={intel} projectId={projectId} />
+          ) : (
+            <div className="flex flex-col gap-4">
+              <ArchitectureLinks intel={intel} projectId={projectId} />
+              <div className="border-t border-border/60 pt-3.5">
+                <WorkflowImpact workflow={intel.workflow} />
+              </div>
+              {intel.warnings.length > 0 && (
+                <div className="border-t border-border/60 pt-3.5">
+                  <IntelWarnings warnings={intel.warnings} />
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="text-[11px] text-fg-subtle leading-relaxed">
+            Generated from payload analysis and existing architecture relationships. Not persisted.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

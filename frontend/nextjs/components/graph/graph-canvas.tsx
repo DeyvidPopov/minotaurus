@@ -38,9 +38,30 @@ import type { Artifact, Relation } from "@/lib/types"
 import { truncate } from "@/lib/utils"
 import { computeDagreLayout } from "@/lib/graph-layout"
 
+/**
+ * An inferred, NON-persisted artifact→artifact edge (API Payload Intelligence).
+ * Rendered dashed + labelled "inferred"; never a real ArtifactRelation.
+ */
+export interface InferredGraphEdge {
+  id: string
+  source: string
+  target: string
+  kind: string // short label, e.g. "touches" / "secured by"
+  confidence: "high" | "medium" | "low"
+  basis: string
+}
+
 interface Props {
   artifacts: Artifact[]
   relations: Relation[]
+  /** Optional inferred overlay edges (dashed). Off unless provided. */
+  inferredEdges?: InferredGraphEdge[]
+  /**
+   * Hide the real `relations` from RENDERING while still using them for layout
+   * (so toggling real edges off doesn't collapse the dagre arrangement into a
+   * vertical stack of disconnected nodes). Layout always reads the full set.
+   */
+  hideRealEdges?: boolean
   selectedId?: string | null
   onSelect?: (a: Artifact | null) => void
   nodeStyle?: "shape" | "color" | "minimal"
@@ -83,6 +104,8 @@ export function GraphCanvas(props: Props) {
 function Inner({
   artifacts,
   relations,
+  inferredEdges,
+  hideRealEdges = false,
   selectedId,
   onSelect,
   nodeStyle = "color",
@@ -168,13 +191,22 @@ function Inner({
   const focusActive = highlightSelected && !!selectedId
   const neighborIds = useMemo(() => {
     if (!focusActive || !selectedId) return null
+    // Neighbourhood is derived from whichever edges are actually passed in (the
+    // parent only passes the *visible* sets), so focus mode honours the active
+    // edge toggles — real, inferred, or both.
     const ids = new Set<string>([selectedId])
-    for (const r of relations) {
-      if (r.source === selectedId) ids.add(r.target)
-      if (r.target === selectedId) ids.add(r.source)
+    if (!hideRealEdges) {
+      for (const r of relations) {
+        if (r.source === selectedId) ids.add(r.target)
+        if (r.target === selectedId) ids.add(r.source)
+      }
+    }
+    for (const e of inferredEdges ?? []) {
+      if (e.source === selectedId) ids.add(e.target)
+      if (e.target === selectedId) ids.add(e.source)
     }
     return ids
-  }, [focusActive, selectedId, relations])
+  }, [focusActive, selectedId, relations, inferredEdges, hideRealEdges])
 
   // Dagre-derived base positions. Persisted drag positions still take
   // precedence per-node so user adjustments don't get clobbered on rerender.
@@ -275,41 +307,78 @@ function Inner({
   )
 
   const visibleIds = useMemo(() => new Set(visible.map((v) => v.id)), [visible])
-  const edges: Edge[] = useMemo(
-    () =>
-      relations
-        .filter((r) => visibleIds.has(r.source) && visibleIds.has(r.target))
-        .map((r) => {
-          const color = EDGE_COLOR[r.type] || "#94a3b8"
-          // Focus mode: edges touching the selected node are emphasized; the rest
-          // are dimmed. No focus → original look (strokeWidth 1.4, opacity 0.7).
-          const connected =
-            focusActive && (r.source === selectedId || r.target === selectedId)
-          const dimmed = focusActive && !connected
-          return {
-            id: r.id,
-            source: r.source,
-            target: r.target,
-            type: "labeledSmoothStep",
-            animated: false,
-            style: {
-              stroke: color,
-              strokeWidth: connected ? 2.2 : 1.4,
-              opacity: dimmed ? 0.1 : connected ? 1 : 0.7,
-              transition: "opacity .15s ease",
-            },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color,
-              width: 16,
-              height: 16,
-            },
-            data: { type: r.type, color, dimmed, dragging: dragActive },
-            label: r.type,
-          }
-        }),
-    [relations, visibleIds, focusActive, selectedId, dragActive],
-  )
+  const edges: Edge[] = useMemo(() => {
+    const realEdges: Edge[] = hideRealEdges
+      ? []
+      : relations
+      .filter((r) => visibleIds.has(r.source) && visibleIds.has(r.target))
+      .map((r) => {
+        const color = EDGE_COLOR[r.type] || "#94a3b8"
+        // Focus mode: edges touching the selected node are emphasized; the rest
+        // are dimmed. No focus → original look (strokeWidth 1.4, opacity 0.7).
+        const connected =
+          focusActive && (r.source === selectedId || r.target === selectedId)
+        const dimmed = focusActive && !connected
+        return {
+          id: r.id,
+          source: r.source,
+          target: r.target,
+          type: "labeledSmoothStep",
+          animated: false,
+          style: {
+            stroke: color,
+            strokeWidth: connected ? 2.2 : 1.4,
+            opacity: dimmed ? 0.1 : connected ? 1 : 0.7,
+            transition: "opacity .15s ease",
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color,
+            width: 16,
+            height: 16,
+          },
+          data: { type: r.type, color, dimmed, dragging: dragActive },
+          label: r.type,
+        }
+      })
+
+    // Inferred overlay (API Payload Intelligence): dashed, neutral, never
+    // persisted. Confidence drives base opacity; focus mode emphasises the ones
+    // touching the selected node so "select an artifact → see its inferred
+    // architectural reach" works through the existing focus machinery.
+    const inferred: Edge[] = (inferredEdges ?? [])
+      .filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target))
+      .map((e) => {
+        const connected =
+          focusActive && (e.source === selectedId || e.target === selectedId)
+        const dimmed = focusActive && !connected
+        const baseOpacity = INFERRED_CONFIDENCE_OPACITY[e.confidence] ?? 0.5
+        return {
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          type: "labeledSmoothStep",
+          animated: false,
+          style: {
+            stroke: INFERRED_EDGE_COLOR,
+            strokeWidth: connected ? 2 : 1.2,
+            strokeDasharray: "5 4",
+            opacity: dimmed ? 0.08 : connected ? 0.95 : baseOpacity,
+            transition: "opacity .15s ease",
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: INFERRED_EDGE_COLOR,
+            width: 13,
+            height: 13,
+          },
+          data: { type: e.kind, color: INFERRED_EDGE_COLOR, dimmed, dragging: dragActive, inferred: true },
+          label: e.kind,
+        }
+      })
+
+    return [...realEdges, ...inferred]
+  }, [relations, inferredEdges, hideRealEdges, visibleIds, focusActive, selectedId, dragActive])
 
   // ── drop-time collision resolution ──
   // Drag is unrestricted (so it never feels "stuck" against the React Flow drag
@@ -466,6 +535,15 @@ type LabeledEdgeData = {
   color?: string
   dimmed?: boolean
   dragging?: boolean
+  inferred?: boolean
+}
+
+/** Neutral, clearly-non-SSOT colour for inferred overlay edges. */
+const INFERRED_EDGE_COLOR = "#94a3b8"
+const INFERRED_CONFIDENCE_OPACITY: Record<"high" | "medium" | "low", number> = {
+  high: 0.8,
+  medium: 0.55,
+  low: 0.38,
 }
 
 // ───── global edge-label de-collision ─────
@@ -757,6 +835,7 @@ function LabeledSmoothStepEdge({
       {label != null && labelPt != null && labelsVisible && !dragging && (
         <EdgeLabelRenderer>
           <div
+            title={data?.inferred ? "Inferred (API Payload Intelligence) — not a saved relation" : undefined}
             style={{
               position: "absolute",
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
@@ -764,9 +843,10 @@ function LabeledSmoothStepEdge({
               whiteSpace: "nowrap",
               fontSize: 10,
               fontFamily: "var(--font-mono)",
-              color: "var(--fg-muted)",
+              fontStyle: data?.inferred ? "italic" : "normal",
+              color: data?.inferred ? "var(--fg-subtle)" : "var(--fg-muted)",
               background: "var(--bg)",
-              border: `1px solid ${color}33`,
+              border: data?.inferred ? `1px dashed ${color}66` : `1px solid ${color}33`,
               borderRadius: 3,
               padding: "1px 4px",
               lineHeight: 1.2,
@@ -774,7 +854,7 @@ function LabeledSmoothStepEdge({
               transition: "opacity .15s ease",
             }}
           >
-            {label}
+            {data?.inferred ? `⤳ ${label}` : label}
           </div>
         </EdgeLabelRenderer>
       )}

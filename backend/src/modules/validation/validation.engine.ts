@@ -5,6 +5,9 @@
 import type { ValidationIssue } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
+import { analyzeApiValidation } from "../api-intel/api-validation.js";
+import { isAuthActionPath } from "../api-intel/text.js";
+import type { ApiValidationInput } from "../api-intel/api-intel.types.js";
 
 const CHURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const DEPENDENCY_LIMIT = 6;
@@ -142,7 +145,10 @@ export async function runValidationForProject(
           status: "OPEN",
         });
       }
-      if (isSecuritySpec && !ep.requiresAuth) {
+      // A public endpoint on a security-related spec is normally worth flagging —
+      // EXCEPT auth-mechanism endpoints (login/register/refresh/verify/forgot-/
+      // reset-password), which are public by design. Allow-list them.
+      if (isSecuritySpec && !ep.requiresAuth && !isAuthActionPath(ep.path)) {
         drafts.push({
           projectId,
           artifactId: spec.artifactId ?? spec.id,
@@ -327,6 +333,50 @@ export async function runValidationForProject(
       severity: "INFO",
       category: "ARCHITECTURE",
       message: "Single-user project may reduce collaboration visibility. Consider inviting team members on the Team page.",
+      status: "OPEN",
+    });
+  }
+
+  // ── API payload intelligence rules (deterministic, reuses the api-intel
+  //    analyzer primitives; codes are encoded as a message prefix). ──
+  const apiValidationInput: ApiValidationInput = {
+    specs: apiSpecs.map((s) => ({
+      id: s.id,
+      artifactId: s.artifactId,
+      title: s.title,
+      endpoints: apiEndpoints
+        .filter((e) => e.apiSpecId === s.id)
+        .map((e) => ({
+          id: e.id,
+          method: e.method,
+          path: e.path,
+          summary: e.summary,
+          requestSchema: e.requestSchema,
+          responseSchema: e.responseSchema,
+          requiresAuth: e.requiresAuth,
+        })),
+    })),
+    models: databaseModels.map((m) => ({
+      id: m.id,
+      artifactId: m.artifactId,
+      title: m.title,
+      entities: databaseEntities
+        .filter((en) => en.databaseModelId === m.id)
+        .map((en) => ({
+          id: en.id,
+          name: en.name,
+          fields: databaseFields.filter((f) => f.entityId === en.id).map((f) => ({ name: f.name })),
+        })),
+    })),
+  };
+  const specArtifactById = new Map(apiSpecs.map((s) => [s.id, s.artifactId ?? s.id]));
+  for (const f of analyzeApiValidation(apiValidationInput)) {
+    drafts.push({
+      projectId,
+      artifactId: specArtifactById.get(f.apiSpecId) ?? f.apiSpecId,
+      severity: f.severity,
+      category: f.category,
+      message: `${f.code} · ${f.message}`,
       status: "OPEN",
     });
   }

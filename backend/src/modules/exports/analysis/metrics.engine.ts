@@ -32,10 +32,15 @@ import type {
   AnalysisResult,
   ExportSnapshot,
   RiskFinding,
+  SnapshotApiSpec,
   SnapshotArtifact,
+  SnapshotDatabaseEntity,
+  SnapshotDatabaseModel,
+  SnapshotEndpoint,
   SnapshotIssue,
   SnapshotVersionEvent,
 } from "./analysis.types.js";
+import { analyzeApiIntelCounts } from "../../api-intel/api-metrics.js";
 
 // ────────────────────────────── numeric helpers ──────────────────────────────
 
@@ -346,6 +351,46 @@ export function analyzeExportSnapshot(content: unknown): AnalysisResult {
     lastValidatedAt,
   });
 
+  // ── API Payload Intelligence (deterministic; reuses the api-intel analyzer) ──
+  const apiIntelCounts = analyzeApiIntelCounts({
+    specs: apiSpecs.map((s) => ({
+      id: s.id,
+      artifactId: s.artifactId ?? null,
+      title: s.title ?? "",
+      endpoints: asArray<SnapshotEndpoint>((s as SnapshotApiSpec).endpoints).map((e) => ({
+        id: e.id ?? "",
+        method: e.method ?? "",
+        path: e.path ?? "",
+        summary: e.summary ?? "",
+        requestSchema: e.requestSchema ?? "",
+        responseSchema: e.responseSchema ?? "",
+        requiresAuth: e.requiresAuth ?? false,
+      })),
+    })),
+    models: databaseModels.map((m) => ({
+      id: m.id,
+      artifactId: m.artifactId ?? null,
+      title: m.title ?? "",
+      entities: asArray<SnapshotDatabaseEntity>((m as SnapshotDatabaseModel).entities).map((en) => ({
+        id: en.id ?? "",
+        name: en.name ?? "",
+        fields: asArray<{ name?: string }>(en.fields).map((f) => ({ name: f.name ?? "" })),
+      })),
+    })),
+  });
+  const apiIntel = {
+    totalEndpoints: apiIntelCounts.totalEndpoints,
+    endpointsWithPayload: apiIntelCounts.endpointsWithPayload,
+    endpointPayloadCoveragePct: PCT(apiIntelCounts.endpointsWithPayload, apiIntelCounts.totalEndpoints),
+    idLikeFields: apiIntelCounts.idLikeFieldTotal,
+    mappedFields: apiIntelCounts.mappedFieldTotal,
+    fieldMappingCoveragePct: PCT(apiIntelCounts.mappedFieldTotal, apiIntelCounts.idLikeFieldTotal),
+    sensitiveExposureCount: apiIntelCounts.sensitiveExposureCount,
+    publicEndpointRiskCount: apiIntelCounts.publicEndpointRiskCount,
+    sensitiveExposures: apiIntelCounts.sensitiveExposures,
+    risks: apiIntelCounts.risks,
+  };
+
   return {
     meta: { generatedAt, projectId, emptyProject },
     health: { score: healthScore, grade, label, subScores, weights: { ...HEALTH_WEIGHTS } },
@@ -374,6 +419,7 @@ export function analyzeExportSnapshot(content: unknown): AnalysisResult {
     },
     governance: { memberCount, roleDistribution, lastValidatedAt, signals },
     validation: { openCount: openIssues.length, bySeverity, byCategory, weightedIssues },
+    apiIntel,
     risks,
   };
 }

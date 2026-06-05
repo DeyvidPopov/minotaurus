@@ -47,6 +47,7 @@ import {
   projectIngestionRouter,
 } from "./modules/ingestion/ingestion.routes.js";
 import { projectAiRouter } from "./modules/ai/ai.routes.js";
+import { projectApiIntelRouter } from "./modules/api-intel/api-intel.routes.js";
 import { requireAuth } from "./middleware/auth.js";
 import { fail, ok } from "./utils/response.js";
 import { prisma } from "./lib/prisma.js";
@@ -94,6 +95,7 @@ apiRouter.use("/projects/:projectId/members", requireAuth, projectMembersRouter)
 apiRouter.use("/projects/:projectId/ingestion", requireAuth, projectIngestionRouter);
 apiRouter.use("/ingestion", requireAuth, ingestionRouter);
 apiRouter.use("/projects/:projectId/ai", requireAuth, projectAiRouter);
+apiRouter.use("/projects/:projectId/api-intel", requireAuth, projectApiIntelRouter);
 
 apiRouter.use("/artifacts/:artifactId/relations", requireAuth, artifactRelationsRouter);
 apiRouter.use("/artifacts", requireAuth, artifactsRouter);

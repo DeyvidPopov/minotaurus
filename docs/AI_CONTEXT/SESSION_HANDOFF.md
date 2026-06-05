@@ -16,6 +16,49 @@
 
 ## Last Completed Feature
 
+**API Payload Intelligence** (`backend/src/modules/api-intel/`) — a deterministic, non-AI
+layer that turns endpoint request/response payloads into architecture intelligence.
+**`api-intel` is the single deterministic source** for payload/field extraction, entity
+matching, workflow inference, validation rules, knowledge-graph inferred edges, analysis
+metrics, PDF output, and AI-review evidence — every consumer reads this one module so the
+heuristics never drift. Pure, deterministic, never writes the DB, never persists inferences
+(no `ArtifactRelation` created), no schema change.
+- **Phase 1 — Architecture Links + Workflow Impact.** Per-endpoint, in the API-spec detail
+  page's expandable row. Three-tier inference (payload→entity / real-relation walk /
+  name-match), each item confidence-graded with a mandatory `basis`. `payloadFields` (all
+  extracted) vs `referencedFields` (inference subset).
+- **Phase 2 — Knowledge Graph overlay.** Artifact-level inferred edges (`TOUCHES`/
+  `SECURED_BY`/`DOCUMENTED_BY`), deduped against real relations, dashed + badged,
+  toggle-gated, never persisted, no new node types. Plus explicit **Real relations** /
+  **Inferred links** edge toggles on the graph page (honest total counts).
+- **Phase 3 — API Impact Analysis.** Synthesized per-endpoint view (Touches / Implemented By /
+  Protected By / Referenced In / Workflow / Payload Fields / Warnings), default lens, with a
+  toggle to the granular Architecture Links.
+- **Phase 4 — Validation rules.** `API_FIELD_UNMAPPED`, `PUBLIC_ENDPOINT_EXPOSES_SENSITIVE_FIELD`,
+  `USER_SCOPED_ENDPOINT_WITHOUT_AUTH`, `RESPONSE_EXPOSES_TOKEN_OR_SECRET`, fed into the
+  deterministic validation engine (code-in-message, no schema change). Shared `AUTH_ACTIONS`
+  allow-list (incl. forgot-/reset-password) suppresses auth-endpoint false positives — and
+  now also gates the legacy `isSecuritySpec` "marked public" rule.
+- **Phase 5 — Analysis / PDF / AI Review.** `AnalysisResult.apiIntel` (payload coverage %,
+  field→entity mapping %, sensitive-exposure count, public-endpoint-risk count) → gated PDF
+  "API Payload Intelligence" section + AI-review digest evidence keys (AI may cite, never
+  compute; `hashAnalysis` includes it).
+- **Refinements (this session, all verified on the testbed):** context-aware ambiguous
+  field matching (Authentication API prefers `User`/`Session` over `Patient` via the
+  service→DB relation neighborhood — tie-break only, deterministic fallback intact);
+  documentation/related false-positive fix (name-match tokens + relation-walk anchors
+  restricted to the **primary** entity); "Handles Credentials" wording for public
+  credential intake.
+- **Testbed:** `scripts/seed-payload-testbed.ts` (`npm run seed:testbed`) — separate,
+  idempotent **"Payload Intelligence Testbed"** project with intentionally-bad endpoints
+  (`/debug/leak-token`) proving the rules fire; never touches the main demo.
+- Verified: backend `npm run typecheck` + `test:unit` (271 pass, incl. the api-intel
+  suites); frontend `npm run typecheck` + `lint`; live testbed (`/auth/login` touches
+  User + Session; security validation only flags the bad endpoint; PDF apiIntel + inferred
+  edges populated).
+
+## Previous feature pass
+
 **Registration wizard — UX follow-up** (two fixes):
 - **Duplicate completed-account email now blocks on Step 1.** `register/start` returns
   `409 EMAIL_TAKEN` when a `User` already owns the email (a deliberate signup-enumeration
@@ -593,14 +636,22 @@ Earlier in this session: Mermaid label-rendering fix; Phase 4 polish (template p
 - **exports work** — JSON / Markdown / **real deterministic PDF** + on-demand download
   endpoint. ZIP removed from the format list (never implemented; future enhancement).
 - validation works (rule-based, deterministic — relation/doc/security/API/DB/diagram/churn/
-  deprecated/single-member rules)
-- analysis engine works (pure, deterministic — health score, coverage, traceability, risks)
+  deprecated/single-member rules **+ the 4 API-payload rules from `modules/api-intel/`**)
+- **API Payload Intelligence works** (`modules/api-intel/`, the single deterministic source
+  for payload heuristics) — read-only `GET /projects/:id/api-intel`; feeds the API-spec page
+  panels, the graph inferred-edge overlay, the validation rules, `AnalysisResult.apiIntel`,
+  the PDF section, and the AI-review evidence. No AI, no DB writes, nothing persisted.
+- analysis engine works (pure, deterministic — health score, coverage, traceability, risks,
+  **apiIntel metrics**)
 - Mermaid rendering works (lazy-loaded, surfaces syntax errors as UI state)
 - Demo project ("Online Shop Platform") seeded with 4 team members
   (Deyvid OWNER · Iris ARCHITECT · Maya DEVELOPER · Ren VIEWER), artifacts, relations, docs,
   1 API spec + endpoints, 1 DB model + entities + FK, diagrams, version events, seeded exports
-- Tests: 112 backend unit tests (pure engines) pass; backend + frontend `tsc` clean; 11/11
-  `test:api` smoke. No controller / validation-engine / frontend tests.
+- Tests: 271 backend unit tests (pure engines, incl. the full `modules/api-intel/` suite)
+  pass; backend + frontend `tsc` clean; 11/11 `test:api` smoke. No controller /
+  validation-engine / frontend tests.
+- A second seeded project, **"Payload Intelligence Testbed"** (`npm run seed:testbed`),
+  exists alongside the demo to exercise the API Payload Intelligence chain end-to-end.
 
 ## Current Goal
 
