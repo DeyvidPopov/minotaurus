@@ -659,6 +659,7 @@ model IngestionRecord {
 enum AiSessionKind {
   BOOTSTRAP
   REVIEW
+  ADVISOR
   DOCUMENTATION_DRAFT
 }
 
@@ -697,7 +698,7 @@ model AiSession {
   apiEndpointsProposed Int        @default(0)
   apiSpecsCreated      Int        @default(0)
   apiEndpointsCreated  Int        @default(0)
-  /// Set for REVIEW sessions: stable hash of the AnalysisResult the review interpreted (for staleness detection).
+  /// Set for REVIEW/ADVISOR sessions: stable hash of the AnalysisResult the review/advisory interpreted (for staleness detection).
   analysisHash      String?
   createdById       String
   appliedById       String?

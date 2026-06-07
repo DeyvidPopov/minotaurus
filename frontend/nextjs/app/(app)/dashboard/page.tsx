@@ -99,7 +99,7 @@ export default function DashboardPage() {
           {(projects ?? []).map((p) => (
             <Link key={p.id} href={`/projects/${p.id}`} className="block bg-panel border border-border rounded-lg p-[18px] hover:border-border-strong transition-colors">
               <div className="flex items-center gap-2.5 mb-3">
-                <ProjectMark color={p.color} size={28} letter={p.name[0]?.toUpperCase() || "P"} />
+                <ProjectMark color={p.color} size={28} seed={p.id} />
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-[14px] tracking-tight">{p.name}</div>
                   <div className="text-[12px] text-fg-subtle font-mono truncate">{p.slug}</div>

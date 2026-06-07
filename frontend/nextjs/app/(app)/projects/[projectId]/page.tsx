@@ -104,7 +104,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
         {/* Sub-nav row: logo + name + actions on one line */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3 min-w-0">
-            <ProjectMark color={project.color} size={42} letter={project.name[0]?.toUpperCase() || "P"} />
+            <ProjectMark color={project.color} size={42} seed={project.id} />
             <h1 className="text-2xl font-semibold tracking-tight m-0 flex items-center gap-2.5 min-w-0">
               <span className="truncate">{project.name}</span>
               <StatusBadge status="ACTIVE" />

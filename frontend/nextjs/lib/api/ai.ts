@@ -253,6 +253,67 @@ export interface ReviewListItem {
   model: string;
 }
 
+// ── AI Architecture Advisor (the "Advisor / Next Steps" mode of AI Review) ──
+// The Advisor is an architectural consultant: it interprets the deterministic
+// AnalysisResult to explain why findings matter and what to investigate next. It
+// is read-only w.r.t. architecture (no SSOT writes, no apply path) but PERSISTS
+// its own result so advisories survive refresh and gain history + staleness,
+// exactly like Full Review. Mirrors backend modules/ai/advisor/advisor.types.ts.
+
+export type AdvisorPriority = "HIGH" | "MEDIUM" | "LOW";
+
+/** A focus area or opportunity — every item carries verified evidence. */
+export interface AdvisorNote {
+  title: string;
+  detail: string;
+  evidence: EvidenceRef[];
+}
+export interface AdvisorRecommendation {
+  title: string;
+  priority: AdvisorPriority;
+  rationale: string;
+  evidence: EvidenceRef[];
+}
+export interface AdvisorReport {
+  /** Executive Snapshot — very short project state. */
+  executiveSummary: string;
+  /** Current Focus Areas — the top 2–3 concerns to address now. */
+  focusAreas: AdvisorNote[];
+  /** Opportunities — a few lightweight quality-improvement areas. */
+  opportunities: AdvisorNote[];
+  /** Recommended Next Steps — at most 5, ordered HIGH → MEDIUM → LOW by the server's verifier. */
+  recommendations: AdvisorRecommendation[];
+}
+export interface AdvisorVerification {
+  totalRefs: number;
+  removedRefs: number;
+  discardedFindings: number;
+}
+export interface AdvisorResult {
+  /** AiSession(ADVISOR) audit row id (null only if the audit write failed). */
+  id: string | null;
+  report: AdvisorReport;
+  /** The deterministic numbers the advisory interprets — authoritative. */
+  analysis: ReviewAnalysis;
+  analysisHash: string;
+  model: string;
+  usage: { inputTokens: number; outputTokens: number };
+  generatedAt: string;
+  truncated: boolean;
+  missingSections: string[];
+  /** True when the project changed since this advisory was generated. */
+  stale: boolean;
+  verification: AdvisorVerification;
+}
+
+/** Lightweight advisor-history metadata (newest first). */
+export interface AdvisorListItem {
+  id: string;
+  generatedAt: string;
+  analysisHash: string;
+  model: string;
+}
+
 // ── Artifact Documentation Assistant (per-artifact, on-demand draft) ──
 // AI drafts Markdown for ONE artifact from a bounded digest; the user reviews,
 // edits, and saves through the existing documentation endpoint. DEVELOPER+.
@@ -288,6 +349,17 @@ export const aiApi = {
     apiClient.get<ReviewListItem[]>(`/projects/${projectId}/ai/reviews`),
   getReviewById: (projectId: string, reviewId: string) =>
     apiClient.get<ReviewResult>(`/projects/${projectId}/ai/reviews/${reviewId}`),
+  // Generate a new AI architecture advisory (AI call) and persist it as a new
+  // ADVISOR session. Read-only w.r.t. architecture — never overwrites history.
+  generateAdvisor: (projectId: string) =>
+    apiClient.post<AdvisorResult>(`/projects/${projectId}/ai/advisor`, {}),
+  // Read-only retrieval of persisted advisories (no AI call).
+  getLatestAdvisor: (projectId: string) =>
+    apiClient.get<AdvisorResult>(`/projects/${projectId}/ai/advisor/latest`),
+  listAdvisors: (projectId: string) =>
+    apiClient.get<AdvisorListItem[]>(`/projects/${projectId}/ai/advisors`),
+  getAdvisorById: (projectId: string, advisorId: string) =>
+    apiClient.get<AdvisorResult>(`/projects/${projectId}/ai/advisors/${advisorId}`),
   // Generate an on-demand documentation draft for one artifact (no save).
   generateDocumentationDraft: (projectId: string, artifactId: string) =>
     apiClient.post<DocumentationDraftResult>(

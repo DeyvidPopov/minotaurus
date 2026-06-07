@@ -35,8 +35,8 @@ export function buildReviewSystemPrompt(): string {
   ].join("\n");
 }
 
-export function buildReviewUserPrompt(digest: ReviewDigest): string {
-  return [
+export function buildReviewUserPrompt(digest: ReviewDigest, repairHint?: string): string {
+  const lines = [
     "Deterministic architecture analysis digest (compact JSON). Interpret it — do not recompute anything in it:",
     "```json",
     JSON.stringify(digest),
@@ -44,5 +44,13 @@ export function buildReviewUserPrompt(digest: ReviewDigest): string {
     "",
     `Write the architecture review now by calling ${REVIEW_TOOL_NAME}.`,
     "Reminder: every evidence.ref must be one of the strings in digest.evidenceKeys.",
-  ].join("\n");
+  ];
+  // Set only on the one repair retry, with the prior schema error.
+  if (repairHint) {
+    lines.push(
+      "",
+      `Your previous tool call was rejected by schema validation (${repairHint}). Call ${REVIEW_TOOL_NAME} again with corrected, schema-valid data.`,
+    );
+  }
+  return lines.join("\n");
 }

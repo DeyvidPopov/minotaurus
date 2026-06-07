@@ -1,21 +1,23 @@
-// review.service.ts — orchestrates the read-only AI Architecture Review:
-//   buildExportContent (SSOT assembly, reused) → analyzeExportSnapshot
-//   (deterministic, reused) → buildReviewDigest → provider (forced tool, one
-//   repair retry) → Zod parse → verify evidence → persist AiSession (audit).
+// review.service.ts — orchestrates the read-only AI Architecture Review (the
+// "Full Review" mode). The deterministic chain + the provider generation loop are
+// now shared with the Advisor mode via ../architecture/analysis-runner.ts; this
+// file owns only the review-specific spec (prompt/schema/verify), persistence,
+// and the read endpoints.
 //
-// READ-ONLY: this never calls prisma.*.create/update/delete on any SSOT entity.
-// The ONLY write is a lightweight AiSession audit row (metadata, like the
-// Bootstrap Wizard) — never a graph node, never SSOT. AI interprets the
-// deterministic AnalysisResult; it never produces or alters it.
+// READ-ONLY w.r.t. architecture: this never calls prisma.*.create/update/delete
+// on any SSOT entity. The ONLY write is a lightweight AiSession audit row
+// (metadata, like the Bootstrap Wizard) — never a graph node, never SSOT. AI
+// interprets the deterministic AnalysisResult; it never produces or alters it.
 
 import { AiSessionKind, AiSessionStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
-import { buildExportContent } from "../../exports/exports.engine.js";
-import { analyzeExportSnapshot } from "../../exports/analysis/metrics.engine.js";
-import type { AnalysisResult, ExportSnapshot } from "../../exports/analysis/analysis.types.js";
-import { getAiProvider, type StructuredResult } from "../providers/ai.provider.js";
-import { AiOutputTruncatedError, AiSchemaError } from "../ai.service.js";
-import { buildReviewDigest } from "./review.digest.js";
+import {
+  ARCH_ANALYSIS_SECTIONS,
+  buildAnalysisContext,
+  computeAnalysisAndHash,
+  runArchitectureGeneration,
+  type GenerationSpec,
+} from "../architecture/analysis-runner.js";
 import { buildReviewSystemPrompt, buildReviewUserPrompt } from "./review.prompt.js";
 import {
   REVIEW_TOOL_DESCRIPTION,
@@ -24,9 +26,14 @@ import {
   reviewToolInputSchema,
 } from "./review.schema.js";
 import { salvageTruncatedReview } from "./review.salvage.js";
-import { hashAnalysis, toStoredReviewResult } from "./review.read.js";
+import { toStoredReviewResult } from "./review.read.js";
 import { verifyReviewEvidence } from "./review.verify.js";
 import type { ArchitectureReview, ReviewListItem, ReviewResult } from "./review.types.js";
+
+// Re-exported for back-compat with prior importers (the deterministic helpers now
+// live in the shared runner).
+export { computeAnalysisAndHash };
+export const ALL_REVIEW_SECTIONS = ARCH_ANALYSIS_SECTIONS;
 
 /** Output-token budget for a review. Bounded output keeps this comfortable; the
  *  headroom (default 12k) is insurance, not the primary fix. */
@@ -36,38 +43,31 @@ function reviewMaxTokens(): number {
   return Number.isFinite(v) && v > 0 ? v : DEFAULT_REVIEW_MAX_TOKENS;
 }
 
-// Everything the deterministic analysis engine reads. The review never sends raw
-// SSOT to the model — this only feeds the analysis engine, whose bounded output
-// becomes the digest.
-export const ALL_REVIEW_SECTIONS = [
-  "ARTIFACTS",
-  "RELATIONS",
-  "DOCUMENTATION",
-  "VALIDATION",
-  "API_SPECS",
-  "DATABASE_MODELS",
-  "DIAGRAMS",
-  "VERSION_HISTORY",
-  "TEAM",
-];
+// The review-specific half of the shared runner. Everything else (provider call,
+// repair retry, truncation handling, error taxonomy) is in the runner.
+const reviewSpec: GenerationSpec<ArchitectureReview> = {
+  label: "architecture review",
+  toolName: REVIEW_TOOL_NAME,
+  toolDescription: REVIEW_TOOL_DESCRIPTION,
+  inputSchema: reviewToolInputSchema,
+  buildSystem: buildReviewSystemPrompt,
+  buildUser: buildReviewUserPrompt,
+  parseStrict: (data) => {
+    const parsed = architectureReviewSchema.safeParse(data);
+    if (parsed.success) return { ok: true, report: parsed.data as ArchitectureReview };
+    return { ok: false, error: parsed.error.issues.slice(0, 6).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ") };
+  },
+  salvage: (data) => {
+    const s = salvageTruncatedReview(data);
+    return s ? { report: s.review, missingSections: s.missingSections } : null;
+  },
+  maxTokens: reviewMaxTokens,
+};
 
-/**
- * Deterministic, AI-free: assemble the SSOT, analyze it, hash the result. Reused
- * by generate (basis for the review) and by the read endpoints (current basis,
- * for staleness + the score cards). No provider call — cheap on every refresh.
- */
-export async function computeAnalysisAndHash(
-  projectId: string,
-): Promise<{ analysis: AnalysisResult; analysisHash: string }> {
-  const content = await buildExportContent(projectId, "JSON", ALL_REVIEW_SECTIONS);
-  const analysis = analyzeExportSnapshot(content);
-  return { analysis, analysisHash: hashAnalysis(analysis) };
-}
-
-function logAiFailure(fields: Record<string, unknown>): void {
+function logAuditFailure(fields: Record<string, unknown>): void {
   // Scalar metadata only — never the prompt, the AI output, or any secret.
   // eslint-disable-next-line no-console
-  console.warn("[ai] architecture review failed " + JSON.stringify(fields));
+  console.warn("[ai] architecture review audit " + JSON.stringify(fields));
 }
 
 export interface ReviewParams {
@@ -76,101 +76,20 @@ export interface ReviewParams {
 }
 
 export async function generateArchitectureReview(params: ReviewParams): Promise<ReviewResult> {
-  const provider = getAiProvider();
-
   // ── Deterministic chain: SSOT → AnalysisResult → digest (no AI yet) ──
-  const content = await buildExportContent(params.projectId, "JSON", ALL_REVIEW_SECTIONS);
-  const analysis = analyzeExportSnapshot(content);
-  const digest = buildReviewDigest(analysis, content as ExportSnapshot);
-  const analysisHash = hashAnalysis(analysis);
-  const generatedAt = analysis.meta.generatedAt || "";
-
-  const system = buildReviewSystemPrompt();
-  const baseUser = buildReviewUserPrompt(digest);
-
-  let review: ArchitectureReview | null = null;
-  let truncated = false;
-  let missingSections: string[] = [];
-  let model = "";
-  let usage = { inputTokens: 0, outputTokens: 0 };
-  let stopReason: string | null = null;
-  let maxTokens = 0;
-  let durationMs = 0;
-  let lastError = "";
-
+  const { analysis, digest, analysisHash, generatedAt } = await buildAnalysisContext(params.projectId);
   const base = { projectId: params.projectId, userId: params.userId };
-  const outputBudget = reviewMaxTokens();
 
-  // First attempt + one repair retry on complete-but-off-schema output. A
-  // truncated (max_tokens) response is NOT retried — it would truncate the same.
-  for (let attempt = 0; attempt < 2 && !review; attempt++) {
-    const user =
-      attempt === 0
-        ? baseUser
-        : `${baseUser}\n\nYour previous tool call was rejected by schema validation (${lastError}). Call ${REVIEW_TOOL_NAME} again with corrected, schema-valid data.`;
-
-    let result: StructuredResult;
-    try {
-      result = await provider.generateStructured({
-        system,
-        user,
-        toolName: REVIEW_TOOL_NAME,
-        toolDescription: REVIEW_TOOL_DESCRIPTION,
-        inputSchema: reviewToolInputSchema,
-        maxTokens: outputBudget,
-      });
-    } catch (err) {
-      logAiFailure({ ...base, stage: "provider", model: model || "(unknown)", durationMs, code: "AI_PROVIDER_ERROR", message: err instanceof Error ? err.message : String(err) });
-      throw err; // AiProviderError → controller 502
-    }
-
-    model = result.model;
-    usage = result.usage;
-    stopReason = result.stopReason;
-    maxTokens = result.maxTokens;
-    durationMs += result.durationMs;
-
-    if (result.stopReason === "max_tokens") {
-      // Graceful degradation: bounded output makes this rare, but if it happens
-      // the completed prefix is still useful (recommendations emit last). Salvage
-      // it and flag what was lost rather than discarding a good review. Don't
-      // retry — a retry truncates identically.
-      const salvaged = salvageTruncatedReview(result.data);
-      if (salvaged) {
-        review = salvaged.review;
-        truncated = true;
-        missingSections = salvaged.missingSections;
-        // eslint-disable-next-line no-console
-        console.warn("[ai] architecture review truncated-salvaged " + JSON.stringify({
-          ...base, model, outputTokens: usage.outputTokens, maxTokens, durationMs, missingSections,
-        }));
-        break;
-      }
-      // Nothing usable arrived → honest failure.
-      logAiFailure({ ...base, stage: "truncated", model, stopReason, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, maxTokens, durationMs, code: "AI_OUTPUT_TRUNCATED" });
-      throw new AiOutputTruncatedError({ maxTokens, outputTokens: usage.outputTokens });
-    }
-
-    const parsed = architectureReviewSchema.safeParse(result.data);
-    if (parsed.success) {
-      review = parsed.data as ArchitectureReview;
-    } else {
-      lastError = parsed.error.issues.slice(0, 6).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
-    }
-  }
-
-  if (!review) {
-    logAiFailure({ ...base, stage: "schema", model, stopReason, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, maxTokens, durationMs, code: "AI_SCHEMA_ERROR", schemaSummary: lastError });
-    throw new AiSchemaError(`The AI review did not match the required schema (${lastError}).`);
-  }
+  // ── Shared generation loop (provider, repair retry, truncation salvage) ──
+  const gen = await runArchitectureGeneration(reviewSpec, digest, base);
 
   // ── Deterministic post-check: strip unsupported citations, flag unverifiable ──
-  const verified = verifyReviewEvidence(review, digest);
+  const verified = verifyReviewEvidence(gen.report, digest);
 
   // ── Audit (read-only): persist review metadata as a first-class REVIEW
   // AiSession. The kind + analysisHash are real columns; the JSON payload holds
-  // the review snapshot and verification stats. This is audit metadata only —
-  // never a graph node, never SSOT (same role as a bootstrap AiSession).
+  // the review snapshot and verification stats. Audit metadata only — never a
+  // graph node, never SSOT (same role as a bootstrap AiSession). ──
   let savedId: string | null = null;
   try {
     const created = await prisma.aiSession.create({
@@ -179,14 +98,14 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
         kind: AiSessionKind.REVIEW,
         status: AiSessionStatus.PROPOSED,
         idea: "",
-        model,
-        promptTokens: usage.inputTokens,
-        completionTokens: usage.outputTokens,
+        model: gen.model,
+        promptTokens: gen.usage.inputTokens,
+        completionTokens: gen.usage.outputTokens,
         analysisHash,
         proposal: {
           generatedAt,
-          truncated,
-          missingSections,
+          truncated: gen.truncated,
+          missingSections: gen.missingSections,
           review: verified.review,
           verification: {
             totalRefs: verified.totalRefs,
@@ -201,7 +120,7 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
   } catch (err) {
     // Audit is best-effort; a failed metadata write must not fail a read-only
     // review. Log scalar diagnostics and return the review anyway.
-    logAiFailure({ ...base, stage: "audit", model, code: "AI_AUDIT_WRITE_FAILED", message: err instanceof Error ? err.message : String(err) });
+    logAuditFailure({ ...base, model: gen.model, code: "AI_AUDIT_WRITE_FAILED", message: err instanceof Error ? err.message : String(err) });
   }
 
   return {
@@ -209,11 +128,11 @@ export async function generateArchitectureReview(params: ReviewParams): Promise<
     review: verified.review,
     analysis,
     analysisHash,
-    model,
-    usage,
+    model: gen.model,
+    usage: gen.usage,
     generatedAt,
-    truncated,
-    missingSections,
+    truncated: gen.truncated,
+    missingSections: gen.missingSections,
     stale: false, // just generated against the current analysis
   };
 }

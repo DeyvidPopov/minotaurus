@@ -8,8 +8,8 @@ import type { AuthedRequest } from "../../../middleware/auth.js";
 import { assertProjectRole } from "../../../lib/project-access.js";
 import { AiOutputTruncatedError, AiSchemaError } from "../ai.service.js";
 import { AiNotConfiguredError, AiProviderError } from "../providers/ai.provider.js";
+import { generateAiArchitectureAnalysis } from "../architecture/generate.js";
 import {
-  generateArchitectureReview,
   getLatestReview,
   getReviewById,
   listReviews,
@@ -24,7 +24,7 @@ export async function reviewArchitectureEndpoint(req: AuthedRequest, res: Respon
   if (!(await assertProjectRole(projectId, req.user!.userId, res, "DEVELOPER"))) return;
 
   try {
-    const result = await generateArchitectureReview({ projectId, userId: req.user!.userId });
+    const result = await generateAiArchitectureAnalysis({ mode: "REVIEW", projectId, userId: req.user!.userId });
     return ok(res, result, "Architecture review generated");
   } catch (err) {
     if (err instanceof AiNotConfiguredError) return fail(res, 503, "AI_NOT_CONFIGURED", err.message);

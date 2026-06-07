@@ -7,6 +7,12 @@ import {
   reviewHistoryEndpoint,
 } from "./review/review.controller.js";
 import { documentationDraftEndpoint } from "./documentation/doc-draft.controller.js";
+import {
+  advisorEndpoint,
+  latestAdvisorEndpoint,
+  advisorHistoryEndpoint,
+  advisorByIdEndpoint,
+} from "./advisor/advisor.controller.js";
 
 // Mounted at /projects/:projectId/ai (see routes.ts), so mergeParams is required
 // to read :projectId in the controllers.
@@ -28,3 +34,14 @@ projectAiRouter.post(
   "/documentation/artifacts/:artifactId/draft",
   documentationDraftEndpoint,
 );
+
+// AI Architecture Advisor: the "Advisor / Next Steps" mode of AI Review
+// (DEVELOPER+). Read-only w.r.t. architecture — it interprets the deterministic
+// analysis (why findings matter, what to investigate next) and writes ONLY its
+// own AiSession(ADVISOR) record. POST generates (AI call) + persists; the GETs
+// reuse persisted advisories with NO AI call (cheap deterministic staleness
+// recompute only), mirroring the Full Review read endpoints.
+projectAiRouter.post("/advisor", advisorEndpoint);
+projectAiRouter.get("/advisor/latest", latestAdvisorEndpoint);
+projectAiRouter.get("/advisors", advisorHistoryEndpoint);
+projectAiRouter.get("/advisors/:advisorId", advisorByIdEndpoint);
