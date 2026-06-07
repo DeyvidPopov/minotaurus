@@ -187,8 +187,8 @@ export class SmtpEmailService implements EmailService {
 
   async sendVerificationCode(_input: SendVerificationCodeInput): Promise<void> {
     this.assertConfigured();
-    // TODO: wire a real SMTP/transactional transport here. Until then a fully
-    // configured "smtp" provider must not pretend to send.
+    // The "smtp" provider is an intentional placeholder: with no transport wired
+    // it must fail loudly rather than silently pretend to have sent the message.
     throw new HttpError(
       503,
       "EMAIL_NOT_CONFIGURED",

@@ -1,10 +1,10 @@
-// components/landing/ai-gate.tsx — the key differentiator section.
+// components/landing/governance.tsx — the Governance differentiator section.
 //
-// Three cards left→right (AI SUGGESTS → RULES DECIDE → YOU APPROVE) with
-// animated connector arrows between them, then a pill note that states the
-// gate plainly. AI is deliberately NOT presented as autonomous: the model can
-// PROPOSE, but only deterministic rules + a human can COMMIT — which is exactly
-// the AI Safety & Determinism contract the platform is built on.
+// Three cards left→right (DRAFTED → VALIDATED → ACCEPTED) with animated
+// connector arrows between them, then a pill note that states the gate plainly.
+// The governance model is the point: suggested or imported content is never
+// source of truth until it passes deterministic rules AND a human accepts it —
+// exactly the AI Safety & Determinism contract the platform is built on.
 //
 // Pure presentation (CSS-driven arrows); collapses to one column on mobile and
 // the connector arrows rotate 90° (see globals.css @media max-width: 860px).
@@ -23,10 +23,10 @@ interface GateCard {
 
 const CARDS: GateCard[] = [
   {
-    badge: "AI proposes",
-    title: "AI suggests",
+    badge: "Suggested",
+    title: "Drafted",
     blurb:
-      "The model drafts artifacts, relations and fixes from your intent — fast, but never trusted on its own.",
+      "Intelligent assistance and imports propose artifacts, relations and fixes from your intent and existing graph — fast to produce, never trusted on their own.",
     icon: <Sparkles size={18} />,
     color: "#8b5cf6",
     chipLabel: "suggestion",
@@ -39,10 +39,10 @@ const CARDS: GateCard[] = [
     ),
   },
   {
-    badge: "Deterministic validation",
-    title: "Rules decide",
+    badge: "Deterministic rules",
+    title: "Validated",
     blurb:
-      "Every suggestion is checked against explicit, repeatable rules. The engine — not the model — has the final say.",
+      "Every proposal is checked against explicit, repeatable rules. The engine — not a guess — has the final say.",
     icon: <ShieldCheck size={18} />,
     color: "var(--accent)",
     chipLabel: "checks",
@@ -53,10 +53,10 @@ const CARDS: GateCard[] = [
     ),
   },
   {
-    badge: "Approved architecture",
-    title: "You approve",
+    badge: "Human-approved",
+    title: "Accepted",
     blurb:
-      "Only verified, human-approved changes enter the SSOT — versioned with a diff and an author.",
+      "Only verified, approved changes enter the source of truth — versioned with a diff and an author.",
     icon: <CircleCheck size={18} />,
     color: "#10b981",
     chipLabel: "committed",
@@ -69,22 +69,18 @@ const CARDS: GateCard[] = [
   },
 ];
 
-export function AiGate() {
+export function Governance() {
   return (
-    <section id="ai" className="py-[72px] border-t border-border">
+    <section id="governance" className="py-[72px] border-t border-border">
       <div className="max-w-[1280px] mx-auto px-8">
         <div className="text-center mb-12">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[12px] text-fg-muted bg-panel border border-border mb-5">
-            <Sparkles size={13} className="text-accent" />
-            AI-assisted, deterministically governed
-          </span>
           <h2 className="text-[36px] tracking-tight font-semibold m-0 mb-3">
-            AI proposes. Rules and a human dispose.
+            Nothing enters your source of truth unverified.
           </h2>
           <p className="text-[16px] text-fg-muted m-0 max-w-[640px] mx-auto">
-            Pure AI generation drifts and hallucinates. Minotaurus puts a
-            deterministic gate between the model and your source of truth — so
-            speed never costs you trust.
+            Every suggested or imported change is checked against explicit,
+            repeatable rules and approved by a person before it joins your
+            architecture. Suggestions move fast — only verified changes become real.
           </p>
         </div>
 
@@ -137,11 +133,11 @@ export function AiGate() {
           <p className="m-0 inline-flex items-start gap-2.5 max-w-[760px] text-center text-[13.5px] text-fg-muted bg-panel border border-border rounded-full px-5 py-3 leading-relaxed">
             <ShieldCheck size={16} className="text-accent shrink-0 mt-0.5" />
             <span>
-              The model can{" "}
+              A suggestion can only{" "}
               <span className="font-semibold text-fg">PROPOSE</span>. Only
-              deterministic rules + a human can{" "}
+              deterministic rules and a human can{" "}
               <span className="font-semibold text-fg">COMMIT</span>. That gate is
-              what makes the SSOT trustworthy.
+              what keeps your source of truth trustworthy.
             </span>
           </p>
         </div>

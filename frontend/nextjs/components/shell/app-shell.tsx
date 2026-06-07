@@ -63,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="grid h-screen overflow-hidden" style={{ gridTemplateColumns: "auto 1fr" }}>
+      <div className="app-shell grid h-screen overflow-hidden" style={{ gridTemplateColumns: "auto 1fr" }}>
         {mobileNav && <div onClick={() => setMobileNav(false)} className="fixed inset-0 bg-black/45 z-[199] md:hidden" />}
         <Sidebar projectId={projectId} />
         <div className="flex flex-col min-w-0 min-h-0 overflow-hidden">

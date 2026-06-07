@@ -1,4 +1,5 @@
-// lib/api/index.ts — barrel + remaining stubs (kept thin until backend is live)
+// lib/api/index.ts — barrel re-exports of the per-module API wrappers, plus the
+// inline graph / validation / export wrappers.
 
 export * from "./client";
 export * from "./auth";
@@ -67,5 +68,3 @@ export const exportApi = {
   download: (exportId: string) =>
     `${process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "/api"}/exports/${exportId}/download`,
 };
-
-// TODO: docs, api-specs, database-models, diagrams — add when backend confirms shapes.

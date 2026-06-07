@@ -2,11 +2,12 @@
 //
 // Composes the whole marketing page: nav → hero (with the decorative
 // ParallaxGraph behind it and a before/after card pair) → the animated
-// PipelineTheater (the IDEA→…→SSOT centerpiece) → the AI gate → "Why SSOT
-// matters" → the platform feature grid → CTA + footer.
+// PipelineTheater (the artifacts→…→SSOT centerpiece) → the Governance gate →
+// "Why SSOT matters" → the platform feature grid → CTA + footer.
 //
-// Server component: the only client islands are <BrandLogo> (auth-aware link)
-// and <PipelineTheater> (the state machine). Colors come exclusively from the
+// Server component: the only client islands are <LandingNav> (the burger-menu
+// state), <BrandLogo> (auth-aware link) and <PipelineTheater> (the state
+// machine). Colors come exclusively from the
 // design-system CSS variables / the documented type-color palette — none are
 // invented. The page renders on the public dark+purple brand theme that
 // app/layout.tsx + globals.css pin (accent/theme are scoped to the app shell).
@@ -23,7 +24,6 @@ import {
   Shield,
   Sparkles,
   GitMerge,
-  BookOpen,
   Package,
   Command,
   Layers,
@@ -33,59 +33,33 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/shell/brand-logo";
 import { ShortcutHint } from "@/components/ui/shortcut-hint";
+import { LandingNav } from "./landing-nav";
 import { ParallaxGraph } from "./parallax-graph";
 import { PipelineTheater } from "./pipeline-theater";
-import { AiGate } from "./ai-gate";
+import { Governance } from "./governance";
 
-const RIBBON = ["Idea", "Architecture", "Validation", "Docs", "SSOT"];
+const RIBBON = ["Artifacts", "Graph", "Validation", "Docs", "SSOT"];
 
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-bg text-fg">
       {/* ----------------------------------------------------------- nav */}
-      <nav className="sticky top-0 z-20 backdrop-blur bg-bg/70 border-b border-border">
-        <div className="max-w-[1280px] mx-auto px-8 py-3.5 flex items-center gap-4 text-[14px]">
-          <BrandLogo />
-          <div className="hidden md:flex gap-5 ml-7 text-fg-muted">
-            <a href="#workflow" className="hover:text-fg">Workflow</a>
-            <a href="#ai" className="hover:text-fg">AI gate</a>
-            <a href="#platform" className="hover:text-fg">Platform</a>
-            <a href="#why" className="hover:text-fg">Why SSOT</a>
-          </div>
-          <div className="flex-1" />
-          <Link
-            href="/login"
-            className="h-8 px-3 inline-flex items-center bg-panel border border-border rounded-sm text-[13px] transition-colors hover:bg-panel-hover"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/register"
-            className="h-8 px-3.5 inline-flex items-center gap-1.5 bg-accent text-accent-fg border border-transparent rounded-sm text-[13px] font-medium transition-colors hover:brightness-[0.95] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
-          >
-            Get started <ArrowRight size={13} />
-          </Link>
-        </div>
-      </nav>
+      <LandingNav />
 
       {/* ---------------------------------------------------------- hero */}
       <header className="relative overflow-hidden border-b border-border min-h-[calc(100dvh-61px)] flex flex-col justify-center">
         <ParallaxGraph />
         <div className="relative w-full max-w-[1280px] mx-auto px-8 py-12 grid lg:grid-cols-[1.08fr_1fr] gap-12 items-center">
           <div>
-            <span className="inline-flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full text-[12px] text-fg-muted bg-panel border border-border mb-5">
-              <span className="w-1.5 h-1.5 rounded-full bg-success" />
-              <span className="font-mono text-fg">v1.0</span>
-              <span>single source of truth</span>
-            </span>
             <h1 className="text-[clamp(40px,6vw,62px)] leading-[1.04] tracking-tight font-semibold m-0 mb-5">
-              From a sentence to a{" "}
-              <em className="not-italic text-accent">verified</em> system.
+              Your architecture, in one{" "}
+              <em className="not-italic text-accent">governed source of truth</em>.
             </h1>
             <p className="text-[18px] leading-relaxed text-fg-muted max-w-[560px] m-0 mb-6">
-              Minotaurus turns a plain-language idea into a connected, validated
-              architecture — services, APIs, databases, diagrams and docs — and
-              seals it into one versioned source of truth your whole team can trust.
+              Minotaurus is a software architecture platform that keeps your
+              services, APIs, databases, diagrams and documentation connected,
+              validated and traceable — so your architecture and what you ship
+              never drift apart.
             </p>
 
             {/* mono pipeline ribbon */}
@@ -109,24 +83,12 @@ export function LandingPage() {
               >
                 <Box size={14} /> Get started <ArrowRight size={14} />
               </Link>
-              <Link
-                href="/login"
+              <a
+                href="#workflow"
                 className="h-10 px-4 inline-flex items-center gap-1.5 bg-panel border border-border rounded-sm text-[14px] transition-colors hover:bg-panel-hover"
               >
-                <Network size={14} /> Explore the demo
-              </Link>
-            </div>
-
-            <div className="flex items-center gap-5 flex-wrap text-[12px] text-fg-muted">
-              <span className="flex items-center gap-1.5">
-                <Check size={13} className="text-success" /> Deterministic validation
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Check size={13} className="text-success" /> Versioned + diffable
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Check size={13} className="text-success" /> Export JSON · MD · PDF
-              </span>
+                <Network size={14} /> View workflow
+              </a>
             </div>
           </div>
 
@@ -188,27 +150,25 @@ export function LandingPage() {
       </header>
 
       {/* ------------------------------------------------- pipeline theater */}
-      <section id="workflow" className="bg-bg-2 border-b border-border py-[72px]">
+      <section id="workflow" className="bg-bg-2 border-b border-border py-16">
         <div className="max-w-[1280px] mx-auto px-8">
-          <div className="text-center mb-12">
-            <span className="font-mono text-[12px] tracking-wider text-accent uppercase">
-              The workflow
-            </span>
-            <h2 className="text-[36px] tracking-tight font-semibold m-0 mt-2 mb-3">
-              Watch a system build itself.
+          <div className="text-center mb-10">
+            <h2 className="text-[36px] tracking-tight font-semibold m-0 mb-3">
+              Watch your architecture become connected.
             </h2>
             <p className="text-[16px] text-fg-muted m-0 max-w-[680px] mx-auto">
-              One idea becomes typed artifacts, a connected graph, database models,
-              API specs, validated consistency, generated docs — and finally a
-              single sealed source of truth. Hover to pause; click a step to jump.
+              Every artifact — services, APIs, database models, diagrams and docs —
+              is typed, wired into one navigable graph, validated for consistency,
+              and sealed into a single versioned source of truth. Hover to pause;
+              click a step to jump.
             </p>
           </div>
           <PipelineTheater />
         </div>
       </section>
 
-      {/* --------------------------------------------------------- AI gate */}
-      <AiGate />
+      {/* ------------------------------------------------------ governance */}
+      <Governance />
 
       {/* --------------------------------------------------- why SSOT matters */}
       <section id="why" className="bg-bg-2 border-t border-border py-[72px]">
@@ -236,7 +196,7 @@ export function LandingPage() {
             <Why
               icon={<Scale size={16} />}
               title="Trust"
-              body="Deterministic rules — not a model's mood — decide whether the architecture is consistent. The same input always gives the same verdict."
+              body="Deterministic rules — not guesswork — decide whether the architecture is consistent. The same input always gives the same verdict."
             />
             <Why
               icon={<Download size={16} />}
@@ -256,7 +216,7 @@ export function LandingPage() {
             </h2>
             <p className="text-[16px] text-fg-muted m-0 max-w-[600px] mx-auto">
               An engineering workspace, not a wiki — typed artifacts, traceable
-              relations, deterministic checks and AI on a leash.
+              relations and deterministic checks across your whole architecture.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -287,8 +247,8 @@ export function LandingPage() {
             />
             <Feat
               icon={<Sparkles size={16} />}
-              title="AI suggestions, gated"
-              body="AI bootstraps an idea, drafts per-artifact docs and reviews your architecture — but proposes only. Rules and a human commit."
+              title="Assisted, never autonomous"
+              body="Optional intelligent assistance can draft a starting point, suggest per-artifact docs and review your architecture — always as reviewable suggestions, never source of truth until you accept them."
             />
             <Feat
               icon={<GitMerge size={16} />}
@@ -320,7 +280,7 @@ export function LandingPage() {
         style={{ background: "linear-gradient(180deg, var(--panel), var(--bg-2))" }}
       >
         <h2 className="text-[36px] font-semibold tracking-tight m-0 mb-3">
-          Turn the next idea into a verified system.
+          Bring your whole architecture into one source of truth.
         </h2>
         <p className="text-[16px] text-fg-muted m-0 mb-7 max-w-[560px] mx-auto">
           Open the workspace and tour the seeded{" "}
@@ -342,22 +302,15 @@ export function LandingPage() {
             Sign in
           </Link>
         </div>
-        <p className="text-[12px] text-fg-subtle mt-5">
-          Demo credentials:{" "}
-          <span className="font-mono text-fg-muted">deyvid@minotaurus.dev</span> /{" "}
-          <span className="font-mono text-fg-muted">minotaurus</span>
-        </p>
       </section>
 
       {/* ---------------------------------------------------------- footer */}
-      <footer className="max-w-[1280px] mx-auto px-8 py-7 flex items-center gap-4 text-[12px] text-fg-muted border-t border-border flex-wrap">
-        <BrandLogo markSize={20} />
-        <span className="font-mono text-fg-subtle">v1.0.0</span>
-        <div className="flex gap-5 ml-auto">
-          <a href="#workflow" className="hover:text-fg">Workflow</a>
-          <a href="#ai" className="hover:text-fg">AI gate</a>
-          <a href="#platform" className="hover:text-fg">Platform</a>
-          <Link href="/login" className="hover:text-fg">Sign in</Link>
+      {/* border-t lives on the full-width <footer> so the divider spans 100vw;
+          the content stays constrained to the 1280px container inside. */}
+      <footer className="border-t border-border text-[12px] text-fg-muted">
+        <div className="max-w-[1280px] mx-auto px-8 py-7 flex items-center gap-4">
+          <BrandLogo markSize={20} />
+          <span className="ml-auto font-mono text-[11px] text-fg-subtle">v1.0.0</span>
         </div>
       </footer>
     </div>

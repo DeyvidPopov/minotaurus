@@ -14,7 +14,7 @@ import { useForm } from "react-hook-form";
 import type { FieldError } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, ArrowRight, Check, Loader2, Lock, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
@@ -139,6 +139,8 @@ export default function ForgotPasswordPage() {
   const [resetToken, setResetToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
@@ -211,9 +213,9 @@ export default function ForgotPasswordPage() {
   });
 
   // Step 2 → verify the emailed code.
-  const onVerify = async (candidate?: string) => {
+  const onVerify = async () => {
     if (loading) return;
-    const value = (candidate ?? code).replace(/\D/g, "");
+    const value = code.replace(/\D/g, "");
     if (value.length !== CODE_LENGTH) return;
     setError(null);
     setCodeInvalid(false);
@@ -293,6 +295,7 @@ export default function ForgotPasswordPage() {
   };
 
   const codeComplete = code.replace(/\D/g, "").length === CODE_LENGTH;
+  const passwordValue = passwordForm.watch("password");
 
   return (
     <div className="w-full max-w-[400px] bg-panel border border-border rounded-xl p-7 shadow-md">
@@ -345,7 +348,7 @@ export default function ForgotPasswordPage() {
         {step === 2 && (
           <>
             <Heading
-              title="Enter the code"
+              title="Verify your email"
               subtitle={
                 <>
                   Enter the 6-digit code we sent to{" "}
@@ -387,7 +390,7 @@ export default function ForgotPasswordPage() {
                   disabled={loading || resending}
                   className="inline-flex items-center gap-1 hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ArrowLeft size={12} aria-hidden /> Change email
+                  <ArrowLeft size={12} aria-hidden /> Use a different email
                 </button>
                 <button
                   type="button"
@@ -398,6 +401,9 @@ export default function ForgotPasswordPage() {
                   {resending ? "Sending…" : cooldownActive ? `Resend in ${secondsLeft}s` : "Resend code"}
                 </button>
               </div>
+              <p className="text-center text-[11.5px] text-fg-subtle leading-relaxed">
+                The code expires in 10 minutes. Not in your inbox? Check your spam folder, or request a new code above.
+              </p>
             </form>
           </>
         )}
@@ -413,13 +419,15 @@ export default function ForgotPasswordPage() {
                     {...passwordForm.register("password")}
                     {...a11y("fp-password", passwordForm.formState.errors.password)}
                     autoFocus
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
-                    className={cn(inputClass, "pl-8")}
+                    className={cn(inputClass, "pl-8 pr-9")}
                     placeholder="New password (min 8 chars)"
                   />
+                  <PasswordToggle shown={showPassword} onToggle={() => setShowPassword((v) => !v)} />
                 </div>
               </Field>
+              <PasswordChecklist value={passwordValue} />
               <Field
                 label="Confirm password"
                 htmlFor="fp-confirmPassword"
@@ -430,11 +438,12 @@ export default function ForgotPasswordPage() {
                   <input
                     {...passwordForm.register("confirmPassword")}
                     {...a11y("fp-confirmPassword", passwordForm.formState.errors.confirmPassword)}
-                    type="password"
+                    type={showConfirm ? "text" : "password"}
                     autoComplete="new-password"
-                    className={cn(inputClass, "pl-8")}
+                    className={cn(inputClass, "pl-8 pr-9")}
                     placeholder="Confirm password"
                   />
+                  <PasswordToggle shown={showConfirm} onToggle={() => setShowConfirm((v) => !v)} />
                 </div>
               </Field>
               {error && <InlineError>{error}</InlineError>}
@@ -488,6 +497,47 @@ function a11y(id: string, error?: FieldError) {
     "aria-invalid": error ? true : undefined,
     "aria-describedby": error ? `${id}-error` : undefined,
   };
+}
+
+/** Show/hide control for a password input — matches the login + registration screens. */
+function PasswordToggle({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={shown ? "Hide password" : "Show password"}
+      aria-pressed={shown}
+      className="absolute right-2 top-1/2 -translate-y-1/2 grid h-6 w-6 place-items-center rounded-sm text-fg-subtle hover:text-fg outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] motion-safe:transition-colors"
+    >
+      {shown ? <EyeOff size={14} aria-hidden /> : <Eye size={14} aria-hidden />}
+    </button>
+  );
+}
+
+/** Live password-policy checklist — mirrors the zod rules without changing them. */
+function PasswordChecklist({ value }: { value: string }) {
+  const rules = [
+    { ok: value.length >= 8, label: "At least 8 characters" },
+    { ok: /[A-Za-z]/.test(value), label: "At least one letter" },
+    { ok: /\d/.test(value), label: "At least one number" },
+  ];
+  return (
+    <ul className="-mt-1 flex flex-col gap-1" aria-label="Password requirements">
+      {rules.map((r) => (
+        <li
+          key={r.label}
+          className={cn(
+            "flex items-center gap-1.5 text-[11.5px] motion-safe:transition-colors",
+            r.ok ? "text-success" : "text-fg-subtle",
+          )}
+        >
+          <Check size={12} aria-hidden className={r.ok ? "opacity-100" : "opacity-40"} />
+          <span>{r.label}</span>
+          <span className="sr-only">{r.ok ? " met" : " not yet met"}</span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function Heading({ title, subtitle }: { title: string; subtitle: React.ReactNode }) {

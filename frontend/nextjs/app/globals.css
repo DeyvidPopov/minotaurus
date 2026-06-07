@@ -86,6 +86,37 @@
   zoom: 1.1;
 }
 
+/* Mobile shell (< md / 768px — matches the topbar hamburger's `md:hidden`).
+   The sidebar becomes an off-canvas drawer instead of a permanent grid column,
+   so workspace content uses the full viewport width (no squeeze, no horizontal
+   scroll). The AppShell grid collapses to a single column here; the sidebar is
+   taken out of flow with position:fixed and slid in/out via translateX. The
+   drawer opens when AppShell sets body[data-mobile-nav="open"] (hamburger) and
+   the scrim + auto-close-on-navigation are already wired in app-shell.tsx. The
+   comfy zoom is reset to 1 so content isn't magnified into overflow on phones.
+   Desktop (>= md) is unaffected — the media query simply doesn't apply. */
+@media (max-width: 767.98px) {
+  .app-shell {
+    grid-template-columns: 1fr !important;
+  }
+  .mino-app-content {
+    zoom: 1;
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+  }
+  body[data-mobile-nav="open"] .sidebar {
+    transform: translateX(0);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
 * {
   box-sizing: border-box;
 }

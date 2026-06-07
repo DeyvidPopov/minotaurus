@@ -1,5 +1,5 @@
 // bootstrap.apply.ts — the ONLY path from an AI proposal to the database
-// (CLAUDE.md "AI Safety & Determinism" Rule 1). It consumes an already-validated,
+// (AI Safety & Determinism Rule 1). It consumes an already-validated,
 // user-selected proposal and creates real artifacts / relations / diagrams through
 // the same fields the regular controllers use — so title normalization, version
 // events and DRAFT status all apply. No AI/model logic lives here.

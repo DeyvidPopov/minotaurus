@@ -7,7 +7,7 @@
 // between modes. Previously these were two near-identical copies (see the overlap
 // audit); this is the single source.
 //
-// Determinism boundary (CLAUDE.md AI Safety Rule 3): this assembles the SSOT,
+// Determinism boundary (AI Safety Rule 3): this assembles the SSOT,
 // runs the deterministic analysis + digest, and hands the BOUNDED digest to the
 // model. AI never feeds back into AnalysisResult. This module performs NO DB
 // writes — persistence is the caller's (mode-specific) concern.

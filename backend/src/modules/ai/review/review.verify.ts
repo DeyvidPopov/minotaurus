@@ -1,5 +1,5 @@
 // review.verify.ts — the deterministic gate that keeps an AI review honest
-// (CLAUDE.md AI Safety Rule 5, applied to *explanations*): every evidence
+// (AI Safety Rule 5, applied to *explanations*): every evidence
 // reference the model emits must resolve to a key the digest actually exposed.
 // PURE: no I/O, no Prisma, no AI. AI explains; this deterministic check disposes.
 //

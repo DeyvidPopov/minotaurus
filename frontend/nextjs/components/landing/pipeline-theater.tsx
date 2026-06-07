@@ -260,10 +260,10 @@ export function PipelineTheater() {
           </span>
         </div>
         <div
-          className="relative"
+          className="relative h-[300px] sm:h-[360px] lg:h-[400px]"
           style={{ background: "var(--bg-2)" }}
         >
-          <svg viewBox="0 0 460 430" className="w-full block" role="img" aria-label="Knowledge graph building up across the workflow stages">
+          <svg viewBox="0 0 460 430" preserveAspectRatio="xMidYMid meet" className="block h-full w-full" role="img" aria-label="Knowledge graph building up across the workflow stages">
             <defs>
               {/* card silhouette — clips the colored left band to the rounded
                   corners (the SVG equivalent of the app node's overflow:hidden),
@@ -431,7 +431,7 @@ export function PipelineTheater() {
       {/* ------------------------------------------------------ inspector */}
       <div
         style={{ gridArea: "inspector" }}
-        className="rounded-xl border border-border bg-panel p-5 min-h-[360px] flex flex-col"
+        className="rounded-xl border border-border bg-panel p-5 min-h-[300px] flex flex-col"
       >
         <div className="flex items-center gap-2 mb-3">
           <span className="font-mono text-[11px] text-fg-subtle tracking-wider">

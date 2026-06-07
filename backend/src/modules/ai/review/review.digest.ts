@@ -2,7 +2,7 @@
 // AnalysisResult. PURE & deterministic: no I/O, no Prisma, no Date.now(), no AI.
 // Same (analysis, snapshot) ⇒ deep-equal digest.
 //
-// Determinism boundary (CLAUDE.md AI Safety Rule 3): this reads AnalysisResult
+// Determinism boundary (AI Safety Rule 3): this reads AnalysisResult
 // and a structural histogram of the snapshot; it NEVER recomputes a score. The
 // snapshot is used ONLY for per-type / per-status COUNTS (AnalysisResult exposes
 // coverage percentages, not raw counts) and the project name/description — raw
