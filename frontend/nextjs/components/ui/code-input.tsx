@@ -1,11 +1,10 @@
-// app/(auth)/_components/code-input.tsx — 6-digit OTP input.
+// components/ui/code-input.tsx — 6-digit OTP input.
 //
-// Shared by the registration and forgot-password wizards. Fill-only (no
-// auto-submit): the parent decides when to submit. Handles per-box typing,
-// multi-char distribution (iOS SMS autofill), paste, backspace chaining, and
-// arrow navigation. Clears + refocuses the first box whenever `resetSignal`
-// changes. The `_components` folder is underscore-prefixed so Next.js never
-// treats it as a route.
+// Shared by the registration / forgot-password wizards and the Settings
+// email-change modal. Fill-only (no auto-submit): the parent decides when to
+// submit. Handles per-box typing, multi-char distribution (iOS SMS autofill),
+// paste, backspace chaining, and arrow navigation. Clears + refocuses the first
+// box whenever `resetSignal` changes.
 "use client";
 
 import { useEffect, useRef, useState } from "react";

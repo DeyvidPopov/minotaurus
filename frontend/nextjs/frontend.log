@@ -7,317 +7,2379 @@
   - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 6.5s
+ ✓ Ready in 2.2s
  ○ Compiling / ...
- ✓ Compiled / in 17.8s (1532 modules)
- GET / 200 in 2263ms
- GET / 200 in 5691ms
+ ✓ Compiled / in 5.3s (626 modules)
+ GET / 200 in 5796ms
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../typescript/lib/typescript' in d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build for build dependencies doesn't lead to expected result 'D:\dev\minotaurus\frontend\nextjs\node_modules\typescript\lib\typescript.js', but to 'd:\dev\minotaurus\frontend\nextjs\node_modules\typescript\lib\typescript.js' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../typescript/lib/typescript (expected D:\dev\minotaurus\frontend\nextjs\node_modules\typescript\lib\typescript.js)
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\load-jsconfig.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\load-jsconfig.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack-config.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack-config.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w>  at resolve commonjs d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../typescript/lib/typescript' in d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build for build dependencies doesn't lead to expected result 'D:\dev\minotaurus\frontend\nextjs\node_modules\typescript\lib\typescript.js', but to 'd:\dev\minotaurus\frontend\nextjs\node_modules\typescript\lib\typescript.js' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../typescript/lib/typescript (expected D:\dev\minotaurus\frontend\nextjs\node_modules\typescript\lib\typescript.js)
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\load-jsconfig.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\load-jsconfig.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack-config.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack-config.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
+<w>  at resolve commonjs d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-swc-loader.js
  ○ Compiling /login ...
- ✓ Compiled /login in 1273ms (1550 modules)
+ ✓ Compiled /login in 1126ms (611 modules)
+ GET /login 200 in 1303ms
  ○ Compiling /dashboard ...
- ✓ Compiled /dashboard in 862ms (1623 modules)
+ ✓ Compiled /dashboard in 605ms (710 modules)
+ GET /login 200 in 65ms
+ ✓ Compiled /icon.svg in 225ms (402 modules)
+ GET /icon.svg?89abe9ca303eadff 200 in 436ms
  ○ Compiling /projects/[projectId] ...
- ✓ Compiled /projects/[projectId] in 742ms (1655 modules)
- ○ Compiling /projects/[projectId]/graph ...
- ✓ Compiled /projects/[projectId]/graph in 554ms (1681 modules)
- ○ Compiling /projects/[projectId]/artifacts ...
- ✓ Compiled /projects/[projectId]/artifacts in 534ms (1689 modules)
- ○ Compiling /projects/[projectId]/api ...
- ✓ Compiled /projects/[projectId]/api in 528ms (1697 modules)
- ○ Compiling /projects/[projectId]/export ...
- ✓ Compiled /projects/[projectId]/export in 13.9s (5113 modules)
- GET /projects/6ea8f10f-cf2d-4f4b-8e53-3fbfcbf4c8e6 200 in 5425ms
- ○ Compiling /projects/[projectId]/team ...
- ✓ Compiled /projects/[projectId]/team in 1977ms (5103 modules)
+ ✓ Compiled /settings in 11.5s (4647 modules)
  ○ Compiling /projects/[projectId]/validation ...
- ✓ Compiled /projects/[projectId]/validation in 2000ms (5111 modules)
- ○ Compiling /projects/[projectId]/artifacts ...
- ✓ Compiled /projects/[projectId]/artifacts in 516ms (2561 modules)
- ✓ Compiled /projects/[projectId]/api in 417ms (2566 modules)
- ✓ Compiled / in 388ms (2574 modules)
- ○ Compiling /login ...
- ✓ Compiled /login in 1516ms (2556 modules)
- ✓ Compiled /dashboard in 408ms (2567 modules)
- ○ Compiling /projects ...
- ✓ Compiled /projects in 2.4s (5124 modules)
- ✓ Compiled /projects/[projectId] in 472ms (2572 modules)
- ○ Compiling /projects/[projectId]/versions ...
- ✓ Compiled /projects/[projectId]/versions in 2.9s (5132 modules)
- ○ Compiling /projects/[projectId]/diagrams/[diagramId] ...
- ✓ Compiled /projects/[projectId]/diagrams/[diagramId] in 1743ms (5152 modules)
+ ✓ Compiled /projects/[projectId]/validation in 2.1s (4650 modules)
+ ○ Compiling /projects/[projectId]/artifacts/[artifactId] ...
+ ✓ Compiled /projects/[projectId]/artifacts/[artifactId] in 5.4s (5177 modules)
  ○ Compiling /projects/[projectId]/docs ...
- ✓ Compiled /projects/[projectId]/docs in 1623ms (5136 modules)
- ✓ Compiled /projects/[projectId]/artifacts in 422ms (2555 modules)
- ○ Compiling /projects/[projectId]/graph ...
- ✓ Compiled /projects/[projectId]/graph in 755ms (2565 modules)
- ○ Compiling /projects/[projectId]/database ...
- ✓ Compiled /projects/[projectId]/database in 926ms (5152 modules)
- ○ Compiling /projects/[projectId]/diagrams ...
- ✓ Compiled /projects/[projectId]/diagrams in 768ms (5160 modules)
- ○ Compiling /projects/[projectId]/api ...
- ✓ Compiled /projects/[projectId]/api in 1415ms (2580 modules)
- ✓ Compiled in 4.2s (4813 modules)
- ✓ Compiled in 1653ms (4813 modules)
- ✓ Compiled in 2s (4813 modules)
- ✓ Compiled in 3.8s (4813 modules)
- ⨯ ./components/shell/sidebar.tsx
-Error: 
-  [31mx[0m Unexpected token `div`. Expected jsx identifier
-     ,-[[36;1;4mD:\dev\minotaurus\frontend\nextjs\components\shell\sidebar.tsx[0m:111:1]
- [2m111[0m | 
- [2m112[0m | function SidebarSection({ items, isActive }: { items: Item[]; isActive: (href: string, exact?: boolean) => boolean }) {
- [2m113[0m |   return (
- [2m114[0m |     <div className="flex flex-col px-2 gap-px">
-     : [31;1m     ^^^[0m
- [2m115[0m |       {items.map((it) => {
- [2m116[0m |         const active = isActive(it.href, it.exact);
- [2m117[0m |         return (
-     `----
-
-Caused by:
-    Syntax Error
-
-Import trace for requested module:
-./components/shell/sidebar.tsx
-./components/shell/app-shell.tsx
- ○ Compiling /_error ...
- ⨯ ./components/shell/sidebar.tsx
-Error: 
-  [31mx[0m Unexpected token `div`. Expected jsx identifier
-     ,-[[36;1;4mD:\dev\minotaurus\frontend\nextjs\components\shell\sidebar.tsx[0m:111:1]
- [2m111[0m | 
- [2m112[0m | function SidebarSection({ items, isActive }: { items: Item[]; isActive: (href: string, exact?: boolean) => boolean }) {
- [2m113[0m |   return (
- [2m114[0m |     <div className="flex flex-col px-2 gap-px">
-     : [31;1m     ^^^[0m
- [2m115[0m |       {items.map((it) => {
- [2m116[0m |         const active = isActive(it.href, it.exact);
- [2m117[0m |         return (
-     `----
-
-Caused by:
-    Syntax Error
-
-Import trace for requested module:
-./components/shell/sidebar.tsx
-./components/shell/app-shell.tsx
- GET /projects/6ea8f10f-cf2d-4f4b-8e53-3fbfcbf4c8e6/versions 500 in 47ms
- ✓ Compiled /_error in 3.5s (5038 modules)
- ○ Compiling /_not-found ...
- ✓ Compiled /_not-found in 1579ms (5026 modules)
- GET /_next/static/webpack/d987f972f13b0727.webpack.hot-update.json 404 in 1864ms
- GET /projects/6ea8f10f-cf2d-4f4b-8e53-3fbfcbf4c8e6/versions 200 in 1886ms
- ○ Compiling /projects/[projectId] ...
- ✓ Compiled /projects/[projectId] in 1834ms (2595 modules)
+ ✓ Compiled /projects/[projectId]/docs in 9.5s (5192 modules)
+ ○ Compiling /projects ...
+ ✓ Compiled /projects in 4.2s (5181 modules)
+ ✓ Compiled /dashboard in 305ms (2615 modules)
+ GET /projects/71269086-5c0d-46e0-9c4d-f24782a17489/validation 200 in 169ms
+ ○ Compiling /icon.svg ...
+ ✓ Compiled /icon.svg in 1856ms (2628 modules)
+ GET /icon.svg?89abe9ca303eadff 200 in 1982ms
+ ✓ Compiled in 843ms (2587 modules)
+ ✓ Compiled in 399ms (2587 modules)
+ ✓ Compiled in 3.5s (5185 modules)
+ ✓ Compiled in 1421ms (5185 modules)
+ ✓ Compiled in 3.4s (5185 modules)
+ ✓ Compiled in 2.4s (5185 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /projects/71269086-5c0d-46e0-9c4d-f24782a17489/validation 200 in 205ms
+ ○ Compiling /icon.svg ...
+ ✓ Compiled /icon.svg in 1569ms (2629 modules)
+ GET /icon.svg?89abe9ca303eadff 200 in 1743ms
  ○ Compiling /projects/[projectId]/artifacts ...
- ✓ Compiled /projects/[projectId]/artifacts in 583ms (2600 modules)
- ○ Compiling /projects/[projectId]/graph ...
- ✓ Compiled /projects/[projectId]/graph in 654ms (2610 modules)
- ○ Compiling /projects/[projectId]/database ...
- ✓ Compiled /projects/[projectId]/database in 753ms (2615 modules)
- ✓ Compiled /projects/[projectId]/diagrams in 434ms (2620 modules)
- ○ Compiling /projects/[projectId]/validation ...
- ✓ Compiled /projects/[projectId]/validation in 665ms (2630 modules)
- ○ Compiling /projects/[projectId]/ingestion ...
- ✓ Compiled /projects/[projectId]/ingestion in 4.1s (5414 modules)
- ○ Compiling /projects ...
- ✓ Compiled /projects in 804ms (2643 modules)
- GET /projects/6ea8f10f-cf2d-4f4b-8e53-3fbfcbf4c8e6/ingestion 200 in 142ms
- GET /projects/6ea8f10f-cf2d-4f4b-8e53-3fbfcbf4c8e6/ingestion 200 in 42ms
- ○ Compiling /settings ...
- ✓ Compiled /settings in 3.6s (4808 modules)
- ○ Compiling /dashboard ...
- ✓ Compiled /dashboard in 544ms (2008 modules)
- ✓ Compiled /projects in 290ms (2013 modules)
- ✓ Compiled /projects/[projectId] in 316ms (2347 modules)
- ✓ Compiled /projects/[projectId]/artifacts in 423ms (2352 modules)
- ○ Compiling /projects/[projectId]/graph ...
- ✓ Compiled /projects/[projectId]/graph in 636ms (2361 modules)
- ✓ Compiled in 4.9s (5173 modules)
- ○ Compiling /icon.svg ...
- ✓ Compiled /icon.svg in 1015ms (2410 modules)
- GET /icon.svg?011b3bba8e5993ee 200 in 1271ms
- ✓ Compiled in 2.5s (5152 modules)
- ✓ Compiled in 1476ms (5152 modules)
- ✓ Compiled in 2.8s (5152 modules)
- ✓ Compiled /dashboard in 363ms (2368 modules)
- ○ Compiling /projects ...
- ✓ Compiled /projects in 928ms (2373 modules)
+ ✓ Compiled /projects/[projectId]/artifacts in 5.6s (5179 modules)
+ ○ Compiling /projects/[projectId]/review ...
+ ✓ Compiled /projects/[projectId]/review in 4.2s (5185 modules)
  ○ Compiling /projects/[projectId]/export ...
- ✓ Compiled /projects/[projectId]/export in 2.6s (2622 modules)
- ✓ Compiled in 658ms (2795 modules)
- ✓ Compiled in 1404ms (2795 modules)
- ○ Compiling /projects ...
- ✓ Compiled /projects in 713ms (2618 modules)
- ✓ Compiled in 2.1s (5404 modules)
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⨯ components\shell\sidebar.tsx (60:10) @ MinotaurusMark
- ⨯ ReferenceError: MinotaurusMark is not defined
-    at Sidebar (./components/shell/sidebar.tsx:254:97)
-digest: "4263066738"
-[0m [90m 58 |[39m     [33m<[39m[33maside[39m className[33m=[39m[32m"sidebar h-screen overflow-hidden flex flex-col bg-bg border-r border-border"[39m style[33m=[39m{{ width[33m:[39m [35m232[39m }}[33m>[39m[0m
-[0m [90m 59 |[39m       [33m<[39m[33mLink[39m href[33m=[39m[32m"/"[39m className[33m=[39m[32m"flex items-center gap-2.5 px-3.5 py-3.5 hover:opacity-80 transition-opacity"[39m title[33m=[39m[32m"Back to landing"[39m[33m>[39m[0m
-[0m[31m[1m>[22m[39m[90m 60 |[39m         [33m<[39m[33mMinotaurusMark[39m className[33m=[39m[32m"w-7 h-7 shrink-0"[39m style[33m=[39m{{ color[33m:[39m [32m"var(--accent)"[39m }} [33m/[39m[33m>[39m[0m
-[0m [90m    |[39m          [31m[1m^[22m[39m[0m
-[0m [90m 61 |[39m         [33m<[39m[33mdiv[39m className[33m=[39m[32m"min-w-0 font-semibold text-[14px] tracking-tight leading-tight"[39m[33m>[39m[0m
-[0m [90m 62 |[39m           [33mMINOTAURUS[39m[33m<[39m[33mspan[39m className[33m=[39m[32m"text-accent"[39m[33m>[39m[33m.[39mdev[33m<[39m[33m/[39m[33mspan[39m[33m>[39m[0m
-[0m [90m 63 |[39m         [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m[0m
- GET /projects 500 in 268ms
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ✓ Compiled in 3.1s (5406 modules)
- GET /projects 200 in 1496ms
- GET /projects 200 in 156ms
- ○ Compiling /icon.svg ...
- ✓ Compiled /icon.svg in 999ms (2642 modules)
- GET /icon.svg?011b3bba8e5993ee 200 in 1114ms
- ○ Compiling /dashboard ...
- ✓ Compiled /dashboard in 1324ms (2653 modules)
- ○ Compiling / ...
- ✓ Compiled / in 917ms (2661 modules)
- ✓ Compiled /login in 425ms (2673 modules)
- ○ Compiling /_not-found ...
- ✓ Compiled /_not-found in 554ms (2669 modules)
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 818ms
- ✓ Compiled in 4.4s (5465 modules)
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- GET /login 200 in 162ms
- GET /icon.svg?011b3bba8e5993ee 200 in 43ms
- ○ Compiling /register ...
- ✓ Compiled /register in 979ms (5459 modules)
- ✓ Compiled in 2.9s (3253 modules)
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- GET /register 200 in 269ms
- GET /icon.svg?011b3bba8e5993ee 200 in 14ms
- ✓ Compiled in 1926ms (3221 modules)
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- GET /register 200 in 141ms
- ✓ Compiled /icon.svg in 178ms (454 modules)
- GET /icon.svg?011b3bba8e5993ee 200 in 275ms
- ✓ Compiled / in 307ms (936 modules)
- GET / 200 in 734ms
- ✓ Compiled in 3.2s (3696 modules)
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- ⨯ components\providers.tsx (49:23) @ sidebar
- ⨯ ReferenceError: sidebar is not defined
-    at Providers (./components/providers.tsx:45:9)
-digest: "3382841637"
-[0m [90m 47 |[39m     h[33m.[39mstyle[33m.[39msetProperty([32m"--accent"[39m[33m,[39m accent)[33m;[39m[0m
-[0m [90m 48 |[39m     h[33m.[39mstyle[33m.[39msetProperty([32m"--accent-fg"[39m[33m,[39m accent[33m.[39mtoLowerCase() [33m===[39m [32m"#e5e5e5"[39m [33m?[39m [32m"#0a0a0a"[39m [33m:[39m [32m"#ffffff"[39m)[33m;[39m[0m
-[0m[31m[1m>[22m[39m[90m 49 |[39m   }[33m,[39m [theme[33m,[39m density[33m,[39m sidebar[33m,[39m fontPair[33m,[39m accent])[33m;[39m[0m
-[0m [90m    |[39m                       [31m[1m^[22m[39m[0m
-[0m [90m 50 |[39m[0m
-[0m [90m 51 |[39m   [36mreturn[39m ([0m
-[0m [90m 52 |[39m     [33m<[39m[33m>[39m[0m
- GET / 500 in 254ms
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ✓ Compiled in 2.7s (3696 modules)
- GET / 200 in 1534ms
- ⨯ components\providers.tsx (48:23) @ sidebar
- ⨯ ReferenceError: sidebar is not defined
-    at Providers (./components/providers.tsx:44:9)
-digest: "2373228228"
-[0m [90m 46 |[39m     h[33m.[39mstyle[33m.[39msetProperty([32m"--accent"[39m[33m,[39m accent)[33m;[39m[0m
-[0m [90m 47 |[39m     h[33m.[39mstyle[33m.[39msetProperty([32m"--accent-fg"[39m[33m,[39m accent[33m.[39mtoLowerCase() [33m===[39m [32m"#e5e5e5"[39m [33m?[39m [32m"#0a0a0a"[39m [33m:[39m [32m"#ffffff"[39m)[33m;[39m[0m
-[0m[31m[1m>[22m[39m[90m 48 |[39m   }[33m,[39m [theme[33m,[39m density[33m,[39m sidebar[33m,[39m fontPair[33m,[39m accent])[33m;[39m[0m
-[0m [90m    |[39m                       [31m[1m^[22m[39m[0m
-[0m [90m 49 |[39m[0m
-[0m [90m 50 |[39m   [36mreturn[39m ([0m
-[0m [90m 51 |[39m     [33m<[39m[33m>[39m[0m
- ⨯ components\providers.tsx (48:23) @ sidebar
- ⨯ ReferenceError: sidebar is not defined
-    at Providers (./components/providers.tsx:44:9)
-digest: "2373228228"
-[0m [90m 46 |[39m     h[33m.[39mstyle[33m.[39msetProperty([32m"--accent"[39m[33m,[39m accent)[33m;[39m[0m
-[0m [90m 47 |[39m     h[33m.[39mstyle[33m.[39msetProperty([32m"--accent-fg"[39m[33m,[39m accent[33m.[39mtoLowerCase() [33m===[39m [32m"#e5e5e5"[39m [33m?[39m [32m"#0a0a0a"[39m [33m:[39m [32m"#ffffff"[39m)[33m;[39m[0m
-[0m[31m[1m>[22m[39m[90m 48 |[39m   }[33m,[39m [theme[33m,[39m density[33m,[39m sidebar[33m,[39m fontPair[33m,[39m accent])[33m;[39m[0m
-[0m [90m    |[39m                       [31m[1m^[22m[39m[0m
-[0m [90m 49 |[39m[0m
-[0m [90m 50 |[39m   [36mreturn[39m ([0m
-[0m [90m 51 |[39m     [33m<[39m[33m>[39m[0m
- GET / 500 in 340ms
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ✓ Compiled in 2s (3696 modules)
- GET / 200 in 1171ms
- GET / 200 in 173ms
- ✓ Compiled /icon.svg in 419ms (929 modules)
- GET /icon.svg?011b3bba8e5993ee 200 in 506ms
- ✓ Compiled in 4.1s (3696 modules)
- ✓ Compiled in 802ms (2799 modules)
- ✓ Compiled in 505ms (2799 modules)
- ✓ Compiled in 2.2s (3694 modules)
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⨯ components\shell\sidebar.tsx (61:10) @ MinotaurusMark
- ⨯ ReferenceError: MinotaurusMark is not defined
-    at Sidebar (./components/shell/sidebar.tsx:254:97)
-digest: "4263066738"
-[0m [90m 59 |[39m     [33m<[39m[33maside[39m className[33m=[39m[32m"sidebar h-screen overflow-hidden flex flex-col bg-bg border-r border-border"[39m style[33m=[39m{{ width[33m:[39m [35m232[39m }}[33m>[39m[0m
-[0m [90m 60 |[39m       [33m<[39m[33mLink[39m href[33m=[39m[32m"/"[39m className[33m=[39m[32m"flex items-center gap-2.5 px-3.5 py-3.5 hover:opacity-80 transition-opacity"[39m title[33m=[39m[32m"Back to landing"[39m[33m>[39m[0m
-[0m[31m[1m>[22m[39m[90m 61 |[39m         [33m<[39m[33mMinotaurusMark[39m className[33m=[39m[32m"w-7 h-7 shrink-0"[39m style[33m=[39m{{ color[33m:[39m [32m"var(--accent)"[39m }} [33m/[39m[33m>[39m[0m
-[0m [90m    |[39m          [31m[1m^[22m[39m[0m
-[0m [90m 62 |[39m         [33m<[39m[33mdiv[39m className[33m=[39m[32m"min-w-0 font-semibold text-[14px] tracking-tight leading-tight"[39m[33m>[39m[0m
-[0m [90m 63 |[39m           [33mMINOTAURUS[39m[33m<[39m[33mspan[39m className[33m=[39m[32m"text-accent"[39m[33m>[39m[33m.[39mdev[33m<[39m[33m/[39m[33mspan[39m[33m>[39m[0m
-[0m [90m 64 |[39m         [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m[0m
- GET /settings 500 in 266ms
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ⚠ Fast Refresh had to perform a full reload due to a runtime error.
- ✓ Compiled in 1959ms (3698 modules)
- GET /settings 200 in 1296ms
- GET /settings 200 in 171ms
- ✓ Compiled /icon.svg in 404ms (930 modules)
- GET /icon.svg?011b3bba8e5993ee 200 in 489ms
- ✓ Compiled in 3.1s (3698 modules)
- ✓ Compiled in 2.3s (3698 modules)
- ✓ Compiled in 2.5s (3700 modules)
- GET / 200 in 280ms
- ✓ Compiled in 3.2s (3700 modules)
- GET / 200 in 201ms
- ✓ Compiled /icon.svg in 504ms (931 modules)
- GET /icon.svg?011b3bba8e5993ee 200 in 589ms
- GET / 200 in 167ms
- GET /icon.svg?011b3bba8e5993ee 200 in 7ms
- GET / 200 in 36ms
- GET /icon.svg?011b3bba8e5993ee 200 in 8ms
- GET / 200 in 27ms
- GET /icon.svg?011b3bba8e5993ee 200 in 8ms
- GET / 200 in 25ms
- GET /icon.svg?011b3bba8e5993ee 200 in 9ms
- GET / 200 in 29ms
- GET /icon.svg?011b3bba8e5993ee 200 in 6ms
- GET / 200 in 25ms
- GET /icon.svg?011b3bba8e5993ee 200 in 8ms
- ○ Compiling /projects ...
- ✓ Compiled /projects in 573ms (906 modules)
- ✓ Compiled /projects/[projectId] in 386ms (922 modules)
- ○ Compiling /projects/[projectId]/graph ...
- ✓ Compiled /projects/[projectId]/graph in 564ms (934 modules)
- ○ Compiling /projects/[projectId]/artifacts/new ...
- ✓ Compiled /projects/[projectId]/artifacts/new in 851ms (3728 modules)
- ○ Compiling /projects/new ...
- ✓ Compiled /projects/new in 884ms (3734 modules)
- ✓ Compiled in 3.2s (3710 modules)
- ✓ Compiled in 2.5s (3710 modules)
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- GET /dashboard 200 in 145ms
- ✓ Compiled /icon.svg in 193ms (937 modules)
- GET /icon.svg?011b3bba8e5993ee 200 in 279ms
- ✓ Compiled in 1587ms (3742 modules)
- ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
- GET /dashboard 200 in 141ms
- GET /icon.svg?011b3bba8e5993ee 200 in 17ms
- ✓ Compiled in 2.8s (3742 modules)
- ✓ Compiled in 972ms (2805 modules)
- ✓ Compiled in 879ms (2805 modules)
- ○ Compiling /projects ...
- ✓ Compiled /projects in 691ms (912 modules)
- GET / 200 in 176ms
- ✓ Compiled /icon.svg in 201ms (944 modules)
- GET /icon.svg?011b3bba8e5993ee 200 in 299ms
- GET / 200 in 178ms
- GET /icon.svg?011b3bba8e5993ee 200 in 8ms
- ○ Compiling /login ...
- ✓ Compiled /login in 720ms (946 modules)
+ ✓ Compiled /projects/[projectId]/export in 1709ms (5204 modules)
+ ○ Compiling /projects/[projectId] ...
+ ✓ Compiled /projects/[projectId] in 1468ms (2600 modules)
  ○ Compiling /settings ...
- ✓ Compiled /settings in 732ms (954 modules)
+ ✓ Compiled /settings in 696ms (2613 modules)
+ ○ Compiling /projects/[projectId]/team ...
+ ✓ Compiled /projects/[projectId]/versions in 3.3s (5218 modules)
+ ✓ Compiled in 1194ms (2615 modules)
+ ✓ Compiled in 618ms (2615 modules)
+ ✓ Compiled in 4.5s (4881 modules)
+ ✓ Compiled in 2.4s (4881 modules)
+ ✓ Compiled in 3.5s (4881 modules)
+ ✓ Compiled in 2.1s (4881 modules)
+ ✓ Compiled in 4.8s (4883 modules)
+ ✓ Compiled in 3.2s (4883 modules)
+ ✓ Compiled in 1928ms (4883 modules)
+ ✓ Compiled in 2.2s (4883 modules)
+ ✓ Compiled in 2.6s (4883 modules)
+ ○ Compiling /projects/[projectId]/api/[apiSpecId] ...
+ ✓ Compiled /projects/[projectId]/api/[apiSpecId] in 1634ms (4896 modules)
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1935ms (5122 modules)
+ ⨯ Error: Cannot find module './vendor-chunks/tailwind-merge.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ ⨯ Error: Cannot find module './vendor-chunks/tailwind-merge.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ ⨯ Error: Cannot find module './vendor-chunks/tailwind-merge.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 275ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, lstat 'd:\dev\minotaurus\frontend\nextjs\.next\server\vendor-chunks\clsx.js'
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/clsx' in d:\dev\minotaurus\frontend\nextjs\.next\server for build dependencies doesn't lead to expected result 'd:\dev\minotaurus\frontend\nextjs\.next\server\vendor-chunks\clsx.js', but to 'Error: Can't resolve './vendor-chunks/clsx' in 'd:\dev\minotaurus\frontend\nextjs\.next\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/clsx (expected d:\dev\minotaurus\frontend\nextjs\.next\server\vendor-chunks\clsx.js)
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving './vendor-chunks/use-sync-external-store' in d:\dev\minotaurus\frontend\nextjs\.next\server for build dependencies doesn't lead to expected result 'd:\dev\minotaurus\frontend\nextjs\.next\server\vendor-chunks\use-sync-external-store.js', but to 'Error: Can't resolve './vendor-chunks/use-sync-external-store' in 'd:\dev\minotaurus\frontend\nextjs\.next\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ./vendor-chunks/use-sync-external-store (expected d:\dev\minotaurus\frontend\nextjs\.next\server\vendor-chunks\use-sync-external-store.js)
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1178ms (5125 modules)
+ ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 404 in 1405ms
+ GET /_next/static/css/app/layout.css?v=1780753857207 404 in 38ms
+ GET /_next/static/chunks/main-app.js?v=1780753857207 404 in 39ms
+ GET /_next/static/chunks/app/not-found.js 404 in 38ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 38ms
+ GET /_next/static/chunks/app/layout.js 404 in 38ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 283ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 263ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 256ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 251ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 254ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 256ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 228ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 224ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 290ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 239ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 283ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 251ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 327ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 258ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 332ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 489ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 387ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 358ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 283ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 267ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, lstat 'd:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\team\page.js'
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../../.next/server/app/icon.svg/route' in d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server for build dependencies doesn't lead to expected result 'd:\dev\minotaurus\frontend\nextjs\.next\server\app\icon.svg\route.js', but to 'Error: Can't resolve '../../../../.next/server/app/icon.svg/route' in 'd:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../../.next/server/app/icon.svg/route (expected d:\dev\minotaurus\frontend\nextjs\.next\server\app\icon.svg\route.js)
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../../.next/server/app/(app)/projects/[projectId]/team/page' in d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server for build dependencies doesn't lead to expected result 'd:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\team\page.js', but to 'Error: Can't resolve '../../../../.next/server/app/(app)/projects/[projectId]/team/page' in 'd:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../../.next/server/app/(app)/projects/[projectId]/team/page (expected d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\team\page.js)
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../../.next/server/app/(app)/projects/[projectId]/versions/page' in d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server for build dependencies doesn't lead to expected result 'd:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\versions\page.js', but to 'Error: Can't resolve '../../../../.next/server/app/(app)/projects/[projectId]/versions/page' in 'd:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../../.next/server/app/(app)/projects/[projectId]/versions/page (expected d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\versions\page.js)
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w> [webpack.cache.PackFileCacheStrategy/webpack.FileSystemInfo] Resolving '../../../../.next/server/app/(app)/dashboard/page' in d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server for build dependencies doesn't lead to expected result 'd:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\dashboard\page.js', but to 'Error: Can't resolve '../../../../.next/server/app/(app)/dashboard/page' in 'd:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server'' instead. Resolving dependencies are ignored for this path.
+<w>  at resolve commonjs file ../../../../.next/server/app/(app)/dashboard/page (expected d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\dashboard\page.js)
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+<w>  at file dependencies d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at file d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+<w>  at resolve commonjs d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\webpack\loaders\next-route-loader\index.js
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 291ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 293ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 261ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 294ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 281ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 272ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 340ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 271ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 340ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 311ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 341ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 283ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 261ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 288ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 295ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 283ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 273ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 262ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 327ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 279ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 314ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 310ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 260ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 293ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 257ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 268ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 269ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 273ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 280ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 270ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 254ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 263ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 266ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 268ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 263ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 316ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 291ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 255ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 246ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 255ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 281ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 271ms
+ ⨯ Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- d:\dev\minotaurus\frontend\nextjs\.next\server\webpack-runtime.js
+- d:\dev\minotaurus\frontend\nextjs\.next\server\app\(app)\projects\[projectId]\api\[apiSpecId]\page.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\load-components.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\build\utils.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\dev\static-paths-worker.js
+- d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\compiled\jest-worker\processChild.js
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1500:15)
+    at d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:55:36
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1116:12)
+    at Module._load (node:internal/modules/cjs/loader:1285:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1600:12)
+    at mod.require (d:\dev\minotaurus\frontend\nextjs\node_modules\next\dist\server\require-hook.js:65:28)
+    at require (node:internal/modules/helpers:153:16) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\webpack-runtime.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\.next\\server\\app\\(app)\\projects\\[projectId]\\api\\[apiSpecId]\\page.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\require.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\load-components.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\build\\utils.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\server\\dev\\static-paths-worker.js',
+    'd:\\dev\\minotaurus\\frontend\\nextjs\\node_modules\\next\\dist\\compiled\\jest-worker\\processChild.js'
+  ],
+  page: '/projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa'
+}
+ GET /projects/89848f2f-5b6a-40c0-a2c3-16ebea70c022/api/7c61da54-eab9-45f1-ae75-659063d5b9aa 500 in 267ms

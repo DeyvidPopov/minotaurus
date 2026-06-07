@@ -71,3 +71,25 @@ export function restoreIssueStatuses<
       : draft;
   });
 }
+
+/**
+ * Select the NEWLY-surfaced OPEN ERROR findings from a run's (status-restored)
+ * drafts — i.e. ERROR/OPEN issues whose fingerprint was NOT present before this
+ * run. This is the dedup gate for validation-alert emails (Option A): a still-
+ * open ERROR, a waived (IGNORED) ERROR, or one already seen on a prior run (any
+ * prior status, including RESOLVED) is NOT re-alerted, so reruns over the same
+ * unresolved findings don't spam the owner.
+ *
+ * Pure + deterministic. Pass `previousFingerprints` = the set of
+ * `issueFingerprint(...)` over the issues that existed before the run.
+ */
+export function selectNewErrorIssues<
+  T extends IssueFingerprintInput & { status: IssueStatus },
+>(drafts: T[], previousFingerprints: ReadonlySet<string>): T[] {
+  return drafts.filter(
+    (d) =>
+      d.severity === "ERROR" &&
+      d.status === "OPEN" &&
+      !previousFingerprints.has(issueFingerprint(d)),
+  );
+}

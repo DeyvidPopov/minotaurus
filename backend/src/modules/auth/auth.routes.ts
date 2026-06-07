@@ -4,6 +4,8 @@ import { requireAuth } from "../../middleware/auth.js";
 import { rateLimit, clientIp, bodyEmail } from "../../middleware/rate-limit.js";
 import { registrationRouter } from "./registration/registration.routes.js";
 import { passwordResetRouter } from "./password-reset/password-reset.routes.js";
+import { emailChangeRouter } from "./email-change/email-change.routes.js";
+import { accountDeletionRouter } from "./account-deletion/account-deletion.routes.js";
 
 export const authRouter = Router();
 
@@ -20,6 +22,13 @@ authRouter.use("/register", registrationRouter);
 
 // Forgot-password flow: /auth/password/{forgot,verify,reset,resend}.
 authRouter.use("/password", passwordResetRouter);
+
+// Verified email-change flow (authenticated): /auth/email/{request,verify,resend}.
+authRouter.use("/email", emailChangeRouter);
+
+// Account deletion (soft-delete + 30d grace): /auth/account/{deletion-preview,
+// deletion-status,deletion,export-bundle,reactivate,cancel-deletion}.
+authRouter.use("/account", accountDeletionRouter);
 
 // DEPRECATED: single-step, unverified registration. Kept temporarily for
 // back-compat with the existing frontend register page; new clients should use

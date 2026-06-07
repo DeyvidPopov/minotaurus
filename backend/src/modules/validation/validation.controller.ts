@@ -9,12 +9,13 @@ import { runValidationForProject } from "./validation.engine.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { explainIssue, type ResourceIndex } from "./validation.presenter.js";
 import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
+import { sendValidationAlerts } from "../notifications/validation-alert.service.js";
 
 const updateSchema = z.object({
   status: z.enum(["OPEN", "RESOLVED", "IGNORED"] as [IssueStatus, ...IssueStatus[]]),
 });
 
-function serializeIssue(v: ValidationIssue) {
+export function serializeIssue(v: ValidationIssue) {
   return {
     id: v.id,
     projectId: v.projectId,
@@ -26,6 +27,16 @@ function serializeIssue(v: ValidationIssue) {
     createdAt: v.createdAt,
     updatedAt: v.updatedAt,
   };
+}
+
+/**
+ * Serialize + enrich a set of issues with actionable `meta` (rule, why, fix,
+ * nav target, quick-fix actions). Shared by the list endpoint and the quick-fix
+ * apply endpoint so both return the identical issue shape.
+ */
+export async function enrichIssues(projectId: string, items: ValidationIssue[]) {
+  const index = await buildResourceIndex(projectId);
+  return items.map((v) => ({ ...serializeIssue(v), meta: explainIssue(v, index) }));
 }
 
 /**
@@ -60,7 +71,21 @@ export async function runValidation(req: AuthedRequest, res: Response) {
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
-  const issues = await runValidationForProject(projectId, req.user!.userId);
+  const { issues, newErrorIssues } = await runValidationForProject(projectId, req.user!.userId);
+
+  // Side effect, fully isolated from the deterministic run: alert project owners
+  // about NEW ERROR findings. sendValidationAlerts never throws, but we still
+  // guard here so a notification problem can never affect the validation response.
+  try {
+    await sendValidationAlerts({ projectId, errorIssues: newErrorIssues });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[notifications] validation alert dispatch error", {
+      projectId,
+      error: err instanceof Error ? err.name : "unknown",
+    });
+  }
+
   return created(
     res,
     { runId: newId(), issueCount: issues.length, issues: issues.map(serializeIssue) },
@@ -75,20 +100,17 @@ export async function listIssues(req: AuthedRequest, res: Response) {
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const { severity, category, status } = req.query as Record<string, string | undefined>;
-  const [items, index] = await Promise.all([
-    prisma.validationIssue.findMany({
-      where: {
-        projectId,
-        ...(severity ? { severity: severity as IssueSeverity } : {}),
-        ...(category ? { category: category as IssueCategory } : {}),
-        ...(status ? { status: status as IssueStatus } : {}),
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    buildResourceIndex(projectId),
-  ]);
-  // Enrich each issue with actionable metadata (rule, why, fix, nav target).
-  return ok(res, items.map((v) => ({ ...serializeIssue(v), meta: explainIssue(v, index) })), "OK");
+  const items = await prisma.validationIssue.findMany({
+    where: {
+      projectId,
+      ...(severity ? { severity: severity as IssueSeverity } : {}),
+      ...(category ? { category: category as IssueCategory } : {}),
+      ...(status ? { status: status as IssueStatus } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  // Enrich each issue with actionable metadata (rule, why, fix, nav target, actions).
+  return ok(res, await enrichIssues(projectId, items), "OK");
 }
 
 export async function updateIssue(req: AuthedRequest, res: Response) {

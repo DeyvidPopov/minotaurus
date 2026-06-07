@@ -177,6 +177,15 @@ class CapturingEmail implements EmailService {
   async sendPasswordResetCode(input: SendPasswordResetCodeInput): Promise<void> {
     this.sent.push(input);
   }
+  async sendEmailChangeCode(): Promise<void> {
+    /* not exercised by the password-reset flow */
+  }
+  async sendEmailChangeNotice(): Promise<void> {
+    /* not exercised by the password-reset flow */
+  }
+  async sendMail(): Promise<void> {
+    /* not exercised by the password-reset flow */
+  }
   get lastCode(): string | undefined {
     return this.sent[this.sent.length - 1]?.code;
   }
@@ -245,6 +254,9 @@ test("request: a mail provider failure is swallowed — the response stays neutr
     async sendPasswordResetCode() {
       throw new Error("provider down");
     },
+    async sendEmailChangeCode() {},
+    async sendEmailChangeNotice() {},
+    async sendMail() {},
   };
   __setPasswordResetDeps({ db: db as unknown as PasswordResetDeps["db"], email: throwing });
   const res = await requestPasswordReset({ email: "jane@example.com" }, NOW);

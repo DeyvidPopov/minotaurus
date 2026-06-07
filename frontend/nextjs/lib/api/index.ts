@@ -17,6 +17,8 @@ import { apiClient } from "./client";
 import type {
   ValidationIssue, VersionEntry, IssueStatus,
   Severity, Category, EntityType, ChangeType, ExportFormat,
+  QuickFixPreview, QuickFixApplyResult,
+  RemediationPreview, RemediationApplyResult,
 } from "@/lib/types";
 
 export const graphApi = {
@@ -36,6 +38,16 @@ export const validationApi = {
   },
   update: (id: string, body: { status: IssueStatus }) =>
     apiClient.patch<ValidationIssue>(`/validation-issues/${id}`, body),
+  // Quick Fix Framework (V1): deterministic SAFE fix — preview + apply for a single issue.
+  quickFixPreview: (issueId: string) =>
+    apiClient.get<QuickFixPreview>(`/validation-issues/${issueId}/quick-fix/preview`),
+  quickFixApply: (issueId: string) =>
+    apiClient.post<QuickFixApplyResult>(`/validation-issues/${issueId}/quick-fix/apply`),
+  // Relation Remediation (V1): REVIEW-required — deterministic candidates + confirmed apply.
+  remediationPreview: (issueId: string) =>
+    apiClient.get<RemediationPreview>(`/validation-issues/${issueId}/remediation/preview`),
+  remediationApply: (issueId: string, body: { targetId: string; relationType?: string }) =>
+    apiClient.post<RemediationApplyResult>(`/validation-issues/${issueId}/remediation/apply`, body),
 };
 
 export const versionsApi = {

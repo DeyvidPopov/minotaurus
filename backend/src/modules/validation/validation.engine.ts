@@ -8,10 +8,16 @@ import { recordVersionEvent } from "../versions/versions.engine.js";
 import { analyzeApiValidation } from "../api-intel/api-validation.js";
 import { isAuthActionPath } from "../api-intel/text.js";
 import type { ApiValidationInput } from "../api-intel/api-intel.types.js";
-import { buildStatusSnapshot, restoreIssueStatuses } from "./validation.status.js";
+import {
+  buildStatusSnapshot,
+  issueFingerprint,
+  restoreIssueStatuses,
+  selectNewErrorIssues,
+} from "./validation.status.js";
 import { PROJECT_LEVEL_PREFIX } from "./validation.constants.js";
 import { analyzeArchitectureFindings } from "../findings/finding-rules.js";
 import { getFinding } from "../findings/finding-catalog.js";
+import { analyzeMissingDocumentation } from "../findings/documentation-rule.js";
 
 // Re-exported for back-compat; the canonical definition lives in
 // validation.constants.ts (prisma-free, so the presenter can share it).
@@ -19,10 +25,28 @@ export { PROJECT_LEVEL_PREFIX };
 
 const CHURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** A newly-surfaced OPEN ERROR finding, reduced to what the notification layer needs. */
+export interface NewErrorIssue {
+  artifactId: string;
+  category: string;
+  message: string;
+}
+
+/**
+ * Result of a validation run. `issues` is the full recomputed set (as before);
+ * `newErrorIssues` are the OPEN ERROR findings that were NOT present before this
+ * run — the dedup'd set the side-effect layer (validation alerts) consumes. The
+ * engine stays pure of side effects: it only RETURNS this, never sends anything.
+ */
+export interface ValidationRunResult {
+  issues: ValidationIssue[];
+  newErrorIssues: NewErrorIssue[];
+}
+
 export async function runValidationForProject(
   projectId: string,
   triggeredBy?: string,
-): Promise<ValidationIssue[]> {
+): Promise<ValidationRunResult> {
   const [project, artifacts, relations, apiSpecs, apiEndpoints, databaseModels, databaseEntities, databaseFields, diagrams, recentEvents, memberCount] =
     await Promise.all([
       prisma.project.findUnique({ where: { id: projectId } }),
@@ -59,21 +83,33 @@ export async function runValidationForProject(
   type DraftIssue = Omit<ValidationIssue, "id" | "createdAt" | "updatedAt">;
   const drafts: DraftIssue[] = [];
 
-  // Per-artifact documentation + security-policy rules. (Orphan / fan-out /
-  // churn / deprecated-dependency rules are produced by the shared finding-rules
-  // engine below, so they have ONE implementation across Validation + Analysis.)
-  for (const a of artifacts) {
-    if (a.type === "DOCUMENTATION" && (!a.documentationContent || !a.documentationContent.trim())) {
-      drafts.push({
-        projectId,
-        artifactId: a.id,
-        severity: "WARNING",
-        category: "DOCUMENTATION",
-        message: `Documentation artifact "${a.title}" has no documentation content.`,
-        status: "OPEN",
-      });
-    }
+  // Missing-documentation rule (Option B, pure): documentable, non-deprecated
+  // artifacts with neither own documentationContent nor an incoming DOCUMENTS
+  // relation. (Orphan / fan-out / churn / deprecated-dependency rules come from the
+  // shared finding-rules engine below — ONE implementation across Validation +
+  // Analysis.)
+  for (const f of analyzeMissingDocumentation(
+    artifacts.map((a) => ({
+      id: a.id,
+      title: a.title,
+      type: a.type,
+      status: a.status,
+      documentationContent: a.documentationContent,
+    })),
+    projectRelations.map((r) => ({ targetArtifactId: r.targetArtifactId, relationType: r.relationType })),
+  )) {
+    drafts.push({
+      projectId,
+      artifactId: f.artifactId,
+      severity: "WARNING",
+      category: "DOCUMENTATION",
+      message: f.message,
+      status: "OPEN",
+    });
+  }
 
+  // Per-artifact security-policy rule.
+  for (const a of artifacts) {
     if (a.type === "SECURITY_POLICY") {
       const secures = projectRelations.some(
         (r) => r.sourceArtifactId === a.id && r.relationType === "SECURES",
@@ -350,12 +386,18 @@ export async function runValidationForProject(
   // issues, insert new, record the run. Issue rows are recreated each run (fresh
   // ids), so a waive is preserved by fingerprint, not by id. RESOLVED is NOT
   // carried forward — a still-produced finding reopens (see validation.status.ts).
-  const result = await prisma.$transaction(async (tx) => {
+  const { issues, newErrorIssues } = await prisma.$transaction(async (tx) => {
     const previous = await tx.validationIssue.findMany({
       where: { projectId },
       select: { artifactId: true, category: true, severity: true, message: true, status: true },
     });
     const restored = restoreIssueStatuses(drafts, buildStatusSnapshot(previous));
+
+    // Option A dedup: ERROR findings whose fingerprint was NOT present before
+    // this run. Computed against `previous` (pre-wipe) so a still-open or already-
+    // seen ERROR doesn't re-alert. Carried out before the wipe/insert below.
+    const previousFingerprints = new Set(previous.map(issueFingerprint));
+    const newErrorDrafts = selectNewErrorIssues(restored, previousFingerprints);
 
     await tx.validationIssue.deleteMany({ where: { projectId } });
     if (restored.length > 0) {
@@ -363,7 +405,15 @@ export async function runValidationForProject(
         data: restored.map((d) => ({ ...d, createdAt: now, updatedAt: now })),
       });
     }
-    return tx.validationIssue.findMany({ where: { projectId } });
+    const persisted = await tx.validationIssue.findMany({ where: { projectId } });
+    return {
+      issues: persisted,
+      newErrorIssues: newErrorDrafts.map((d) => ({
+        artifactId: d.artifactId,
+        category: d.category,
+        message: d.message,
+      })),
+    };
   });
 
   await recordVersionEvent({
@@ -372,16 +422,16 @@ export async function runValidationForProject(
     entityId: projectId,
     action: "VALIDATED",
     title: `Validation run · ${project?.name ?? "project"}`,
-    description: `${result.length} issue${result.length === 1 ? "" : "s"} produced`,
+    description: `${issues.length} issue${issues.length === 1 ? "" : "s"} produced`,
     triggeredBy: triggeredBy ?? project?.ownerId ?? "system",
     metadata: {
-      issueCount: result.length,
-      bySeverity: result.reduce<Record<string, number>>((acc, v) => {
+      issueCount: issues.length,
+      bySeverity: issues.reduce<Record<string, number>>((acc, v) => {
         acc[v.severity] = (acc[v.severity] || 0) + 1;
         return acc;
       }, {}),
     },
   });
 
-  return result;
+  return { issues, newErrorIssues };
 }

@@ -14,9 +14,15 @@
 // Relations use the closest valid `RelationType` enum values (USES / SECURES /
 // DOCUMENTS). Intentionally-bad endpoints (e.g. /debug/leak-token) are kept so
 // the validation rules have something to fire on.
+//
+// It also seeds two Quick Fix V1 fixtures so the Preview Fix → Apply workflow is
+// testable end-to-end: "Empty Documentation Test" (a DOCUMENTATION artifact with
+// no content → MISSING_DOCUMENTATION) and "Empty Diagram Test" (an empty FLOWCHART
+// diagram → DIAGRAM_EMPTY). Re-running the seed RESETS both back to empty, which
+// is exactly what you want for repeat testing of the fix.
 
 import bcrypt from "bcryptjs";
-import type { ArtifactType, HttpMethod, RelationType } from "@prisma/client";
+import type { ArtifactType, DiagramType, HttpMethod, RelationType } from "@prisma/client";
 import { prisma } from "../src/lib/prisma.js";
 import { assertDestructiveAllowed } from "../src/lib/destructive-guard.js";
 import { recordVersionEvent } from "../src/modules/versions/versions.engine.js";
@@ -26,6 +32,7 @@ import { analyzeExportSnapshot } from "../src/modules/exports/analysis/metrics.e
 import { analyzeProjectApiIntel } from "../src/modules/api-intel/payload-analyzer.js";
 import type { AnalyzerInput } from "../src/modules/api-intel/api-intel.types.js";
 import { normalizeArtifactTitle } from "../src/modules/artifacts/artifact-title.js";
+import { candidatesForOrphan } from "../src/modules/findings/relation-remediation.js";
 
 const PROJECT_NAME = "Payload Intelligence Testbed";
 const DEMO_EMAIL = "deyvid@minotaurus.dev";
@@ -35,7 +42,7 @@ const json = (o: unknown) => JSON.stringify(o, null, 2);
 
 // ───────────────────────────── data definitions ─────────────────────────────
 
-interface ArtifactDef { key: string; title: string; type: ArtifactType; gx: number; gy: number; }
+interface ArtifactDef { key: string; title: string; type: ArtifactType; gx: number; gy: number; documentationContent?: string; }
 const ARTIFACTS: ArtifactDef[] = [
   { key: "webApp", title: "Public Web App", type: "SERVICE", gx: 0, gy: -260 }, // FRONTEND → SERVICE
   { key: "gateway", title: "API Gateway", type: "SERVICE", gx: 0, gy: -140 },
@@ -53,6 +60,37 @@ const ARTIFACTS: ArtifactDef[] = [
   { key: "patientFlow", title: "Patient Registration Flow", type: "DOCUMENTATION", gx: -120, gy: 260 },
   { key: "apptFlow", title: "Appointment Booking Flow", type: "DOCUMENTATION", gx: 120, gy: 260 },
   { key: "billingFlow", title: "Billing Flow", type: "DOCUMENTATION", gx: 360, gy: 260 },
+  // Quick Fix V1 fixture: empty DOCUMENTATION artifact → MISSING_DOCUMENTATION.
+  // documentationContent is never set on creation (column is nullable), so it is
+  // null/empty and the rule fires. Linked below so it is not also an orphan.
+  { key: "emptyDocTest", title: "Empty Documentation Test", type: "DOCUMENTATION", gx: 560, gy: 260 },
+  // MISSING_DOCUMENTATION (Option B) fixture: an ACTIVE SERVICE with no own docs
+  // and no incoming DOCUMENTS relation → flagged by the broadened rule and exposes
+  // the doc-template Quick Fix. (Given an incoming USES relation below so it is not
+  // also flagged as an orphan.)
+  { key: "undocSvc", title: "Undocumented Service Test", type: "SERVICE", gx: 760, gy: 0 },
+  // Relation Remediation (REVIEW-required) fixtures:
+  // SECURITY_POLICY_NOT_LINKED — a policy with no SECURES relation. Documented by
+  // an incoming DOCUMENTS edge (below) so it is NOT also an orphan / missing-doc;
+  // its title token-matches "Billing Service"/"Billing Database" → SECURES candidates.
+  { key: "billingSecNotes", title: "Billing Security Notes", type: "DOCUMENTATION", gx: 560, gy: 140 },
+  { key: "billingSecPolicy", title: "Billing Security Policy", type: "SECURITY_POLICY", gx: 360, gy: -80 },
+  // Candidate-bearing ORPHAN_ARTIFACT fixture: a SERVICE with NO relations (→
+  // ORPHAN_ARTIFACT) whose title token-matches the existing "Patient …" artifacts,
+  // so the Review Fix picker offers deterministic, forward-direction candidates
+  // (Patient Service → DEPENDS_ON, Patient Database → USES) — not just the manual
+  // fallback. The "Patient Registration Flow" DOCUMENTATION match is intentionally
+  // skipped by the remediation generator (no backwards DOCUMENTS edge). It carries
+  // its own documentation so it does NOT also trip MISSING_DOCUMENTATION — a clean
+  // single-finding fixture.
+  {
+    key: "patientPortal",
+    title: "Patient Portal",
+    type: "SERVICE",
+    gx: 760,
+    gy: 140,
+    documentationContent: "# Patient Portal\n\nPatient-facing portal (testbed fixture — intentionally left unlinked to demonstrate the ORPHAN_ARTIFACT Review Fix picker).",
+  },
 ];
 
 interface RelationDef { source: string; target: string; type: RelationType; }
@@ -72,6 +110,17 @@ const RELATIONS: RelationDef[] = [
   { source: "patientFlow", target: "patientSvc", type: "DOCUMENTS" },
   { source: "apptFlow", target: "apptSvc", type: "DOCUMENTS" },
   { source: "billingFlow", target: "billingSvc", type: "DOCUMENTS" },
+  // Keeps the Quick Fix doc fixture out of ORPHAN_ARTIFACT so the only finding it
+  // raises is MISSING_DOCUMENTATION (clean single-finding fixture).
+  { source: "emptyDocTest", target: "gateway", type: "DOCUMENTS" },
+  // Routes the gateway to the undocumented-service fixture: gives it an incoming
+  // relation (not an orphan) WITHOUT documenting it (USES, not DOCUMENTS), so the
+  // broadened MISSING_DOCUMENTATION rule fires on it.
+  { source: "gateway", target: "undocSvc", type: "USES" },
+  // Documents the security-policy fixture: incoming DOCUMENTS keeps it out of
+  // ORPHAN_ARTIFACT and MISSING_DOCUMENTATION, so the ONLY finding on it is
+  // SECURITY_POLICY_NOT_LINKED (clean Relation Remediation fixture).
+  { source: "billingSecNotes", target: "billingSecPolicy", type: "DOCUMENTS" },
 ];
 
 interface FieldDef { name: string; type: string; pk?: boolean; fk?: string; }
@@ -185,6 +234,39 @@ const SPECS: SpecDef[] = [
   },
 ];
 
+// Quick Fix V1 diagram fixture. The testbed otherwise has no diagrams.
+// FLOWCHART (not ARCHITECTURE) so an unlinked-vs-linked architecture-only rule
+// (DIAGRAM_UNLINKED) can't also fire — the ONLY finding is DIAGRAM_EMPTY. Empty
+// mermaidSource triggers the rule; the `graph TD` starter the fix writes is valid
+// for FLOWCHART, so Apply truly clears the finding on the rerun.
+interface DiagramDef { key: string; title: string; type: DiagramType; artifactKey: string | null; mermaidSource: string; }
+const DIAGRAMS: DiagramDef[] = [
+  { key: "emptyDiagram", title: "Empty Diagram Test", type: "FLOWCHART", artifactKey: "webApp", mermaidSource: "" },
+  // DIAGRAM_UNLINKED (Relation Remediation): an ARCHITECTURE diagram with no
+  // artifactId. Valid Mermaid (so it does NOT also trip DIAGRAM_INVALID). Node labels
+  // match artifact titles → MERMAID_NODE_MATCH (+30) each; the diagram TITLE shares
+  // "billing" with Billing Service / Billing Database → +TOKEN_MATCH (20). "Billing
+  // Service" is also contained verbatim in "Billing Service Architecture" →
+  // +PHRASE_TITLE_MATCH (25) = 75, so it ranks ABOVE Billing Database (50), and both
+  // above API Gateway / HIPAA Policy (30/LOW). The fix sets diagram.artifactId.
+  {
+    key: "unlinkedArch",
+    title: "Billing Service Architecture",
+    type: "ARCHITECTURE",
+    artifactKey: null,
+    mermaidSource: `graph LR
+
+API_Gateway["API Gateway"]
+Billing_Service["Billing Service"]
+Billing_Database["Billing Database"]
+HIPAA_Policy["HIPAA Policy"]
+
+API_Gateway --> Billing_Service
+Billing_Service --> Billing_Database
+HIPAA_Policy -.secures.-> Billing_Service`,
+  },
+];
+
 // ───────────────────────────────── seeding ─────────────────────────────────
 
 async function findOrCreateUser(): Promise<{ id: string }> {
@@ -255,6 +337,7 @@ async function main() {
         type: def.type,
         status: "ACTIVE",
         description: `${def.title} — testbed artifact.`,
+        documentationContent: def.documentationContent ?? null,
         tags: [],
         gx: def.gx,
         gy: def.gy,
@@ -344,6 +427,23 @@ async function main() {
     specIds.push({ id: spec.id, title: s.title, endpoints: eps });
   }
 
+  // Diagrams — incl. the Quick Fix V1 "Empty Diagram Test" fixture (empty source).
+  const diagramIds: { id: string; title: string }[] = [];
+  for (const d of DIAGRAMS) {
+    const created = await prisma.diagram.create({
+      data: {
+        projectId: project.id,
+        artifactId: d.artifactKey ? aid[d.artifactKey] : null,
+        title: d.title,
+        type: d.type,
+        mermaidSource: d.mermaidSource,
+        description: `${d.title} — testbed diagram.`,
+        createdById: user.id,
+      },
+    });
+    diagramIds.push({ id: created.id, title: created.title });
+  }
+
   // Version events (deterministic timestamps; origin metadata).
   let i = 0;
   const at = () => new Date(BASE_TS + i++ * 1000);
@@ -352,16 +452,36 @@ async function main() {
   for (const def of ARTIFACTS) await ev({ projectId: project.id, entityType: "ARTIFACT", entityId: aid[def.key], action: "CREATED", title: def.title, description: def.type, triggeredBy: user.id, metadata: { origin: "SEED" }, at: at() });
   for (const m of modelIds) await ev({ projectId: project.id, entityType: "DATABASE_MODEL", entityId: m.id, action: "CREATED", title: m.title, description: "PostgreSQL", triggeredBy: user.id, metadata: { origin: "SEED" }, at: at() });
   for (const s of specIds) await ev({ projectId: project.id, entityType: "API_SPEC", entityId: s.id, action: "CREATED", title: s.title, description: "Testbed spec", triggeredBy: user.id, metadata: { origin: "SEED" }, at: at() });
+  for (const d of diagramIds) await ev({ projectId: project.id, entityType: "DIAGRAM", entityId: d.id, action: "CREATED", title: d.title, description: "Testbed diagram", triggeredBy: user.id, metadata: { origin: "SEED" }, at: at() });
   for (const r of relIds) await ev({ projectId: project.id, entityType: "RELATION", entityId: r.id, action: "LINKED", title: `${r.source} → ${r.target}`, description: r.type, triggeredBy: user.id, metadata: { origin: "SEED", relationType: r.type }, at: at() });
 
   // ── Self-verification: run validation + the analysis chain, print outcomes ──
   console.log(`\n✓ Seeded "${PROJECT_NAME}" (${project.id})`);
-  console.log(`  ${ARTIFACTS.length} artifacts · ${RELATIONS.length} relations · ${MODELS.length} db models · ${SPECS.length} api specs · ${SPECS.reduce((n, s) => n + s.endpoints.length, 0)} endpoints`);
+  console.log(`  ${ARTIFACTS.length} artifacts · ${RELATIONS.length} relations · ${MODELS.length} db models · ${SPECS.length} api specs · ${SPECS.reduce((n, s) => n + s.endpoints.length, 0)} endpoints · ${DIAGRAMS.length} diagrams`);
 
-  const issues = await runValidationForProject(project.id, user.id);
+  const { issues } = await runValidationForProject(project.id, user.id);
   const apiIssues = issues.filter((iss) => /^(API_FIELD_UNMAPPED|PUBLIC_ENDPOINT_EXPOSES_SENSITIVE_FIELD|USER_SCOPED_ENDPOINT_WITHOUT_AUTH|RESPONSE_EXPOSES_TOKEN_OR_SECRET) ·/.test(iss.message));
   console.log(`\n── Validation: ${issues.length} total issues; ${apiIssues.length} from API Payload rules ──`);
   for (const iss of apiIssues) console.log(`  [${iss.severity}/${iss.category}] ${iss.message}`);
+
+  // Quick Fix V1 fixtures — prove the findings fire (these expose Preview Fix actions).
+  const quickFixIssues = issues.filter((iss) => /"(Empty Documentation Test|Empty Diagram Test|Undocumented Service Test)"/.test(iss.message));
+  console.log(`\n── Quick Fix V1 fixtures: ${quickFixIssues.length} issue(s) (expect MISSING_DOCUMENTATION ×2 + DIAGRAM_EMPTY) ──`);
+  for (const iss of quickFixIssues) console.log(`  [${iss.severity}/${iss.category}] ${iss.message}`);
+
+  // Option B broadening — how many MISSING_DOCUMENTATION the rule now produces.
+  const missingDocs = issues.filter((iss) => iss.category === "DOCUMENTATION" && /no documentation content/.test(iss.message));
+  console.log(`\n── MISSING_DOCUMENTATION (Option B): ${missingDocs.length} total ──`);
+
+  // Relation Remediation (REVIEW-required) fixtures — these expose the "Review Fix" picker.
+  const remediationIssues = issues.filter(
+    (iss) =>
+      /not linked to an artifact/.test(iss.message) || // DIAGRAM_UNLINKED
+      /no SECURES outgoing relation/.test(iss.message) || // SECURITY_POLICY_NOT_LINKED
+      /orphaned/.test(iss.message), // ORPHAN_ARTIFACT
+  );
+  console.log(`\n── Relation Remediation fixtures: ${remediationIssues.length} (DIAGRAM_UNLINKED + SECURITY_POLICY_NOT_LINKED + ORPHAN_ARTIFACT) ──`);
+  for (const iss of remediationIssues) console.log(`  [${iss.severity}/${iss.category}] ${iss.message}`);
 
   const content = await buildExportContent(project.id, "JSON", ["ARTIFACTS", "RELATIONS", "API_SPECS", "DATABASE_MODELS", "VALIDATION", "TEAM"]);
   const analysis = analyzeExportSnapshot(content);
@@ -374,6 +494,23 @@ async function main() {
   console.log(`\n── Inferred graph edges (overlay): ${intel.inferredEdges.length} ──`);
   const titleById = new Map(Object.entries(aid).map(([k, id]) => [id, ARTIFACTS.find((x) => x.key === k)!.title]));
   for (const e of intel.inferredEdges) console.log(`  ${titleById.get(e.source) ?? e.source} ⤳${e.kind}→ ${titleById.get(e.target) ?? e.target}`);
+
+  // ORPHAN_ARTIFACT Review Fix preview — proves which orphans have deterministic
+  // candidates (the picker) vs. only the manual fallback. Mirrors what the
+  // remediation preview endpoint computes.
+  const rArtifacts = ARTIFACTS.map((d) => ({ id: aid[d.key], title: d.title, type: d.type as string, status: "ACTIVE" }));
+  const rRelations = RELATIONS.map((r) => ({ sourceArtifactId: aid[r.source], targetArtifactId: aid[r.target], relationType: r.type as string }));
+  const rEdges = intel.inferredEdges.map((e) => ({ source: e.source, target: e.target, kind: e.kind, confidence: e.confidence, basis: e.basis }));
+  console.log("\n── ORPHAN_ARTIFACT Review Fix candidates ──");
+  for (const d of ARTIFACTS) {
+    const isOrphan = !RELATIONS.some((r) => r.source === d.key || r.target === d.key);
+    if (!isOrphan) continue;
+    const cands = candidatesForOrphan({ id: aid[d.key], title: d.title, type: d.type, status: "ACTIVE" }, rArtifacts, rRelations, rEdges);
+    const desc = cands.length
+      ? cands.map((c) => `${c.targetTitle} → ${c.relationType} (${c.confidence} ${c.score}/100; ${c.evidence.map((e) => e.type).join("+")})`).join("; ")
+      : "no candidates → manual fallback";
+    console.log(`  ${d.title}: ${desc}`);
+  }
 }
 
 async function buildAnalyzerInput(projectId: string): Promise<AnalyzerInput> {

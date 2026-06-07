@@ -72,7 +72,7 @@ export const FINDING_CATALOG: Record<string, FindingCatalogEntry> = {
     category: "DOCUMENTATION",
     severity: "WARNING",
     title: "Missing documentation",
-    why: "This is a DOCUMENTATION-type artifact but its documentation body is empty.",
+    why: "This artifact has no documentation — neither its own documentation content nor a linked documentation artifact.",
     suggestedFix: "Open the Documentation tab and write the content (or generate a draft), then Save.",
     targetKind: "ARTIFACT",
     tab: "documentation",

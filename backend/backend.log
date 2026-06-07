@@ -1,0 +1,67 @@
+
+> minotaurus-backend@0.1.0 dev
+> tsx watch src/server.ts
+
+[minotaurus-backend] listening on http://localhost:4000
+[error] {
+  timestamp: '2026-06-06T11:43:51.514Z',
+  name: 'TypeError',
+  message: 'createZipArchive is not a function',
+  method: 'POST',
+  path: '/api/auth/account/export-bundle',
+  stack: 'TypeError: createZipArchive is not a function\n' +
+    '    at buildAccountExportZip (d:\\dev\\minotaurus\\backend\\src\\modules\\auth\\account-deletion\\account-deletion.zip.ts:95:19)\n' +
+    '    at downloadExportBundle (d:\\dev\\minotaurus\\backend\\src\\modules\\auth\\account-deletion\\account-deletion.controller.ts:81:21)'
+}
+[error] {
+  timestamp: '2026-06-06T11:43:53.253Z',
+  name: 'TypeError',
+  message: 'createZipArchive is not a function',
+  method: 'POST',
+  path: '/api/auth/account/export-bundle',
+  stack: 'TypeError: createZipArchive is not a function\n' +
+    '    at buildAccountExportZip (d:\\dev\\minotaurus\\backend\\src\\modules\\auth\\account-deletion\\account-deletion.zip.ts:95:19)\n' +
+    '    at downloadExportBundle (d:\\dev\\minotaurus\\backend\\src\\modules\\auth\\account-deletion\\account-deletion.controller.ts:81:21)'
+}
+[error] {
+  timestamp: '2026-06-06T11:44:07.417Z',
+  name: 'TypeError',
+  message: 'createZipArchive is not a function',
+  method: 'POST',
+  path: '/api/auth/account/export-bundle',
+  stack: 'TypeError: createZipArchive is not a function\n' +
+    '    at buildAccountExportZip (d:\\dev\\minotaurus\\backend\\src\\modules\\auth\\account-deletion\\account-deletion.zip.ts:95:19)\n' +
+    '    at downloadExportBundle (d:\\dev\\minotaurus\\backend\\src\\modules\\auth\\account-deletion\\account-deletion.controller.ts:81:21)'
+}
+14:46:46 [tsx] change in ./src\modules\auth\account-deletion\account-deletion.zip.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+[error] {
+  timestamp: '2026-06-06T11:49:57.041Z',
+  name: 'TypeError',
+  message: 'createZipArchive is not a function',
+  method: 'POST',
+  path: '/api/auth/account/export-bundle',
+  stack: 'TypeError: createZipArchive is not a function\n' +
+    '    at buildAccountExportZip (d:\\dev\\minotaurus\\backend\\src\\modules\\auth\\account-deletion\\account-deletion.zip.ts:97:19)\n' +
+    '    at downloadExportBundle (d:\\dev\\minotaurus\\backend\\src\\modules\\auth\\account-deletion\\account-deletion.controller.ts:81:21)'
+}
+14:50:38 [tsx] change in ./src\server.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+15:24:42 [tsx] change in ./src\modules\validation\validation.engine.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+15:24:55 [tsx] change in ./src\modules\validation\validation.engine.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+15:25:09 [tsx] change in ./src\modules\validation\quick-fix.controller.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+15:25:18 [tsx] change in ./src\modules\findings\finding-catalog.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+15:51:00 [tsx] change in ./src\modules\findings\finding-actions.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+15:51:12 [tsx] change in ./src\modules\findings\finding-actions.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+15:51:23 [tsx] change in ./src\modules\findings\finding-actions.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+15:53:36 [tsx] change in ./src\modules\validation\validation.routes.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000
+16:23:24 [tsx] change in ./src\modules\findings\relation-remediation.ts Restarting...
+c[minotaurus-backend] listening on http://localhost:4000

@@ -177,6 +177,15 @@ class CapturingEmail implements EmailService {
   async sendPasswordResetCode(): Promise<void> {
     /* not exercised by the registration flow */
   }
+  async sendEmailChangeCode(): Promise<void> {
+    /* not exercised by the registration flow */
+  }
+  async sendEmailChangeNotice(): Promise<void> {
+    /* not exercised by the registration flow */
+  }
+  async sendMail(): Promise<void> {
+    /* not exercised by the registration flow */
+  }
   get lastCode(): string | undefined {
     return this.sent[this.sent.length - 1]?.code;
   }

@@ -21,11 +21,43 @@ export interface SendVerificationCodeInput {
 /** Same shape as the verification input; named separately so the two flows read distinctly. */
 export type SendPasswordResetCodeInput = SendVerificationCodeInput;
 
+/** Same shape again — the code sent to the NEW address in the email-change flow. */
+export type SendEmailChangeCodeInput = SendVerificationCodeInput;
+
+/** Security notice sent to the OLD address after an email change (no code). */
+export interface SendEmailChangeNoticeInput {
+  /** The old address being notified. */
+  email: string;
+  firstName?: string;
+  /** Masked form of the new address, for "changed to d****d@…" copy. */
+  newEmailMasked: string;
+}
+
+/**
+ * Generic pre-rendered message. Used by feature modules that build their own
+ * HTML/text (e.g. validation alerts) and just need the provider's transport —
+ * the content stays in the feature module, the transport stays behind this seam.
+ */
+export interface SendMailInput {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  /** Optional binary attachments (e.g. a data-export .zip). Resend-only for now. */
+  attachments?: { filename: string; content: Buffer }[];
+}
+
 export interface EmailService {
   readonly name: string;
   sendVerificationCode(input: SendVerificationCodeInput): Promise<void>;
   /** Email a 6-digit password-reset code (forgot-password flow). */
   sendPasswordResetCode(input: SendPasswordResetCodeInput): Promise<void>;
+  /** Email a 6-digit code to the NEW address to confirm an email change. */
+  sendEmailChangeCode(input: SendEmailChangeCodeInput): Promise<void>;
+  /** Notify the OLD address that the account email was changed (security alert). */
+  sendEmailChangeNotice(input: SendEmailChangeNoticeInput): Promise<void>;
+  /** Send a pre-rendered message (subject + text + html). Caller owns the content. */
+  sendMail(input: SendMailInput): Promise<void>;
 }
 
 /** Mask an email for logs: `deyvid@minotaurus.dev` → `d****d@minotaurus.dev`. */
@@ -76,6 +108,42 @@ export class DevEmailService implements EmailService {
           `(dev provider active in production — configure EMAIL_PROVIDER=smtp)`,
       );
     }
+  }
+
+  async sendEmailChangeCode(input: SendEmailChangeCodeInput): Promise<void> {
+    if (isDevEmailLoggingAllowed()) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[email:dev] email change code for ${maskEmail(input.email)}: ${input.code} ` +
+          `(expires in ${input.expiresInMinutes ?? 10}m)`,
+      );
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[email:dev] suppressed email change code send for ${maskEmail(input.email)} ` +
+          `(dev provider active in production — configure EMAIL_PROVIDER=smtp)`,
+      );
+    }
+  }
+
+  async sendEmailChangeNotice(input: SendEmailChangeNoticeInput): Promise<void> {
+    // The notice carries no secret (only a masked address), so it's safe to log
+    // in any environment for traceability.
+    // eslint-disable-next-line no-console
+    console.log(
+      `[email:dev] email change notice to ${maskEmail(input.email)} ` +
+        `(new address ${input.newEmailMasked})`,
+    );
+  }
+
+  async sendMail(input: SendMailInput): Promise<void> {
+    // No secret in a generic message (the subject is the payload), so log it for
+    // traceability in any environment — a developer can confirm the alert fired.
+    const att = input.attachments?.length
+      ? ` with ${input.attachments.length} attachment(s) (${input.attachments.reduce((n, a) => n + a.content.length, 0)} bytes)`
+      : "";
+    // eslint-disable-next-line no-console
+    console.log(`[email:dev] sendMail "${input.subject}" → ${maskEmail(input.to)}${att}`);
   }
 }
 
@@ -136,6 +204,33 @@ export class SmtpEmailService implements EmailService {
       "SMTP email transport is not implemented yet",
     );
   }
+
+  async sendEmailChangeCode(_input: SendEmailChangeCodeInput): Promise<void> {
+    this.assertConfigured();
+    throw new HttpError(
+      503,
+      "EMAIL_NOT_CONFIGURED",
+      "SMTP email transport is not implemented yet",
+    );
+  }
+
+  async sendEmailChangeNotice(_input: SendEmailChangeNoticeInput): Promise<void> {
+    this.assertConfigured();
+    throw new HttpError(
+      503,
+      "EMAIL_NOT_CONFIGURED",
+      "SMTP email transport is not implemented yet",
+    );
+  }
+
+  async sendMail(_input: SendMailInput): Promise<void> {
+    this.assertConfigured();
+    throw new HttpError(
+      503,
+      "EMAIL_NOT_CONFIGURED",
+      "SMTP email transport is not implemented yet",
+    );
+  }
 }
 
 /**
@@ -188,13 +283,58 @@ export class ResendEmailService implements EmailService {
     });
   }
 
+  async sendEmailChangeCode(input: SendEmailChangeCodeInput): Promise<void> {
+    const expires = input.expiresInMinutes ?? 10;
+    const { text, html } = renderEmailChangeCodeEmail({
+      code: input.code,
+      firstName: input.firstName,
+      expiresInMinutes: expires,
+    });
+    await this.post({
+      to: input.email,
+      subject: `Confirm your new Minotaurus email: ${input.code}`,
+      text,
+      html,
+    });
+  }
+
+  async sendEmailChangeNotice(input: SendEmailChangeNoticeInput): Promise<void> {
+    const { text, html } = renderEmailChangeNoticeEmail({
+      firstName: input.firstName,
+      newEmailMasked: input.newEmailMasked,
+    });
+    await this.post({
+      to: input.email,
+      subject: "Your Minotaurus account email was changed",
+      text,
+      html,
+    });
+  }
+
+  async sendMail(input: SendMailInput): Promise<void> {
+    // Content is pre-rendered by the caller; just hand it to the shared transport.
+    await this.post({
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+      attachments: input.attachments,
+    });
+  }
+
   /**
    * Shared Resend transport. A missing API key → 503 EMAIL_NOT_CONFIGURED; a
    * transport error or non-2xx → 502 EMAIL_PROVIDER_ERROR. The Resend response
    * body / API key are NEVER returned to the client — only logged server-side
    * (masked recipient, no secrets).
    */
-  private async post(msg: { to: string; subject: string; text: string; html: string }): Promise<void> {
+  private async post(msg: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+    attachments?: { filename: string; content: Buffer }[];
+  }): Promise<void> {
     if (!this.cfg.apiKey) {
       throw new HttpError(
         503,
@@ -217,6 +357,15 @@ export class ResendEmailService implements EmailService {
           subject: msg.subject,
           text: msg.text,
           html: msg.html,
+          // Resend accepts base64-encoded attachment content.
+          ...(msg.attachments?.length
+            ? {
+                attachments: msg.attachments.map((a) => ({
+                  filename: a.filename,
+                  content: a.content.toString("base64"),
+                })),
+              }
+            : {}),
         }),
       });
     } catch (err) {
@@ -408,6 +557,175 @@ function renderPasswordResetEmail(opts: {
           <td style="padding:14px 32px 0 32px;">
             <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">This code expires in ${expires} minutes.</p>
             <p style="margin:8px 0 0 0;font-size:13px;line-height:1.6;color:#71717a;">Didn't request this? You can safely ignore this email — your password won't change.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 28px 32px;">
+            <div style="border-top:1px solid #27272a;padding-top:16px;">
+              <p style="margin:0;font-size:12px;color:#52525b;">— The Minotaurus Team</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  return { text, html };
+}
+
+/**
+ * Email-change confirmation — the 6-digit code sent to the NEW address. Same
+ * dark/branded shell as the verification email, with copy that makes clear the
+ * change only takes effect once this code is entered.
+ */
+function renderEmailChangeCodeEmail(opts: {
+  code: string;
+  firstName?: string;
+  expiresInMinutes: number;
+}): { text: string; html: string } {
+  const expires = opts.expiresInMinutes;
+  const greetingText = opts.firstName ? `Hi ${opts.firstName},` : "Hi,";
+  const greetingHtml = opts.firstName ? `Hi ${escapeHtml(opts.firstName)},` : "Hi,";
+
+  const text = [
+    greetingText,
+    "",
+    `Use this code to confirm this as your new Minotaurus email address: ${opts.code}`,
+    `It expires in ${expires} minutes.`,
+    "",
+    "Your email won't change until this code is entered. If you didn't request this, you can ignore this email.",
+    "",
+    "— The Minotaurus Team",
+  ].join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>Confirm your new email</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0a0a0c;color:#f4f4f5;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your Minotaurus email-change code is ${opts.code} — expires in ${expires} minutes.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0c;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" style="width:480px;max-width:480px;background-color:#111114;border:1px solid #27272a;border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <tr>
+          <td style="padding:28px 32px 4px 32px;">
+            <span style="font-size:18px;font-weight:700;letter-spacing:0.5px;color:#f4f4f5;">MINOTAURUS<span style="color:#8b5cf6;">.dev</span></span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 32px 0 32px;">
+            <h1 style="margin:12px 0 4px 0;font-size:20px;font-weight:600;color:#f4f4f5;">Confirm your new email</h1>
+            <p style="margin:0 0 18px 0;font-size:14px;line-height:1.6;color:#a1a1aa;">${greetingHtml} enter this code in Minotaurus to start using this address.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td align="center" style="background-color:#18181b;border:1px solid #8b5cf6;border-radius:10px;padding:18px 12px;">
+                  <span style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:34px;font-weight:700;letter-spacing:10px;color:#ffffff;">${opts.code}</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:14px 32px 0 32px;">
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">This code expires in ${expires} minutes. Your email won't change until it's entered.</p>
+            <p style="margin:8px 0 0 0;font-size:13px;line-height:1.6;color:#71717a;">Didn't request this? You can safely ignore this email.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 32px 28px 32px;">
+            <div style="border-top:1px solid #27272a;padding-top:16px;">
+              <p style="margin:0;font-size:12px;color:#52525b;">— The Minotaurus Team</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  return { text, html };
+}
+
+/**
+ * Email-change security notice — sent to the OLD address after the change
+ * completes. No code; it's an alert so a hijacker can't silently move the email
+ * without the original owner being told. `newEmailMasked` is already masked by
+ * the caller (it's the destination address, shown partially for recognition).
+ */
+function renderEmailChangeNoticeEmail(opts: {
+  firstName?: string;
+  newEmailMasked: string;
+}): { text: string; html: string } {
+  const greetingText = opts.firstName ? `Hi ${opts.firstName},` : "Hi,";
+  const greetingHtml = opts.firstName ? `Hi ${escapeHtml(opts.firstName)},` : "Hi,";
+  const maskedHtml = escapeHtml(opts.newEmailMasked);
+
+  const text = [
+    greetingText,
+    "",
+    `The email address on your Minotaurus account was just changed to ${opts.newEmailMasked}.`,
+    "",
+    "If this was you, no action is needed.",
+    "If this WASN'T you, your account may be compromised — contact support immediately.",
+    "",
+    "— The Minotaurus Team",
+  ].join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>Your account email was changed</title>
+</head>
+<body style="margin:0;padding:0;background-color:#0a0a0c;color:#f4f4f5;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your Minotaurus account email was changed to ${maskedHtml}.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0c;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" style="width:480px;max-width:480px;background-color:#111114;border:1px solid #27272a;border-radius:14px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+        <tr>
+          <td style="padding:28px 32px 4px 32px;">
+            <span style="font-size:18px;font-weight:700;letter-spacing:0.5px;color:#f4f4f5;">MINOTAURUS<span style="color:#8b5cf6;">.dev</span></span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:8px 32px 0 32px;">
+            <h1 style="margin:12px 0 4px 0;font-size:20px;font-weight:600;color:#f4f4f5;">Your account email was changed</h1>
+            <p style="margin:0 0 14px 0;font-size:14px;line-height:1.6;color:#a1a1aa;">${greetingHtml} the email on your Minotaurus account was changed to <span style="color:#f4f4f5;font-weight:600;">${maskedHtml}</span>.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="background-color:#18181b;border:1px solid #7f1d1d;border-radius:10px;padding:14px 16px;">
+                  <p style="margin:0;font-size:13px;line-height:1.6;color:#fca5a5;">If this wasn't you, your account may be compromised — contact support immediately.</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:14px 32px 0 32px;">
+            <p style="margin:0;font-size:13px;line-height:1.6;color:#71717a;">If you made this change, no action is needed.</p>
           </td>
         </tr>
         <tr>

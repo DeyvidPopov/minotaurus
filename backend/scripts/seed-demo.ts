@@ -403,7 +403,7 @@ async function main() {
   for (const e of events) await recordVersionEvent(e);
 
   // ── Validation ──
-  const issues = await runValidationForProject(project.id, user.id);
+  const { issues } = await runValidationForProject(project.id, user.id);
 
   // ── Exports ──
   const jsonSections = [

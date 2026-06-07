@@ -76,6 +76,8 @@ export interface User {
   role: "ADMIN" | "ENGINEER" | "ARCHITECT";
   initials: string;
   defaultProjectId: string | null;
+  /** True while a soft-deletion is pending its grace-window purge (drives the reactivation banner). */
+  deletionPending?: boolean;
 }
 
 export interface Project {
@@ -131,6 +133,94 @@ export interface IssueTarget {
   endpoint?: { method: string; path: string };
 }
 
+// Quick Fix Action framework. A finding may expose actions. NAVIGATE reuses the
+// finding's existing link; an AVAILABLE action with a `fixId` is backed by a
+// deterministic quick fix (preview + apply); a PLANNED action is a placeholder
+// the UI surfaces as "Not implemented yet". Mirrors backend findings/finding-actions.ts.
+export type FindingActionKind = "NAVIGATE" | "GENERATE" | "CREATE_RELATION" | "CREATE_CONTENT";
+export type FindingActionStatus = "AVAILABLE" | "PLANNED" | "DISABLED";
+export type QuickFixId = "GENERATE_DOCUMENTATION_TEMPLATE" | "GENERATE_STARTER_DIAGRAM";
+
+export interface FindingAction {
+  id: string;
+  label: string;
+  kind: FindingActionKind;
+  status: FindingActionStatus;
+  /** When true the fix is review-required (candidate picker), not a one-click apply. */
+  requiresReview?: boolean;
+  /** Backing fix id — a QuickFixId (safe) or a relation-remediation id (review). */
+  fixId?: string;
+}
+
+// Review-required relation remediation (GET .../remediation/preview). Mirrors
+// backend findings/relation-remediation.ts. Deterministic candidates only.
+export type RemediationConfidence = "HIGH" | "MEDIUM" | "LOW";
+
+export type EvidenceType =
+  | "TITLE_MATCH"
+  | "TOKEN_MATCH"
+  | "PHRASE_TITLE_MATCH"
+  | "MERMAID_NODE_MATCH"
+  | "API_INTELLIGENCE"
+  | "EXISTING_NEIGHBORHOOD"
+  | "ARTIFACT_TYPE_COMPATIBILITY";
+
+export interface RemediationEvidence {
+  type: EvidenceType;
+  weight: number;
+  explanation: string;
+}
+
+export interface RemediationCandidate {
+  targetId: string;
+  targetTitle: string;
+  targetType: string;
+  relationType?: string;
+  confidence: RemediationConfidence;
+  /** 0–100. */
+  score: number;
+  evidence: RemediationEvidence[];
+}
+
+export interface RemediationPreview {
+  remediationId: string;
+  findingCode: string;
+  mechanic: "SET_DIAGRAM_ARTIFACT" | "CREATE_RELATION";
+  title: string;
+  relationType?: string;
+  candidates: RemediationCandidate[];
+  manualFallback: boolean;
+}
+
+export interface RemediationApplyResult {
+  remediationId: string;
+  applied: { targetId: string; targetTitle: string; relationType: string | null };
+  issues: ValidationIssue[];
+}
+
+// Deterministic quick-fix preview (GET .../quick-fix/preview). Mirrors backend
+// findings/quick-fix.ts. `content` is the exact text Apply will write.
+export interface QuickFixPreview {
+  fixId: QuickFixId;
+  code: string;
+  targetKind: "ARTIFACT" | "DIAGRAM";
+  title: string;
+  description: string;
+  contentKind: "markdown" | "mermaid";
+  content: string;
+  target: { kind: "ARTIFACT" | "DIAGRAM"; id: string; title: string };
+  /** Whether the fix currently applies (resource still empty / eligible). */
+  applicable: boolean;
+  reason: string | null;
+}
+
+// Result of POST .../quick-fix/apply — the refreshed, enriched issue set.
+export interface QuickFixApplyResult {
+  fixId: QuickFixId;
+  target: { kind: "ARTIFACT" | "DIAGRAM"; id: string; title: string };
+  issues: ValidationIssue[];
+}
+
 export interface IssueMeta {
   ruleId: string;
   code: string | null;
@@ -139,6 +229,7 @@ export interface IssueMeta {
   suggestedFix: string;
   deterministic: boolean;
   target: IssueTarget | null;
+  actions: FindingAction[];
 }
 
 export interface ValidationIssue {

@@ -14,6 +14,7 @@ import { BrandLogo } from "@/components/shell/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
 import { projectsApi } from "@/lib/api/projects";
+import { useValidationCounts } from "@/lib/validation-counts";
 import type { Project, User } from "@/lib/types";
 
 interface Item { id: string; label: string; href: string; icon: React.ReactNode; badge?: number; badgeTone?: "warning"; exact?: boolean; }
@@ -23,14 +24,23 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
   const { user, signOut } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
 
+  // Live validation badge: prefer the in-session count (updated by the Validation
+  // page as issues are fixed) over the value fetched with the project.
+  const setValidationCount = useValidationCounts((s) => s.setCount);
+  const liveValidationCount = useValidationCounts((s) => (projectId ? s.counts[projectId] : undefined));
+
   useEffect(() => {
     let cancelled = false;
     if (!projectId) { setProject(null); return; }
-    projectsApi.get(projectId).then((p) => { if (!cancelled) setProject(p); }).catch(() => {
+    projectsApi.get(projectId).then((p) => {
+      if (cancelled) return;
+      setProject(p);
+      setValidationCount(p.id, p.validationIssueCount); // seed the store with server truth
+    }).catch(() => {
       if (!cancelled) setProject(null);
     });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, setValidationCount]);
 
   const global: Item[] = [
     { id: "dash",     label: "Dashboard", href: "/dashboard", icon: <Home size={16} /> },
@@ -46,7 +56,7 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
     { id: "diagrams",   label: "Diagrams",        href: `/projects/${project.id}/diagrams`,    icon: <GitMerge size={16} /> },
     { id: "docs",       label: "Documentation",   href: `/projects/${project.id}/docs`,        icon: <BookOpen size={16} /> },
     { id: "ingestion",  label: "Ingestion",       href: `/projects/${project.id}/ingestion`,   icon: <Download size={16} /> },
-    { id: "validation", label: "Validation",      href: `/projects/${project.id}/validation`,  icon: <Shield size={16} />, badge: project.validationIssueCount, badgeTone: "warning" },
+    { id: "validation", label: "Validation",      href: `/projects/${project.id}/validation`,  icon: <Shield size={16} />, badge: liveValidationCount ?? project.validationIssueCount, badgeTone: "warning" },
     { id: "review",     label: "AI Review",       href: `/projects/${project.id}/review`,      icon: <Sparkles size={16} /> },
     { id: "versions",   label: "Version History", href: `/projects/${project.id}/versions`,    icon: <History size={16} /> },
     { id: "team",       label: "Team",            href: `/projects/${project.id}/team`,        icon: <Users size={16} />,  badge: project.members },

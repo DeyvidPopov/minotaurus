@@ -122,3 +122,15 @@ export function getEmailConfig(): EmailConfig {
 export function isDevEmailLoggingAllowed(): boolean {
   return (process.env.NODE_ENV || "development").toLowerCase() !== "production";
 }
+
+/**
+ * Optional public base URL of the frontend app (e.g. `https://app.minotaurus.dev`),
+ * used to build absolute links in outbound emails. Optional and never throws —
+ * when unset, emails fall back to a relative route hint. Trailing slashes are
+ * trimmed so callers can append `/projects/...` safely.
+ */
+export function getAppBaseUrl(): string | null {
+  const raw = (process.env.APP_BASE_URL || process.env.FRONTEND_URL || "").trim();
+  if (!raw) return null;
+  return raw.replace(/\/+$/, "");
+}

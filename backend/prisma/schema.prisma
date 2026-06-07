@@ -34,6 +34,23 @@ model User {
   // on this yet — it exists so gating can be enabled later without a schema change.
   emailVerifiedAt DateTime?
 
+  // Soft-delete marker for the account-deletion flow. NULL = active account.
+  // When the user requests deletion the account is flagged here (and an
+  // AccountDeletion row schedules the purge ~30d out); nothing destructive runs
+  // until the purge job executes the recorded plan. Cleared on reactivate/undo.
+  // Login still SUCCEEDS while set — the response carries deletionPending so the
+  // frontend can offer reactivation instead of hard-locking the user out.
+  deletedAt DateTime?
+
+  // True only for the single "Deleted User" tombstone sentinel. Surviving
+  // authorship from purged accounts is reassigned to it so the history stays
+  // honest ("created by Deleted User") instead of misattributing to a real user.
+  // The sentinel is excluded from login, member/transfer pickers, and is itself
+  // never deletable. See modules/auth/account-deletion.
+  isSystem Boolean @default(false)
+
+  accountDeletion   AccountDeletion?   @relation("UserAccountDeletion")
+
   // Optional "default workspace": the project the user lands in after login.
   // Null = no default (land on the dashboard). SetNull on the FK so deleting the
   // project self-heals the preference instead of leaving a dangling reference.
@@ -51,6 +68,8 @@ model User {
   memberships       ProjectMember[]
   ingestionRecords  IngestionRecord[]
   aiSessions        AiSession[]
+  emailChange       EmailChange?      @relation("UserEmailChange")
+  notificationPreference UserNotificationPreference? @relation("UserNotificationPreference")
 }
 
 // ────────────────────────────── Email verification (multi-step registration) ──────────────────────────────
@@ -119,6 +138,85 @@ model PasswordReset {
   updatedAt DateTime @updatedAt
 
   @@index([expiresAt])
+}
+
+// ────────────────────────────── Email change (verified email-change flow) ──────────────────────────────
+// Pending email-change state for an AUTHENTICATED user. One row per user: the
+// user requests a change to `newEmail`, a 6-digit code is sent to that NEW
+// address, and the swap only happens once the code is verified — proving the
+// user owns the new mailbox. Never stores the plaintext code. Deleted on success
+// and pruned opportunistically when expired. Mirrors PasswordReset, but keyed by
+// userId (the actor is known) and FK'd to User so it cascades on account delete.
+model EmailChange {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation("UserEmailChange", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Normalized (trimmed + lowercased) target email — the address being moved to.
+  newEmail String
+
+  codeHash          String
+  expiresAt         DateTime // code expiry (created + 10m)
+  attempts          Int      @default(0) // failed verify attempts (cap 5 → resend required)
+  resendCount       Int      @default(0) // audit / abuse signal
+  resendAvailableAt DateTime // resend cooldown gate (created + 30s)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+// ────────────────────────────── User notification preferences ──────────────────────────────
+// Per-user notification settings (Settings → Notifications). One row per user,
+// created lazily on first write — an absent row means "all defaults". Booleans
+// only at the MVP: a weekly validation-issue email digest and per-event
+// validation alerts. Delivery is NOT implemented yet (no cron/queue) — these
+// flags are persisted intent the future sender will read; email always goes to
+// the user's verified account address. FK'd to User so it cascades on delete.
+model UserNotificationPreference {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation("UserNotificationPreference", fields: [userId], references: [id], onDelete: Cascade)
+
+  emailDigestEnabled      Boolean @default(false)
+  validationAlertsEnabled Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ────────────────────────────── Account deletion (soft-delete + 30d grace) ──────────────────────────────
+// Records a pending account deletion. The request only captures INTENT — the
+// per-project plan (transfer vs delete) and a scheduled purge time — and flags
+// User.deletedAt; no projects are transferred and no rows are deleted until the
+// purge job runs at/after `scheduledFor`. This makes undo trivial (clear the
+// flag, drop this row — nothing destructive has happened yet). One row per user.
+// FK'd to User with onDelete: Cascade so the eventual purge (a user delete) and
+// any reactivation clean it up automatically. Mirrors the EmailChange/PasswordReset
+// shape: a hashed single-use token backs the one-click "undo" link in the email.
+model AccountDeletion {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation("UserAccountDeletion", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Per-project decisions captured at request time:
+  // [{ projectId, action: "TRANSFER" | "DELETE", transferToUserId? }]. Re-validated
+  // at purge time (a target can go stale during the 30-day window). Mirrors the
+  // lightweight JSON-snapshot pattern used by AiSession/IngestionRecord.
+  plan Json @default("[]")
+
+  requestedAt  DateTime @default(now())
+  scheduledFor DateTime // requestedAt + grace window (30d); the purge job's due date
+
+  // sha256 of a high-entropy single-use token (fast hash is fine — not brute-forceable),
+  // backing the one-click undo link emailed to the user. Never stores the plaintext.
+  undoTokenHash String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scheduledFor])
 }
 
 // ────────────────────────────── Projects ──────────────────────────────

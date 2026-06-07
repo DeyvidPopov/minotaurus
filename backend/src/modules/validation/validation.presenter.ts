@@ -20,6 +20,7 @@ import {
   parseFindingCode,
 } from "../findings/finding-classifier.js";
 import type { FindingTargetKind } from "../findings/finding-types.js";
+import { getFindingActions, type FindingAction } from "../findings/finding-actions.js";
 
 export type IssueTargetKind =
   | "TEAM"
@@ -50,6 +51,12 @@ export interface IssueMeta {
   /** True for every current rule — the engine is rule-based, no AI. */
   deterministic: boolean;
   target: IssueTarget | null;
+  /**
+   * Quick Fix Actions a user could take to address this finding (V1 framework).
+   * NAVIGATE actions reuse `target`'s link; every other kind is a placeholder the
+   * UI surfaces as "Not implemented yet". May be []. See findings/finding-actions.
+   */
+  actions: FindingAction[];
 }
 
 export interface ArtifactRef {
@@ -132,6 +139,7 @@ export function explainIssue(issue: IssueInput, index: ResourceIndex): IssueMeta
   const { code, cleanMessage } = parseFindingCode(issue.message);
   const ruleId = classifyFindingFromIssue(issue);
   const entry = getFindingOrFallback(ruleId);
+  const target = resolveTarget(entry.targetKind, entry.tab, issue, cleanMessage, index);
   return {
     ruleId,
     // PROJECT_LEVEL is a scope marker, not a rule code — don't surface it.
@@ -140,7 +148,10 @@ export function explainIssue(issue: IssueInput, index: ResourceIndex): IssueMeta
     why: entry.why,
     suggestedFix: entry.suggestedFix,
     deterministic: true,
-    target: resolveTarget(entry.targetKind, entry.tab, issue, cleanMessage, index),
+    target,
+    // Quick Fix Action framework: actions are keyed by the canonical rule code
+    // (not the optional machine `code`), with NAVIGATE derived from the target.
+    actions: getFindingActions(ruleId, target),
   };
 }
 

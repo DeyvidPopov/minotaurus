@@ -28,6 +28,9 @@ export function toPublicUser(u: User) {
     role: u.role,
     initials: `${u.firstName.charAt(0)}${u.lastName.charAt(0)}`.toUpperCase(),
     defaultProjectId: u.defaultProjectId,
+    // True while a soft-delete is pending its grace-window purge. Login still
+    // succeeds — the frontend shows a reactivation banner instead of locking out.
+    deletionPending: !!u.deletedAt,
   };
 }
 
@@ -67,8 +70,10 @@ export async function login(req: Request, res: Response) {
     return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
   }
   const { email, password } = parsed.data;
+  // Exclude the tombstone sentinel — it has an unusable password but must never
+  // be a login target.
   const user = await prisma.user.findFirst({
-    where: { email: { equals: email, mode: "insensitive" } },
+    where: { email: { equals: email, mode: "insensitive" }, isSystem: false },
   });
   if (!user) return fail(res, 401, "INVALID_CREDENTIALS", "Invalid email or password");
   const okPw = await bcrypt.compare(password, user.passwordHash);

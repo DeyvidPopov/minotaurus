@@ -36,6 +36,17 @@ export interface PasswordResendResponse {
   resendAvailableAt: string; // ISO timestamp
 }
 
+// Verified email-change flow (authenticated): request → verify. A code goes to
+// the NEW address; the swap (and the updated user) only come back on verify.
+export interface EmailChangeRequestResponse {
+  newEmail: string;
+  resendAvailableAt: string; // ISO timestamp
+}
+export interface EmailChangeResendResponse {
+  newEmail: string;
+  resendAvailableAt: string; // ISO timestamp
+}
+
 export const authApi = {
   login: async (body: { email: string; password: string }) => {
     const data = await apiClient.post<AuthResponse>("/auth/login", body);
@@ -79,6 +90,13 @@ export const authApi = {
     apiClient.post<Record<string, never>>("/auth/password/reset", body),
   passwordResend: (body: { email: string }) =>
     apiClient.post<PasswordResendResponse>("/auth/password/resend", body),
+  // Verified email-change (requires auth). `verify` returns the updated user.
+  emailChangeRequest: (body: { newEmail: string; currentPassword: string }) =>
+    apiClient.post<EmailChangeRequestResponse>("/auth/email/request", body),
+  emailChangeVerify: (body: { code: string }) =>
+    apiClient.post<{ user: User }>("/auth/email/verify", body),
+  emailChangeResend: () =>
+    apiClient.post<EmailChangeResendResponse>("/auth/email/resend"),
   me: () => apiClient.get<{ user: User }>("/auth/me"),
   updateMe: (body: Partial<Pick<User, "firstName" | "lastName" | "email" | "defaultProjectId">>) =>
     apiClient.patch<{ user: User }>("/auth/me", body),

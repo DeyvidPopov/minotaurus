@@ -1,5 +1,6 @@
 import { createApp } from "./app.js";
 import { ConfigError, validateConfig } from "./config/env.js";
+import { startAccountDeletionScheduler } from "./modules/auth/account-deletion/account-deletion.scheduler.js";
 
 // Fail fast on insecure configuration (e.g. missing/placeholder JWT_SECRET)
 // before binding the port. The message never includes the secret value.
@@ -20,4 +21,6 @@ const app = createApp();
 app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`[minotaurus-backend] listening on http://localhost:${port}`);
+  // Background sweep that permanently purges accounts past their 30-day grace.
+  startAccountDeletionScheduler();
 });

@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
-import { CodeInput } from "../_components/code-input";
+import { CodeInput } from "@/components/ui/code-input";
 
 const CODE_LENGTH = 6;
 const STEPS = ["Account", "Verify", "Password", "Done"] as const;
