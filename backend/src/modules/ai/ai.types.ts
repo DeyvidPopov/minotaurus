@@ -38,6 +38,12 @@ export interface ProposedDatabaseField {
   isForeignKey: boolean;
   /** FK target: an entity name within the SAME model. Resolved to an id at apply. */
   referencesEntityName?: string | null;
+  /**
+   * Optional PRECISE FK target: the referenced column name within the referenced
+   * entity. Optional/back-compat — older proposals omit it; apply then falls back
+   * to the referenced entity's single primary key. Resolved to a field id at apply.
+   */
+  referencesFieldName?: string | null;
   confidence: number;
 }
 export interface ProposedDatabaseEntity {
@@ -121,6 +127,12 @@ export interface DatabaseFieldDecision extends ItemDecision {
   name: string;
   /** Set when this field's `referencesEntityName` resolved to a sibling entity. */
   resolvedReference?: boolean;
+  /**
+   * Set when this field's `referencesFieldName` resolved to a column of the
+   * referenced entity (advisory — apply re-resolves authoritatively and also
+   * applies the single-PK fallback). Absent when no precise column was given/matched.
+   */
+  resolvedFieldReference?: boolean;
 }
 export interface DatabaseEntityDecision extends ItemDecision {
   name: string;

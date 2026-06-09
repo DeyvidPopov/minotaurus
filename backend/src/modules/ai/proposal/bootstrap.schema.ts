@@ -53,6 +53,10 @@ export const proposedDatabaseFieldSchema = z.object({
   isPrimaryKey: z.boolean().catch(false),
   isForeignKey: z.boolean().catch(false),
   referencesEntityName: z.string().trim().max(80).nullable().optional().catch(null),
+  // Optional PRECISE FK target column (the referenced entity's column name). Lenient
+  // + optional so older / column-less proposals still parse; apply falls back to the
+  // referenced entity's single primary key when this is absent.
+  referencesFieldName: z.string().trim().max(80).nullable().optional().catch(null),
   confidence,
 });
 
@@ -232,6 +236,10 @@ export const bootstrapToolInputSchema: Record<string, unknown> = {
                       referencesEntityName: {
                         type: "string",
                         description: "For a foreign key: the EXACT name of the entity (in this same model) it references.",
+                      },
+                      referencesFieldName: {
+                        type: "string",
+                        description: "For a foreign key: the EXACT referenced column name in that entity (usually its id / primary key). Optional — omit if unsure.",
                       },
                       confidence: { type: "number", minimum: 0, maximum: 1 },
                     },

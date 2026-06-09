@@ -50,8 +50,8 @@ function recipient(over: Partial<AlertRecipient> = {}): AlertRecipient {
   };
 }
 
-function errIssue(message: string, artifactId = "a1") {
-  return { artifactId, category: "DATABASE", message };
+function errIssue(message: string, subjectId = "a1") {
+  return { subjectId, category: "DATABASE", message };
 }
 
 // ── 1. opted-out recipient receives no email ───────────────────────────────────
@@ -98,8 +98,8 @@ test("an opted-in recipient receives exactly one alert email", async () => {
 
 test("WARNING/INFO findings are filtered out and trigger no email", async () => {
   const drafts = [
-    { artifactId: "a1", category: "DATABASE", severity: "WARNING", message: "no PK", status: "OPEN" as const },
-    { artifactId: "a2", category: "DIAGRAM", severity: "INFO", message: "not linked", status: "OPEN" as const },
+    { subjectId: "a1", category: "DATABASE", severity: "WARNING", message: "no PK", status: "OPEN" as const },
+    { subjectId: "a2", category: "DIAGRAM", severity: "INFO", message: "not linked", status: "OPEN" as const },
   ];
   const newErrors = selectNewErrorIssues(drafts, new Set());
   assert.equal(newErrors.length, 0, "only ERROR severity should be selected");
@@ -138,14 +138,27 @@ test("multiple ERROR issues produce a single summarizing email", async () => {
     },
   );
   assert.equal(spy.calls.length, 1, "one email per user, not one per issue");
-  assert.match(spy.calls[0].text, /3 new ERROR issues/);
+  assert.match(spy.calls[0].text, /3 new high-severity issues/);
+});
+
+// ── 4b. CRITICAL severity is alerted too (not just ERROR) ──────────────────────
+
+test("a CRITICAL finding is selected for alerting", () => {
+  const draft = {
+    subjectId: "a9",
+    category: "SECURITY",
+    severity: "CRITICAL",
+    message: "Public endpoint exposes a secret.",
+    status: "OPEN" as const,
+  };
+  assert.equal(selectNewErrorIssues([draft], new Set()).length, 1);
 });
 
 // ── 5. a duplicate, already-known ERROR does not re-alert ──────────────────────
 
 test("an ERROR whose fingerprint existed before the run is not re-selected (dedup)", () => {
   const draft = {
-    artifactId: "a1",
+    subjectId: "a1",
     category: "DATABASE",
     severity: "ERROR",
     message: "FK has no target entity.",

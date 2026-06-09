@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { HttpMethod, ProjectRole, type ApiEndpoint, type ApiSpec } from "@prisma/client";
+import { HttpMethod, Prisma, ProjectRole, type ApiEndpoint, type ApiSpec } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
@@ -270,17 +270,26 @@ export async function createEndpoint(req: AuthedRequest, res: Response) {
   const parsed = createEndpointSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const ep = await prisma.apiEndpoint.create({
-    data: {
-      apiSpecId: specResult.row.id,
-      path: parsed.data.path,
-      method: parsed.data.method,
-      summary: parsed.data.summary,
-      requestSchema: parsed.data.requestSchema,
-      responseSchema: parsed.data.responseSchema,
-      requiresAuth: parsed.data.requiresAuth,
-    },
-  });
+  let ep: ApiEndpoint;
+  try {
+    ep = await prisma.apiEndpoint.create({
+      data: {
+        apiSpecId: specResult.row.id,
+        path: parsed.data.path,
+        method: parsed.data.method,
+        summary: parsed.data.summary,
+        requestSchema: parsed.data.requestSchema,
+        responseSchema: parsed.data.responseSchema,
+        requiresAuth: parsed.data.requiresAuth,
+      },
+    });
+  } catch (err) {
+    // DB-enforced @@unique([apiSpecId, method, path]) — clean 409, race-safe.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return fail(res, 409, "ENDPOINT_EXISTS", `An endpoint ${parsed.data.method} ${parsed.data.path} already exists in this spec.`);
+    }
+    throw err;
+  }
   await prisma.apiSpec.update({
     where: { id: specResult.row.id },
     data: { updatedAt: new Date() },
@@ -308,23 +317,32 @@ export async function patchEndpoint(req: AuthedRequest, res: Response) {
       ? fail(res, 404, "NOT_FOUND", "Endpoint not found")
       : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
-  const updated = await prisma.apiEndpoint.update({
-    where: { id: result.row.id },
-    data: {
-      ...(parsed.data.path !== undefined ? { path: parsed.data.path } : {}),
-      ...(parsed.data.method !== undefined ? { method: parsed.data.method } : {}),
-      ...(parsed.data.summary !== undefined ? { summary: parsed.data.summary } : {}),
-      ...(parsed.data.requestSchema !== undefined
-        ? { requestSchema: parsed.data.requestSchema }
-        : {}),
-      ...(parsed.data.responseSchema !== undefined
-        ? { responseSchema: parsed.data.responseSchema }
-        : {}),
-      ...(parsed.data.requiresAuth !== undefined
-        ? { requiresAuth: parsed.data.requiresAuth }
-        : {}),
-    },
-  });
+  let updated: ApiEndpoint;
+  try {
+    updated = await prisma.apiEndpoint.update({
+      where: { id: result.row.id },
+      data: {
+        ...(parsed.data.path !== undefined ? { path: parsed.data.path } : {}),
+        ...(parsed.data.method !== undefined ? { method: parsed.data.method } : {}),
+        ...(parsed.data.summary !== undefined ? { summary: parsed.data.summary } : {}),
+        ...(parsed.data.requestSchema !== undefined
+          ? { requestSchema: parsed.data.requestSchema }
+          : {}),
+        ...(parsed.data.responseSchema !== undefined
+          ? { responseSchema: parsed.data.responseSchema }
+          : {}),
+        ...(parsed.data.requiresAuth !== undefined
+          ? { requiresAuth: parsed.data.requiresAuth }
+          : {}),
+      },
+    });
+  } catch (err) {
+    // A method/path change can collide with a sibling endpoint (DB @@unique).
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return fail(res, 409, "ENDPOINT_EXISTS", "An endpoint with this method and path already exists in this spec.");
+    }
+    throw err;
+  }
   await prisma.apiSpec.update({
     where: { id: result.spec.id },
     data: { updatedAt: new Date() },

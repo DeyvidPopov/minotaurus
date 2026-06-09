@@ -89,7 +89,7 @@ async function buildInferredEdges(projectId: string): Promise<RInferredEdge[]> {
 }
 
 async function loadContext(
-  issue: { projectId: string; artifactId: string },
+  issue: { projectId: string; subjectId: string },
   remediationId: string,
 ): Promise<Context> {
   const [artifacts, relations] = await Promise.all([
@@ -98,9 +98,9 @@ async function loadContext(
   ]);
 
   if (remediationId === "LINK_DIAGRAM_ARTIFACT") {
-    // DIAGRAM_UNLINKED stores diagram.artifactId ?? diagram.id; resolve either way.
+    // DIAGRAM_UNLINKED's subjectId is diagram.artifactId ?? diagram.id; resolve either way.
     const row = await prisma.diagram.findFirst({
-      where: { projectId: issue.projectId, OR: [{ id: issue.artifactId }, { artifactId: issue.artifactId }] },
+      where: { projectId: issue.projectId, OR: [{ id: issue.subjectId }, { artifactId: issue.subjectId }] },
     });
     let nodeLabels: string[] = [];
     if (row?.mermaidSource) {
@@ -124,7 +124,7 @@ async function loadContext(
 function buildPreview(
   code: string,
   remediationId: string,
-  issue: { artifactId: string },
+  issue: { subjectId: string },
   ctx: Context,
 ): RemediationPreview | { error: string } {
   if (remediationId === "LINK_DIAGRAM_ARTIFACT") {
@@ -140,7 +140,7 @@ function buildPreview(
     };
   }
 
-  const subject = ctx.artifacts.find((a) => a.id === issue.artifactId);
+  const subject = ctx.artifacts.find((a) => a.id === issue.subjectId);
   if (!subject) return { error: "Artifact not found." };
 
   if (remediationId === "LINK_SECURITY_POLICY") {
@@ -256,7 +256,7 @@ export async function applyRemediation(req: AuthedRequest, res: Response) {
       return fail(res, 400, "VALIDATION_ERROR", "Invalid relation type for this remediation.");
     }
     const [source, target] = await Promise.all([
-      prisma.artifact.findUnique({ where: { id: issue.artifactId } }),
+      prisma.artifact.findUnique({ where: { id: issue.subjectId } }),
       prisma.artifact.findUnique({ where: { id: selected.targetId } }),
     ]);
     if (!source || !target) return fail(res, 404, "NOT_FOUND", "Artifact not found.");

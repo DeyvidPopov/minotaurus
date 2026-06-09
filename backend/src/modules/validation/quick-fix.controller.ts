@@ -79,10 +79,11 @@ async function resolveQuickFix(issue: ValidationIssue): Promise<Resolution> {
   }
 
   if (fixId === "GENERATE_DOCUMENTATION_TEMPLATE") {
-    // The MISSING_DOCUMENTATION rule stores the artifact id directly. The rule now
-    // covers any documentable type (not just DOCUMENTATION), and the doc template
-    // can be written to any artifact, so applicability is just "still empty".
-    const artifact = await prisma.artifact.findUnique({ where: { id: issue.artifactId } });
+    // The MISSING_DOCUMENTATION rule's subject is the artifact (subjectId = its id;
+    // artifactId FK is also set, but subjectId is the canonical resource pointer).
+    // The rule covers any documentable type, and the doc template can be written to
+    // any artifact, so applicability is just "still empty".
+    const artifact = await prisma.artifact.findUnique({ where: { id: issue.subjectId } });
     if (!artifact || artifact.projectId !== issue.projectId) {
       return { ok: false, status: 404, code: "NOT_FOUND", message: "Artifact not found." };
     }
@@ -122,11 +123,12 @@ async function resolveQuickFix(issue: ValidationIssue): Promise<Resolution> {
     };
   }
 
-  // GENERATE_STARTER_DIAGRAM — the DIAGRAM_EMPTY rule stores `diagram.artifactId ?? diagram.id`.
+  // GENERATE_STARTER_DIAGRAM — the DIAGRAM_EMPTY rule's subjectId is
+  // `diagram.artifactId ?? diagram.id`, so resolve the diagram by either.
   const diagram = await prisma.diagram.findFirst({
     where: {
       projectId: issue.projectId,
-      OR: [{ id: issue.artifactId }, { artifactId: issue.artifactId }],
+      OR: [{ id: issue.subjectId }, { artifactId: issue.subjectId }],
     },
     // Prefer the empty one if multiple diagrams share a linked artifact id.
     orderBy: { mermaidSource: "asc" },

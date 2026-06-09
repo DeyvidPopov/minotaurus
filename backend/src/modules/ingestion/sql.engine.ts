@@ -289,7 +289,10 @@ export function parseSqlSchema(rawSql: string): SqlSchemaPreview {
         continue;
       }
       const col = parseColumn(tok.text);
-      if (col) fields.push(col);
+      // Column names are unique within a table (DB @@unique([entityId, name])). If
+      // the pasted DDL repeats a column, keep the first and skip the duplicate so
+      // the ingestion-confirm create loop can't trip the constraint.
+      if (col && !fields.some((f) => f.name === col.name)) fields.push(col);
     }
 
     // Apply table-level primary keys.

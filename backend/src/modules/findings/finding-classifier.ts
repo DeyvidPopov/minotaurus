@@ -70,7 +70,14 @@ export function classifyFindingFromIssue(issue: ClassifiableIssue): string {
       if (m.includes("has no fields")) return "DB_ENTITY_NO_FIELDS";
       if (m.includes("has no primary key")) return "DB_ENTITY_NO_PK";
       if (m.includes("no target entity")) return "DB_FK_NO_TARGET";
+      if (m.includes("referenced column but no referenced entity")) return "DB_FK_COLUMN_WITHOUT_ENTITY";
       if (m.includes("references a missing entity")) return "DB_FK_MISSING_TARGET";
+      if (m.includes("references an entity in a different database model")) return "DB_FK_CROSS_MODEL_ENTITY";
+      if (m.includes("no specific referenced column")) return "DB_FK_NO_PRECISE_COLUMN";
+      if (m.includes("references a missing column")) return "DB_FK_MISSING_TARGET_COLUMN";
+      if (m.includes("references a column outside its referenced entity")) return "DB_FK_COLUMN_ENTITY_MISMATCH";
+      if (m.includes("references a column in a different database model")) return "DB_FK_CROSS_MODEL_COLUMN";
+      if (m.includes("references a non-key column")) return "DB_FK_TARGET_NOT_KEY";
       break;
     case "DIAGRAM":
       if (m.includes("empty Mermaid source")) return "DIAGRAM_EMPTY";

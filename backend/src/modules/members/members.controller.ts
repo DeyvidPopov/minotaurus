@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { ProjectRole, type ProjectMember, type User } from "@prisma/client";
+import { Prisma, ProjectRole, type ProjectMember, type User } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
@@ -84,12 +84,22 @@ export async function addMember(req: AuthedRequest, res: Response) {
   });
   if (existing) return fail(res, 409, "ALREADY_MEMBER", "User is already a member of this project");
 
-  const member = await prisma.projectMember.create({
-    data: { projectId, userId: user.id, role: parsed.data.role as ProjectRole },
-    include: {
-      user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
-    },
-  });
+  let member;
+  try {
+    member = await prisma.projectMember.create({
+      data: { projectId, userId: user.id, role: parsed.data.role as ProjectRole },
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true, role: true } },
+      },
+    });
+  } catch (err) {
+    // Race backstop: the @@unique([projectId, userId]) catches a concurrent add
+    // that slipped past the pre-check above (TOCTOU) — return the same clean 409.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return fail(res, 409, "ALREADY_MEMBER", "User is already a member of this project");
+    }
+    throw err;
+  }
 
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
   await recordVersionEvent({

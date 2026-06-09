@@ -8,7 +8,7 @@ import {
 } from "./validation.status.js";
 
 type Issue = {
-  artifactId: string;
+  subjectId: string;
   category: string;
   severity: string;
   message: string;
@@ -16,7 +16,7 @@ type Issue = {
 };
 
 const issue = (over: Partial<Issue> = {}): Issue => ({
-  artifactId: "art_1",
+  subjectId: "art_1",
   category: "ARCHITECTURE",
   severity: "INFO",
   message: "Single-user project may reduce collaboration visibility.",
@@ -42,7 +42,7 @@ test("fingerprint ignores status (status is what we restore, not key on)", () =>
 test("fingerprint distinguishes each component field", () => {
   const base = issue();
   const fp = issueFingerprint(base);
-  assert.notEqual(fp, issueFingerprint({ ...base, artifactId: "art_2" }));
+  assert.notEqual(fp, issueFingerprint({ ...base, subjectId: "art_2" }));
   assert.notEqual(fp, issueFingerprint({ ...base, category: "SECURITY" }));
   assert.notEqual(fp, issueFingerprint({ ...base, severity: "ERROR" }));
   assert.notEqual(fp, issueFingerprint({ ...base, message: "different" }));
@@ -50,14 +50,14 @@ test("fingerprint distinguishes each component field", () => {
 
 test("snapshot keeps only IGNORED issues (OPEN and RESOLVED are dropped)", () => {
   const snap = buildStatusSnapshot([
-    issue({ artifactId: "a", status: "OPEN" }),
-    issue({ artifactId: "b", status: "RESOLVED" }),
-    issue({ artifactId: "c", status: "IGNORED" }),
+    issue({ subjectId: "a", status: "OPEN" }),
+    issue({ subjectId: "b", status: "RESOLVED" }),
+    issue({ subjectId: "c", status: "IGNORED" }),
   ]);
   assert.equal(snap.size, 1);
-  assert.equal(snap.get(issueFingerprint(issue({ artifactId: "c" }))), "IGNORED");
-  assert.equal(snap.has(issueFingerprint(issue({ artifactId: "a" }))), false);
-  assert.equal(snap.has(issueFingerprint(issue({ artifactId: "b" }))), false);
+  assert.equal(snap.get(issueFingerprint(issue({ subjectId: "c" }))), "IGNORED");
+  assert.equal(snap.has(issueFingerprint(issue({ subjectId: "a" }))), false);
+  assert.equal(snap.has(issueFingerprint(issue({ subjectId: "b" }))), false);
 });
 
 test("RESOLVED is NOT preserved — a still-produced finding reopens as OPEN", () => {
@@ -85,50 +85,50 @@ test("reopened (from IGNORED) issue stays OPEN after a rerun", () => {
 });
 
 test("a RESOLVED finding that no longer recurs simply disappears (not resurrected)", () => {
-  const previous = [issue({ artifactId: "gone", status: "RESOLVED" })];
+  const previous = [issue({ subjectId: "gone", status: "RESOLVED" })];
   // New run produces a different finding only.
-  const drafts = [draft({ artifactId: "present" })];
+  const drafts = [draft({ subjectId: "present" })];
   const restored = restoreIssueStatuses(drafts, buildStatusSnapshot(previous));
   assert.equal(restored.length, 1);
-  assert.equal(restored[0].artifactId, "present");
+  assert.equal(restored[0].subjectId, "present");
   assert.equal(restored[0].status, "OPEN");
 });
 
 test("an IGNORED finding that no longer recurs simply disappears (not resurrected)", () => {
-  const previous = [issue({ artifactId: "gone", status: "IGNORED" })];
-  const drafts = [draft({ artifactId: "present" })];
+  const previous = [issue({ subjectId: "gone", status: "IGNORED" })];
+  const drafts = [draft({ subjectId: "present" })];
   const restored = restoreIssueStatuses(drafts, buildStatusSnapshot(previous));
   assert.equal(restored.length, 1);
-  assert.equal(restored[0].artifactId, "present");
+  assert.equal(restored[0].subjectId, "present");
   assert.equal(restored[0].status, "OPEN");
 });
 
 test("a brand-new finding with no prior match stays OPEN", () => {
-  const previous = [issue({ artifactId: "old", status: "IGNORED" })];
-  const restored = restoreIssueStatuses([draft({ artifactId: "new" })], buildStatusSnapshot(previous));
+  const previous = [issue({ subjectId: "old", status: "IGNORED" })];
+  const restored = restoreIssueStatuses([draft({ subjectId: "new" })], buildStatusSnapshot(previous));
   assert.equal(restored[0].status, "OPEN");
 });
 
 test("restore only re-waives matching drafts, leaving others OPEN", () => {
-  const previous = [issue({ artifactId: "a", status: "IGNORED" })];
-  const drafts = [draft({ artifactId: "a" }), draft({ artifactId: "b" })];
+  const previous = [issue({ subjectId: "a", status: "IGNORED" })];
+  const drafts = [draft({ subjectId: "a" }), draft({ subjectId: "b" })];
   const restored = restoreIssueStatuses(drafts, buildStatusSnapshot(previous));
-  assert.equal(restored.find((d) => d.artifactId === "a")?.status, "IGNORED");
-  assert.equal(restored.find((d) => d.artifactId === "b")?.status, "OPEN");
+  assert.equal(restored.find((d) => d.subjectId === "a")?.status, "IGNORED");
+  assert.equal(restored.find((d) => d.subjectId === "b")?.status, "OPEN");
 });
 
 test("empty snapshot returns the drafts unchanged (and is a no-op)", () => {
-  const drafts = [draft(), draft({ artifactId: "x" })];
+  const drafts = [draft(), draft({ subjectId: "x" })];
   const restored = restoreIssueStatuses(drafts, buildStatusSnapshot([]));
   assert.deepEqual(restored, drafts);
 });
 
 test("restore is deterministic — same inputs, same output", () => {
   const previous = [
-    issue({ artifactId: "a", status: "IGNORED" }),
-    issue({ artifactId: "b", status: "IGNORED" }),
+    issue({ subjectId: "a", status: "IGNORED" }),
+    issue({ subjectId: "b", status: "IGNORED" }),
   ];
-  const drafts = [draft({ artifactId: "a" }), draft({ artifactId: "b" }), draft({ artifactId: "c" })];
+  const drafts = [draft({ subjectId: "a" }), draft({ subjectId: "b" }), draft({ subjectId: "c" })];
   const snap = buildStatusSnapshot(previous);
   assert.deepEqual(restoreIssueStatuses(drafts, snap), restoreIssueStatuses(drafts, snap));
 });

@@ -12,6 +12,7 @@
 import { ArtifactStatus, AiSessionStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { normalizeArtifactTitle } from "../../artifacts/artifact-title.js";
+import { resolvePreciseFkFieldId } from "../../database-models/fk-resolve.js";
 import { parseMermaid } from "../../ingestion/mermaid.engine.js";
 import { recordVersionEvent } from "../../versions/versions.engine.js";
 import { validateBootstrapProposal, type ValidationContext } from "./bootstrap.validator.js";
@@ -260,6 +261,10 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
         // Pass A — create all entities first, so a FK may reference an entity that
         // appears later in the array; build the name→id map the FKs resolve through.
         const entityNameToId = new Map<string, string>();
+        // Per-entity created columns (for resolving a FK's PRECISE target column in
+        // Pass C) + the FK fields to resolve once every column exists.
+        const fieldsByEntityId = new Map<string, { id: string; name: string; isPrimaryKey: boolean }[]>();
+        const fkToResolve: { fieldId: string; refEntityId: string; refFieldName: string | null }[] = [];
         let modelEntityCount = 0;
         let modelFieldCount = 0;
         for (let j = 0; j < m.entities.length; j++) {
@@ -294,9 +299,16 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
                 isPrimaryKey: !!f.isPrimaryKey,
                 isForeignKey: !!f.isForeignKey || !!refId, // controller parity
                 referencesEntityId: refId,
+                // referencesFieldId resolved in Pass C, once every column exists.
                 description: "",
               },
             });
+            const meta = fieldsByEntityId.get(entityId) ?? [];
+            meta.push({ id: fieldRow.id, name: fieldRow.name, isPrimaryKey: fieldRow.isPrimaryKey });
+            fieldsByEntityId.set(entityId, meta);
+            if (refId) {
+              fkToResolve.push({ fieldId: fieldRow.id, refEntityId: refId, refFieldName: f.referencesFieldName ?? null });
+            }
             databaseFields.push({
               id: fieldRow.id,
               entityName: e.name.trim(),
@@ -308,6 +320,17 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
               databaseModelId: modelRow.id,
             });
             modelFieldCount++;
+          }
+        }
+
+        // Pass C — every column now exists, so resolve each FK's PRECISE target
+        // column: match the AI-given referencesFieldName, else fall back to the
+        // referenced entity's single primary key. If neither resolves, leave
+        // referencesFieldId NULL (the validation engine flags the precision gap).
+        for (const fk of fkToResolve) {
+          const { fieldId } = resolvePreciseFkFieldId(fk.refFieldName, fieldsByEntityId.get(fk.refEntityId));
+          if (fieldId) {
+            await tx.databaseField.update({ where: { id: fk.fieldId }, data: { referencesFieldId: fieldId } });
           }
         }
 

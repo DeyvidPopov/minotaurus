@@ -49,7 +49,7 @@ model User {
   // never deletable. See modules/auth/account-deletion.
   isSystem Boolean @default(false)
 
-  accountDeletion   AccountDeletion?   @relation("UserAccountDeletion")
+  accountDeletion AccountDeletion? @relation("UserAccountDeletion")
 
   // Optional "default workspace": the project the user lands in after login.
   // Null = no default (land on the dashboard). SetNull on the FK so deleting the
@@ -57,18 +57,19 @@ model User {
   defaultProjectId String?
   defaultProject   Project? @relation("UserDefaultProject", fields: [defaultProjectId], references: [id], onDelete: SetNull)
 
-  ownedProjects     Project[]          @relation("ProjectOwner")
-  artifacts         Artifact[]
-  apiSpecs          ApiSpec[]
-  databaseModels    DatabaseModel[]
-  diagrams          Diagram[]
-  exports           ExportPackage[]
-  relationsAuthored ArtifactRelation[]
-  versionEvents     VersionEvent[]
-  memberships       ProjectMember[]
-  ingestionRecords  IngestionRecord[]
-  aiSessions        AiSession[]
-  emailChange       EmailChange?      @relation("UserEmailChange")
+  ownedProjects          Project[]                   @relation("ProjectOwner")
+  artifacts              Artifact[]
+  apiSpecs               ApiSpec[]
+  databaseModels         DatabaseModel[]
+  diagrams               Diagram[]
+  exports                ExportPackage[]
+  relationsAuthored      ArtifactRelation[]
+  versionEvents          VersionEvent[]
+  memberships            ProjectMember[]
+  ingestionRecords       IngestionRecord[]
+  aiSessions             AiSession[]                 @relation("AiSessionCreatedBy")
+  aiSessionsApplied      AiSession[]                 @relation("AiSessionAppliedBy")
+  emailChange            EmailChange?                @relation("UserEmailChange")
   notificationPreference UserNotificationPreference? @relation("UserNotificationPreference")
 }
 
@@ -89,8 +90,8 @@ model EmailVerification {
   // bcrypt hash of the 6-digit numeric code (low entropy → needs the work factor).
   codeHash          String
   expiresAt         DateTime // code expiry (created + 10m)
-  attempts          Int      @default(0) // failed verify attempts (cap 5 → resend required)
-  resendCount       Int      @default(0) // audit / abuse signal
+  attempts          Int       @default(0) // failed verify attempts (cap 5 → resend required)
+  resendCount       Int       @default(0) // audit / abuse signal
   resendAvailableAt DateTime // resend cooldown gate (created + 30s)
   verifiedAt        DateTime? // set on successful code verification
 
@@ -124,8 +125,8 @@ model PasswordReset {
   // bcrypt hash of the 6-digit numeric code (low entropy → needs the work factor).
   codeHash          String
   expiresAt         DateTime // code expiry (created + 10m)
-  attempts          Int      @default(0) // failed verify attempts (cap 5 → resend required)
-  resendCount       Int      @default(0) // audit / abuse signal
+  attempts          Int       @default(0) // failed verify attempts (cap 5 → resend required)
+  resendCount       Int       @default(0) // audit / abuse signal
   resendAvailableAt DateTime // resend cooldown gate (created + 30s)
   verifiedAt        DateTime? // set on successful code verification
 
@@ -309,13 +310,14 @@ model Artifact {
   updatedAt            DateTime       @updatedAt
   documentationContent String?
 
-  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy      User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  relationsOut   ArtifactRelation[] @relation("RelationSource")
-  relationsIn    ArtifactRelation[] @relation("RelationTarget")
-  apiSpecs       ApiSpec[]
-  databaseModels DatabaseModel[]
-  diagrams       Diagram[]
+  project          Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy        User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  relationsOut     ArtifactRelation[] @relation("RelationSource")
+  relationsIn      ArtifactRelation[] @relation("RelationTarget")
+  apiSpecs         ApiSpec[]
+  databaseModels   DatabaseModel[]
+  diagrams         Diagram[]
+  validationIssues ValidationIssue[]
 
   @@unique([projectId, normalizedTitle])
   @@index([projectId])
@@ -403,7 +405,10 @@ model ApiEndpoint {
 
   apiSpec ApiSpec @relation(fields: [apiSpecId], references: [id], onDelete: Cascade)
 
-  @@index([apiSpecId])
+  // An endpoint is unique by (spec, method, path): the DB enforces the no-duplicate
+  // -endpoint rule the controller pre-checks. The composite also serves the
+  // apiSpecId-prefix listing query, so a separate @@index([apiSpecId]) is redundant.
+  @@unique([apiSpecId, method, path])
 }
 
 // ────────────────────────────── Database Models ──────────────────────────────
@@ -448,7 +453,10 @@ model DatabaseEntity {
   fields        DatabaseField[]
   referencedBy  DatabaseField[] @relation("FieldReferences")
 
-  @@index([databaseModelId])
+  // Entity names are unique within a model (DB-enforced; controller pre-checks).
+  // The composite also serves the databaseModelId-prefix query, so the standalone
+  // @@index([databaseModelId]) is redundant.
+  @@unique([databaseModelId, name])
 }
 
 model DatabaseField {
@@ -459,14 +467,27 @@ model DatabaseField {
   required           Boolean @default(false)
   isPrimaryKey       Boolean @default(false)
   isForeignKey       Boolean @default(false)
+  // Entity-level FK target — kept for easy UI/ERD rendering ("this column points at
+  // table X"). referencesFieldId below is the precise, normalized column target.
   referencesEntityId String?
+  // Precise FK target: the specific column this field references (normally the
+  // referenced entity's primary key / a unique column). Nullable — an entity-level
+  // reference (referencesEntityId alone) stays valid, so this is an additive
+  // refinement, not a breaking requirement. Self-relation on DatabaseField.
+  referencesFieldId  String?
   description        String  @default("")
 
-  entity           DatabaseEntity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
-  referencesEntity DatabaseEntity? @relation("FieldReferences", fields: [referencesEntityId], references: [id], onDelete: SetNull)
+  entity             DatabaseEntity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  referencesEntity   DatabaseEntity? @relation("FieldReferences", fields: [referencesEntityId], references: [id], onDelete: SetNull)
+  referencesField    DatabaseField?  @relation("FieldToFieldRef", fields: [referencesFieldId], references: [id], onDelete: SetNull)
+  referencedByFields DatabaseField[] @relation("FieldToFieldRef")
 
-  @@index([entityId])
+  // Field names are unique within an entity (DB-enforced; controller pre-checks).
+  // The composite also serves the entityId-prefix query, so a standalone
+  // @@index([entityId]) is redundant.
+  @@unique([entityId, name])
   @@index([referencesEntityId])
+  @@index([referencesFieldId])
 }
 
 // ────────────────────────────── Diagrams ──────────────────────────────
@@ -527,20 +548,42 @@ enum IssueStatus {
   IGNORED
 }
 
+// What a validation finding is *about*. A finding usually concerns an artifact, but
+// it can also concern an API spec / database model / diagram (which are NOT graph
+// nodes) or the project as a whole. `subjectId` carries the polymorphic resource id
+// (drives UI navigation + the dedup fingerprint); `artifactId` is a real FK that is
+// populated only when subjectType = ARTIFACT.
+enum ValidationSubjectType {
+  ARTIFACT
+  API_SPEC
+  DATABASE_MODEL
+  DIAGRAM
+  PROJECT
+}
+
 model ValidationIssue {
-  id         String        @id @default(uuid())
-  projectId  String
-  artifactId String
-  severity   IssueSeverity
-  category   IssueCategory
-  message    String
-  status     IssueStatus   @default(OPEN)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id          String                @id @default(uuid())
+  projectId   String
+  // The finding's subject: a polymorphic resource id + its kind. Drives UI
+  // navigation and the rerun dedup fingerprint (validation.status.ts).
+  subjectType ValidationSubjectType @default(ARTIFACT)
+  subjectId   String
+  // Real, nullable FK to the Artifact this finding concerns — set ONLY when
+  // subjectType = ARTIFACT, NULL otherwise. SetNull keeps any surviving row
+  // consistent on artifact deletion (issues are also fully recomputed each run).
+  artifactId  String?
+  severity    IssueSeverity
+  category    IssueCategory
+  message     String
+  status      IssueStatus           @default(OPEN)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  artifact Artifact? @relation(fields: [artifactId], references: [id], onDelete: SetNull)
 
-  @@index([projectId])
+  @@index([projectId, status])
+  @@index([artifactId])
 }
 
 // ────────────────────────────── Export ──────────────────────────────
@@ -630,18 +673,18 @@ enum IngestionStatus {
 }
 
 model IngestionRecord {
-  id              String              @id @default(uuid())
-  projectId       String
-  sourceType      IngestionSourceType
-  status          IngestionStatus     @default(DRAFT)
-  title           String
-  sourceName      String              @default("")
-  createdRecords  Json                @default("[]")
-  parserResult    Json?
-  errorMessage    String              @default("")
-  createdById     String
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id             String              @id @default(uuid())
+  projectId      String
+  sourceType     IngestionSourceType
+  status         IngestionStatus     @default(DRAFT)
+  title          String
+  sourceName     String              @default("")
+  createdRecords Json                @default("[]")
+  parserResult   Json?
+  errorMessage   String              @default("")
+  createdById    String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
@@ -670,44 +713,50 @@ enum AiSessionStatus {
 }
 
 model AiSession {
-  id                String          @id @default(uuid())
-  projectId         String
-  kind              AiSessionKind   @default(BOOTSTRAP)
-  status            AiSessionStatus @default(PROPOSED)
-  idea              String
-  model             String          @default("")
-  promptTokens      Int             @default(0)
-  completionTokens  Int             @default(0)
-  proposal          Json?
-  artifactsProposed Int             @default(0)
-  relationsProposed Int             @default(0)
-  diagramsProposed  Int             @default(0)
-  artifactsCreated  Int             @default(0)
-  relationsCreated  Int             @default(0)
-  diagramsCreated   Int             @default(0)
+  id                       String          @id @default(uuid())
+  projectId                String
+  kind                     AiSessionKind   @default(BOOTSTRAP)
+  status                   AiSessionStatus @default(PROPOSED)
+  idea                     String
+  model                    String          @default("")
+  promptTokens             Int             @default(0)
+  completionTokens         Int             @default(0)
+  proposal                 Json?
+  artifactsProposed        Int             @default(0)
+  relationsProposed        Int             @default(0)
+  diagramsProposed         Int             @default(0)
+  artifactsCreated         Int             @default(0)
+  relationsCreated         Int             @default(0)
+  diagramsCreated          Int             @default(0)
   /// Bootstrap V2 (Phase 1 — Database) audit counts. Like the artifact/relation/diagram
   /// counts above: proposed = what the model emitted, created = what apply persisted.
-  databaseModelsProposed   Int        @default(0)
-  databaseEntitiesProposed Int        @default(0)
-  databaseFieldsProposed   Int        @default(0)
-  databaseModelsCreated    Int        @default(0)
-  databaseEntitiesCreated  Int        @default(0)
-  databaseFieldsCreated    Int        @default(0)
+  databaseModelsProposed   Int             @default(0)
+  databaseEntitiesProposed Int             @default(0)
+  databaseFieldsProposed   Int             @default(0)
+  databaseModelsCreated    Int             @default(0)
+  databaseEntitiesCreated  Int             @default(0)
+  databaseFieldsCreated    Int             @default(0)
   /// Bootstrap V2 (Phase 2 — API catalog) audit counts. Same proposed/created split.
-  apiSpecsProposed     Int        @default(0)
-  apiEndpointsProposed Int        @default(0)
-  apiSpecsCreated      Int        @default(0)
-  apiEndpointsCreated  Int        @default(0)
+  apiSpecsProposed         Int             @default(0)
+  apiEndpointsProposed     Int             @default(0)
+  apiSpecsCreated          Int             @default(0)
+  apiEndpointsCreated      Int             @default(0)
   /// Set for REVIEW/ADVISOR sessions: stable hash of the AnalysisResult the review/advisory interpreted (for staleness detection).
-  analysisHash      String?
-  createdById       String
-  appliedById       String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  analysisHash             String?
+  createdById              String
+  appliedById              String?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
 
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy User    @relation("AiSessionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  // The human who confirmed/applied this session (only set for an APPLIED bootstrap).
+  // Optional FK with SetNull — the account-purge path reassigns it to the tombstone
+  // user first, so this only fires for an out-of-band user delete; either way no
+  // dangling id survives. Restrict on createdBy vs. SetNull here mirror their roles:
+  // creation is load-bearing audit, "applied by" is best-effort provenance.
+  appliedBy User?   @relation("AiSessionAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull)
 
-  @@index([projectId])
   @@index([projectId, createdAt(sort: Desc)])
+  @@index([projectId, kind, createdAt(sort: Desc)])
 }

@@ -19,6 +19,10 @@ export function serializeIssue(v: ValidationIssue) {
   return {
     id: v.id,
     projectId: v.projectId,
+    // The finding's polymorphic subject (drives the UI nav target via `meta`).
+    subjectType: v.subjectType,
+    subjectId: v.subjectId,
+    // Real Artifact FK — non-null only for ARTIFACT-subject findings.
     artifactId: v.artifactId,
     severity: v.severity,
     category: v.category,
@@ -42,7 +46,7 @@ export async function enrichIssues(projectId: string, items: ValidationIssue[]) 
 /**
  * Build the resource index `explainIssue` uses to resolve navigation targets.
  * The engine stores either a resource id or its linked artifact id in
- * `artifactId`, so the presenter needs every resource keyed by both.
+ * `subjectId`, so the presenter needs every resource keyed by both.
  */
 async function buildResourceIndex(projectId: string): Promise<ResourceIndex> {
   const [artifacts, specs, models, diagrams] = await Promise.all([
@@ -147,6 +151,8 @@ export async function updateIssue(req: AuthedRequest, res: Response) {
         category: issue.category,
         severity: issue.severity,
         message: issue.message,
+        subjectType: issue.subjectType,
+        subjectId: issue.subjectId,
         artifactId: issue.artifactId,
       },
     });

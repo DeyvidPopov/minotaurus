@@ -58,7 +58,19 @@ export interface SnapshotApiSpec {
 }
 
 export interface SnapshotDatabaseField {
+  id?: string;
   name?: string;
+  type?: string;
+  required?: boolean;
+  isPrimaryKey?: boolean;
+  isForeignKey?: boolean;
+  /** Coarse (entity-level) FK target. */
+  referencesEntityId?: string | null;
+  referencesEntityName?: string | null;
+  /** Precise (column-level) FK target — the exact referenced column. */
+  referencesFieldId?: string | null;
+  referencesFieldName?: string | null;
+  description?: string;
 }
 
 export interface SnapshotDatabaseEntity {
@@ -94,7 +106,11 @@ export interface SnapshotDiagram {
 
 export interface SnapshotIssue {
   id?: string;
-  artifactId?: string;
+  /** Polymorphic subject id (artifact / api-spec / db-model / diagram / project). */
+  subjectId?: string;
+  subjectType?: string;
+  /** Strict Artifact FK — present only for ARTIFACT-subject findings (else null). */
+  artifactId?: string | null;
   severity?: string;
   category?: string;
   message?: string;

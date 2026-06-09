@@ -179,5 +179,41 @@ hr; echo "11. Fetch export"
 EG=$(curl -s "$BASE/api/exports/$EXPORT_ID" "${AUTH[@]}")
 assert_success "GET /api/exports/:id" "$EG"
 
+hr; echo "12. SQL ingestion — precise FK (referencesFieldId)"
+ING=$(curl -s -X POST "$BASE/api/projects/$PROJECT_ID/ingestion/draft" "${AUTH[@]}" \
+  -H "Content-Type: application/json" -d '{"sourceType":"SQL_SCHEMA","title":"fk smoke"}')
+assert_success "POST ingestion/draft (SQL)" "$ING"
+ING_ID=$(jget "$ING" "data.id")
+# users.id PK; orders.user_id → users(id) (normal); invoices.owner_id → customers(id)
+# where customers is declared LATER (forward ref); payments.who → users(ghost_col) (column does NOT exist).
+SQL_BODY='{"sql":"CREATE TABLE users ( id uuid PRIMARY KEY, email text );\nCREATE TABLE orders ( id uuid PRIMARY KEY, user_id uuid REFERENCES users(id) );\nCREATE TABLE invoices ( id uuid PRIMARY KEY, owner_id uuid REFERENCES customers(id) );\nCREATE TABLE customers ( id uuid PRIMARY KEY, name text );\nCREATE TABLE payments ( id uuid PRIMARY KEY, who uuid REFERENCES users(ghost_col) );"}'
+PARSE=$(curl -s -X POST "$BASE/api/ingestion/$ING_ID/parse-sql-schema" "${AUTH[@]}" \
+  -H "Content-Type: application/json" -d "$SQL_BODY")
+assert_success "POST parse-sql-schema" "$PARSE"
+CONF=$(curl -s -X POST "$BASE/api/ingestion/$ING_ID/confirm-sql-schema" "${AUTH[@]}" \
+  -H "Content-Type: application/json" -d '{"mode":"CREATE_DATABASE_MODEL","title":"FK Smoke DB","databaseType":"PostgreSQL"}')
+assert_success "POST confirm-sql-schema" "$CONF"
+DBM_ID=$(jget "$CONF" "data.databaseModel.id")
+ENTS=$(curl -s "$BASE/api/database-models/$DBM_ID/entities" "${AUTH[@]}")
+assert_success "GET database-models/:id/entities" "$ENTS"
+# Normal + forward-ref FKs resolve referencesFieldId; the unresolvable column stays NULL.
+node -e '
+  let s=""; process.stdin.on("data",d=>s+=d).on("end",()=>{
+    const ents=JSON.parse(s).data;
+    const find=(e,f)=>{const en=ents.find(x=>x.name===e);return en&&en.fields.find(y=>y.name===f);};
+    const ord=find("orders","user_id");
+    const inv=find("invoices","owner_id");
+    const pay=find("payments","who");
+    const checks=[
+      ["orders.user_id resolves referencesFieldId", !!(ord&&ord.referencesEntityId&&ord.referencesFieldId)],
+      ["invoices.owner_id resolves (forward ref)", !!(inv&&inv.referencesEntityId&&inv.referencesFieldId)],
+      ["payments.who entity-only (unresolvable column stays NULL)", !!(pay&&pay.referencesEntityId&&!pay.referencesFieldId)],
+    ];
+    let ok=true; for(const[l,v]of checks){ if(!v){ ok=false; console.error("  FAIL: "+l); } }
+    process.exit(ok?0:1);
+  });
+' <<< "$ENTS"
+green "PASS: precise referencesFieldId resolved for normal + forward-ref FKs; NULL for unresolvable column"
+
 hr
 green "All API smoke tests passed."

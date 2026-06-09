@@ -30,7 +30,7 @@ const index: ResourceIndex = {
 };
 
 const issue = (over: Partial<IssueInput>): IssueInput => ({
-  artifactId: ART.id,
+  subjectId: ART.id,
   category: "RELATIONSHIP",
   severity: "WARNING",
   message: `Artifact "${ART.title}" is orphaned — no incoming or outgoing relations.`,
@@ -106,7 +106,7 @@ test("orphan artifact → ARTIFACT target resolved by id", () => {
 
 test("missing documentation → ARTIFACT target with the documentation tab", () => {
   const meta = explainIssue(
-    issue({ artifactId: DOC.id, category: "DOCUMENTATION", message: 'Documentation artifact "Billing Flow" has no documentation content.' }),
+    issue({ subjectId: DOC.id, category: "DOCUMENTATION", message: 'Documentation artifact "Billing Flow" has no documentation content.' }),
     index,
   );
   assert.equal(meta.ruleId, "MISSING_DOCUMENTATION");
@@ -117,7 +117,7 @@ test("missing documentation → ARTIFACT target with the documentation tab", () 
 
 test("project-level issue → TEAM target, no resource id, code suppressed", () => {
   const meta = explainIssue(
-    issue({ artifactId: "proj_1", category: "ARCHITECTURE", message: "PROJECT_LEVEL · Single-user project may reduce collaboration visibility." }),
+    issue({ subjectId: "proj_1", category: "ARCHITECTURE", message: "PROJECT_LEVEL · Single-user project may reduce collaboration visibility." }),
     index,
   );
   assert.equal(meta.ruleId, "SINGLE_MEMBER_PROJECT");
@@ -129,7 +129,7 @@ test("project-level issue → TEAM target, no resource id, code suppressed", () 
 test("API_FIELD_UNMAPPED → API_SPEC target (unlinked spec, by own id) + endpoint + code", () => {
   const meta = explainIssue(
     issue({
-      artifactId: "spec_appt",
+      subjectId: "spec_appt",
       category: "API",
       message: 'API_FIELD_UNMAPPED · POST /appointments: field "doctorId" looks like an entity reference but maps to no database entity',
     }),
@@ -146,7 +146,7 @@ test("API_FIELD_UNMAPPED → API_SPEC target (unlinked spec, by own id) + endpoi
 test("security API issue on a LINKED spec → API_SPEC resolved by linked artifactId", () => {
   const meta = explainIssue(
     issue({
-      artifactId: "art_auth", // the spec's linked artifact id
+      subjectId: "art_auth", // the spec's linked artifact id
       category: "SECURITY",
       message: "USER_SCOPED_ENDPOINT_WITHOUT_AUTH · GET /users/{id}: operates on user-scoped resource but requires no authentication",
     }),
@@ -160,7 +160,7 @@ test("security API issue on a LINKED spec → API_SPEC resolved by linked artifa
 
 test("database FK issue → DATABASE_MODEL target resolved by linked artifactId", () => {
   const meta = explainIssue(
-    issue({ artifactId: "art_db", category: "DATABASE", message: 'Foreign key "Order.userId" references a missing entity.' }),
+    issue({ subjectId: "art_db", category: "DATABASE", message: 'Foreign key "Order.userId" references a missing entity.' }),
     index,
   );
   assert.equal(meta.ruleId, "DB_FK_MISSING_TARGET");
@@ -170,7 +170,7 @@ test("database FK issue → DATABASE_MODEL target resolved by linked artifactId"
 
 test("unlinked architecture diagram → DIAGRAM target resolved by own id", () => {
   const meta = explainIssue(
-    issue({ artifactId: "diag_arch", category: "DIAGRAM", message: 'Architecture diagram "System Architecture" is not linked to an artifact.' }),
+    issue({ subjectId: "diag_arch", category: "DIAGRAM", message: 'Architecture diagram "System Architecture" is not linked to an artifact.' }),
     index,
   );
   assert.equal(meta.ruleId, "DIAGRAM_UNLINKED");
@@ -180,7 +180,7 @@ test("unlinked architecture diagram → DIAGRAM target resolved by own id", () =
 
 test("unresolved target (resource not in index) yields id=null", () => {
   const meta = explainIssue(
-    issue({ artifactId: "ghost_spec", category: "API", message: 'API spec "Gone" has no endpoints.' }),
+    issue({ subjectId: "ghost_spec", category: "API", message: 'API spec "Gone" has no endpoints.' }),
     index,
   );
   assert.equal(meta.target?.kind, "API_SPEC");
@@ -209,7 +209,7 @@ test("every known rule has non-empty why + suggestedFix", () => {
 
 test("explainIssue is deterministic — same input, deep-equal output", () => {
   const i = issue({
-    artifactId: "spec_appt",
+    subjectId: "spec_appt",
     category: "API",
     message: 'API_FIELD_UNMAPPED · POST /appointments: field "doctorId" maps to no entity',
   });

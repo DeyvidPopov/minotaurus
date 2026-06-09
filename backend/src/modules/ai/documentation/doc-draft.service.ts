@@ -95,7 +95,10 @@ async function loadRawDigestInput(
         select: { title: true, type: true },
       }),
       prisma.validationIssue.findMany({
-        where: { projectId, artifactId, status: "OPEN" },
+        // Issues whose subject is THIS artifact (subjectId is the polymorphic
+        // pointer the engine writes; artifactId is the strict FK, set for the same
+        // ARTIFACT-subject rows). subjectId preserves the prior selection exactly.
+        where: { projectId, subjectId: artifactId, status: "OPEN" },
         select: { severity: true, category: true, message: true },
       }),
     ]);

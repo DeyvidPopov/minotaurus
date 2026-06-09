@@ -90,7 +90,7 @@ export function buildValidationAlertEmail(opts: {
   const text = [
     greetingText,
     "",
-    `Validation ran on "${opts.projectName}" and surfaced ${count} new ERROR ${issueWord}:`,
+    `Validation ran on "${opts.projectName}" and surfaced ${count} new high-severity ${issueWord}:`,
     "",
     ...listed.map((m) => `  • ${m}`),
     ...(remaining > 0 ? [`  • …and ${remaining} more.`] : []),
@@ -128,7 +128,7 @@ export function buildValidationAlertEmail(opts: {
 <title>Validation alert</title>
 </head>
 <body style="margin:0;padding:0;background-color:#0a0a0c;color:#f4f4f5;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${count} new ERROR ${issueWord} in ${projectHtml}.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${count} new high-severity ${issueWord} in ${projectHtml}.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0c;">
   <tr>
     <td align="center" style="padding:32px 16px;">
@@ -141,7 +141,7 @@ export function buildValidationAlertEmail(opts: {
         <tr>
           <td style="padding:8px 32px 0 32px;">
             <h1 style="margin:12px 0 4px 0;font-size:20px;font-weight:600;color:#f4f4f5;">Validation alert</h1>
-            <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#a1a1aa;">${greetingHtml} validation on <span style="color:#f4f4f5;font-weight:600;">${projectHtml}</span> surfaced <span style="color:#fca5a5;font-weight:600;">${count} new ERROR ${issueWord}</span>.</p>
+            <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#a1a1aa;">${greetingHtml} validation on <span style="color:#f4f4f5;font-weight:600;">${projectHtml}</span> surfaced <span style="color:#fca5a5;font-weight:600;">${count} new high-severity ${issueWord}</span>.</p>
           </td>
         </tr>
         <tr>

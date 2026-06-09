@@ -1119,7 +1119,7 @@ function appendix(content: ExportSnapshot, plan: ReportPlan): Content[] {
         if (entities.length === 0) out.push(note("No entities."));
         else
           for (const en of entities) {
-            const fields = asArray<{ name?: string; type?: string; isPrimaryKey?: boolean; isForeignKey?: boolean; referencesEntityName?: string | null }>(en.fields);
+            const fields = asArray<{ name?: string; type?: string; isPrimaryKey?: boolean; isForeignKey?: boolean; referencesEntityName?: string | null; referencesFieldName?: string | null }>(en.fields);
             out.push({ text: safe(en.name ?? ""), bold: true, fontSize: 8.5, margin: [0, 3, 0, 1] });
             if (fields.length === 0) out.push(note("No fields."));
             else
@@ -1135,7 +1135,10 @@ function appendix(content: ExportSnapshot, plan: ReportPlan): Content[] {
                     safe(f.name ?? ""),
                     safe(f.type ?? ""),
                     f.isPrimaryKey ? "PK" : f.isForeignKey ? "FK" : "",
-                    f.referencesEntityName ? `-> ${safe(f.referencesEntityName)}` : "",
+                    // Show the EXACT referenced column when pinned, else the entity.
+                    f.referencesEntityName
+                      ? `-> ${safe(f.referencesEntityName)}${f.referencesFieldName ? `.${safe(f.referencesFieldName)}` : ""}`
+                      : "",
                   ]),
                 ),
               );

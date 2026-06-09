@@ -324,6 +324,19 @@ async function main() {
     ],
   });
 
+  // Refine the sessions.user_id FK to point at the PRECISE target column (users.id),
+  // not just the users entity — exercises the new column-level FK (referencesFieldId).
+  // createMany returns no ids, so resolve the two fields and link them afterwards.
+  const usersPk = await prisma.databaseField.findFirst({
+    where: { entityId: usersEntity.id, name: "id" },
+  });
+  if (usersPk) {
+    await prisma.databaseField.updateMany({
+      where: { entityId: sessionsEntity.id, name: "user_id" },
+      data: { referencesFieldId: usersPk.id },
+    });
+  }
+
   // ── Diagram ──
   const archDiagram = await prisma.diagram.create({
     data: {

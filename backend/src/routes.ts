@@ -49,6 +49,7 @@ import {
 import { projectAiRouter } from "./modules/ai/ai.routes.js";
 import { projectApiIntelRouter } from "./modules/api-intel/api-intel.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
+import { dashboardRouter } from "./modules/dashboard/dashboard.routes.js";
 import { requireAuth } from "./middleware/auth.js";
 import { fail, ok } from "./utils/response.js";
 import { prisma } from "./lib/prisma.js";
@@ -82,6 +83,7 @@ apiRouter.get("/health/db", async (_req, res) => {
 
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/settings", requireAuth, settingsRouter);
+apiRouter.use("/dashboard", requireAuth, dashboardRouter);
 
 apiRouter.use("/projects", requireAuth, projectsRouter);
 apiRouter.use("/projects/:projectId/artifacts", requireAuth, projectArtifactsRouter);

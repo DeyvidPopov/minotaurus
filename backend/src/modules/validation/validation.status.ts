@@ -4,7 +4,9 @@
 // runValidationForProject wipes and recreates every issue row on each run, so a
 // manual triage decision would otherwise revert to OPEN. Issue rows get fresh
 // ids on every run, so we re-identify "the same finding" by a deterministic
-// content fingerprint — artifactId | category | severity | message — not by id.
+// content fingerprint — subjectId | category | severity | message — not by id.
+// (subjectId is the finding's polymorphic subject — artifact / api-spec / db-model
+// / diagram / project — i.e. the value formerly stored in the artifactId column.)
 //
 // Only IGNORED is carried forward, and the asymmetry is deliberate:
 //   - IGNORED = "accepted / won't fix". If the finding recurs it stays waived.
@@ -19,13 +21,13 @@ import type { IssueStatus } from "@prisma/client";
 import { stripFindingCode } from "../findings/finding-classifier.js";
 
 export interface IssueFingerprintInput {
-  artifactId: string;
+  subjectId: string;
   category: string;
   severity: string;
   message: string;
 }
 
-// "|" is collision-free here: artifactId/category/severity never contain it,
+// "|" is collision-free here: subjectId/category/severity never contain it,
 // and message is the trailing field, so any "|" inside it can't shift a
 // boundary. Order is fixed, so the fingerprint is deterministic.
 const SEP = "|";
@@ -33,9 +35,10 @@ const SEP = "|";
 // Fingerprint on the CODE-stripped message so a finding keeps a stable identity
 // even if its message gains or loses a "CODE · " prefix between runs. Without
 // this, adding a code prefix would silently reset a user's IGNORED (waived)
-// decision on the next validation run.
+// decision on the next validation run. Keyed on subjectId (the value the
+// artifactId column held pre-normalization), so existing waivers stay stable.
 export function issueFingerprint(issue: IssueFingerprintInput): string {
-  return [issue.artifactId, issue.category, issue.severity, stripFindingCode(issue.message)].join(SEP);
+  return [issue.subjectId, issue.category, issue.severity, stripFindingCode(issue.message)].join(SEP);
 }
 
 /**
@@ -73,12 +76,14 @@ export function restoreIssueStatuses<
 }
 
 /**
- * Select the NEWLY-surfaced OPEN ERROR findings from a run's (status-restored)
- * drafts — i.e. ERROR/OPEN issues whose fingerprint was NOT present before this
- * run. This is the dedup gate for validation-alert emails (Option A): a still-
- * open ERROR, a waived (IGNORED) ERROR, or one already seen on a prior run (any
- * prior status, including RESOLVED) is NOT re-alerted, so reruns over the same
- * unresolved findings don't spam the owner.
+ * Select the NEWLY-surfaced OPEN high-severity findings from a run's (status-
+ * restored) drafts — i.e. ERROR **or CRITICAL**, OPEN, whose fingerprint was NOT
+ * present before this run. This is the dedup gate for validation-alert emails
+ * (Option A): a still-open finding, a waived (IGNORED) one, or one already seen
+ * on a prior run (any prior status, including RESOLVED) is NOT re-alerted, so
+ * reruns over the same unresolved findings don't spam the owner. CRITICAL is
+ * included because it is *more* severe than ERROR — the alert would be useless
+ * if it skipped the worst findings.
  *
  * Pure + deterministic. Pass `previousFingerprints` = the set of
  * `issueFingerprint(...)` over the issues that existed before the run.
@@ -88,7 +93,7 @@ export function selectNewErrorIssues<
 >(drafts: T[], previousFingerprints: ReadonlySet<string>): T[] {
   return drafts.filter(
     (d) =>
-      d.severity === "ERROR" &&
+      (d.severity === "ERROR" || d.severity === "CRITICAL") &&
       d.status === "OPEN" &&
       !previousFingerprints.has(issueFingerprint(d)),
   );

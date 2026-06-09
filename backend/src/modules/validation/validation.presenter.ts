@@ -77,7 +77,13 @@ export interface ResourceIndex {
 }
 
 export interface IssueInput {
-  artifactId: string;
+  /**
+   * The finding's polymorphic subject id — an artifact / api-spec / db-model /
+   * diagram / project id, depending on the rule. Drives target resolution. (This
+   * is the value the ValidationIssue.artifactId column carried before it became a
+   * true Artifact FK; the resource id moved to the subjectId column.)
+   */
+  subjectId: string;
   category: string;
   severity: string;
   message: string;
@@ -92,10 +98,10 @@ export function classifyIssue(input: IssueInput): string {
   return classifyFindingFromIssue(input);
 }
 
-function findResource(refs: ResourceRef[], artifactId: string): ResourceRef | undefined {
+function findResource(refs: ResourceRef[], subjectId: string): ResourceRef | undefined {
   // Prefer an exact own-id match (unlinked resource stored its own id), then a
   // linked-artifact match (resource linked to an artifact stored the artifact id).
-  return refs.find((r) => r.id === artifactId) ?? refs.find((r) => r.artifactId === artifactId);
+  return refs.find((r) => r.id === subjectId) ?? refs.find((r) => r.artifactId === subjectId);
 }
 
 function resolveTarget(
@@ -110,11 +116,11 @@ function resolveTarget(
     case "PROJECT": // project-scoped findings navigate to the Team page
       return { kind: "TEAM", id: null, title: null };
     case "ARTIFACT": {
-      const a = index.artifactsById.get(issue.artifactId);
+      const a = index.artifactsById.get(issue.subjectId);
       return { kind: "ARTIFACT", id: a ? a.id : null, title: a ? a.title : null, ...(tab ? { tab } : {}) };
     }
     case "API_SPEC": {
-      const s = findResource(index.specs, issue.artifactId);
+      const s = findResource(index.specs, issue.subjectId);
       const ep = ENDPOINT_RE.exec(cleanMessage);
       return {
         kind: "API_SPEC",
@@ -124,11 +130,11 @@ function resolveTarget(
       };
     }
     case "DATABASE_MODEL": {
-      const mdl = findResource(index.models, issue.artifactId);
+      const mdl = findResource(index.models, issue.subjectId);
       return { kind: "DATABASE_MODEL", id: mdl ? mdl.id : null, title: mdl ? mdl.title : null };
     }
     case "DIAGRAM": {
-      const d = findResource(index.diagrams, issue.artifactId);
+      const d = findResource(index.diagrams, issue.subjectId);
       return { kind: "DIAGRAM", id: d ? d.id : null, title: d ? d.title : null };
     }
   }

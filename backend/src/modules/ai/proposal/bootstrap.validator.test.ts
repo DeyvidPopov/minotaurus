@@ -332,6 +332,53 @@ test("FK referencesEntityName resolves to a sibling entity → field accepted + 
   assert.equal(playerFields[1].resolvedReference, true);
 });
 
+// ── precise FK column (referencesFieldName) — optional, advisory ──
+
+function teamPlayerModel(refFieldName?: string | null): ProposedDatabaseModel {
+  return dbModel({
+    entities: [
+      { name: "Team", confidence: 0.9, fields: [{ name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 }] },
+      {
+        name: "Player",
+        confidence: 0.9,
+        fields: [
+          { name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 },
+          { name: "team_id", type: "uuid", required: true, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "Team", referencesFieldName: refFieldName ?? null, confidence: 0.8 },
+        ],
+      },
+    ],
+  });
+}
+
+test("referencesFieldName that matches a column of the referenced entity → resolvedFieldReference true", () => {
+  const r = validateBootstrapProposal(dbOnly([teamPlayerModel("id")]), emptyCtx());
+  const fk = r.databaseModels[0].entities[1].fields[1];
+  assert.equal(fk.accepted, true);
+  assert.equal(fk.resolvedReference, true);
+  assert.equal(fk.resolvedFieldReference, true);
+});
+
+test("referencesFieldName that does NOT match a column → field still accepted, resolvedFieldReference false", () => {
+  const r = validateBootstrapProposal(dbOnly([teamPlayerModel("nonexistent")]), emptyCtx());
+  const fk = r.databaseModels[0].entities[1].fields[1];
+  assert.equal(fk.accepted, true); // never rejected for an unmatched precise column
+  assert.equal(fk.resolvedReference, true);
+  assert.equal(fk.resolvedFieldReference, false);
+});
+
+test("no referencesFieldName → resolvedFieldReference is absent (PK fallback happens at apply)", () => {
+  const r = validateBootstrapProposal(dbOnly([teamPlayerModel(null)]), emptyCtx());
+  const fk = r.databaseModels[0].entities[1].fields[1];
+  assert.equal(fk.accepted, true);
+  assert.equal(fk.resolvedReference, true);
+  assert.equal(fk.resolvedFieldReference, undefined);
+});
+
+test("referencesFieldName match is case-insensitive", () => {
+  const r = validateBootstrapProposal(dbOnly([teamPlayerModel("ID")]), emptyCtx());
+  assert.equal(r.databaseModels[0].entities[1].fields[1].resolvedFieldReference, true);
+});
+
 test("FK to a forward-declared sibling resolves (order-independent within the model)", () => {
   // Player references Team, but Team is declared AFTER Player. Pass 1 fixes the
   // entity set before pass 2 resolves FKs, so declaration order doesn't matter.

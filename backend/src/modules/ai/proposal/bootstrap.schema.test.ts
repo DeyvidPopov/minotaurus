@@ -131,6 +131,57 @@ test("lenient field flags/type coerce rather than throw", () => {
   }
 });
 
+test("optional precise FK column (referencesFieldName) parses when present", () => {
+  const r = bootstrapProposalSchema.safeParse({
+    ...CORE,
+    databaseModels: [
+      {
+        title: "DB",
+        databaseType: "PostgreSQL",
+        entities: [
+          {
+            name: "Player",
+            confidence: 0.9,
+            fields: [
+              { name: "id", type: "uuid", required: true, isPrimaryKey: true, isForeignKey: false, confidence: 0.9 },
+              { name: "team_id", type: "uuid", required: true, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "Team", referencesFieldName: "id", confidence: 0.8 },
+            ],
+          },
+        ],
+        confidence: 0.9,
+      },
+    ],
+  });
+  assert.equal(r.success, true);
+  if (r.success) assert.equal(r.data.databaseModels[0].entities[0].fields[1].referencesFieldName, "id");
+});
+
+test("back-compat: a field WITHOUT referencesFieldName still parses (optional)", () => {
+  const r = bootstrapProposalSchema.safeParse({
+    ...CORE,
+    databaseModels: [
+      {
+        title: "DB",
+        databaseType: "PostgreSQL",
+        entities: [
+          {
+            name: "Player",
+            confidence: 0.9,
+            fields: [{ name: "team_id", type: "uuid", required: true, isPrimaryKey: false, isForeignKey: true, referencesEntityName: "Team", confidence: 0.8 }],
+          },
+        ],
+        confidence: 0.9,
+      },
+    ],
+  });
+  assert.equal(r.success, true);
+  if (r.success) {
+    const f = r.data.databaseModels[0].entities[0].fields[0];
+    // Absent → null (nullable optional with catch), never throws.
+    assert.equal(f.referencesFieldName ?? null, null);
+  }
+});
+
 test("caps are enforced: more than 4 models is rejected", () => {
   const model = {
     title: "DB",

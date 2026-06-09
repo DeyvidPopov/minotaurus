@@ -2,7 +2,7 @@
 // Wipes existing issues for the project, recomputes them, and writes a single
 // VALIDATED version event recording the outcome.
 
-import type { ValidationIssue } from "@prisma/client";
+import type { ValidationIssue, ValidationSubjectType } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { analyzeApiValidation } from "../api-intel/api-validation.js";
@@ -18,6 +18,7 @@ import { PROJECT_LEVEL_PREFIX } from "./validation.constants.js";
 import { analyzeArchitectureFindings } from "../findings/finding-rules.js";
 import { getFinding } from "../findings/finding-catalog.js";
 import { analyzeMissingDocumentation } from "../findings/documentation-rule.js";
+import { analyzeForeignKeyFindings } from "../findings/database-fk-rule.js";
 
 // Re-exported for back-compat; the canonical definition lives in
 // validation.constants.ts (prisma-free, so the presenter can share it).
@@ -27,10 +28,29 @@ const CHURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** A newly-surfaced OPEN ERROR finding, reduced to what the notification layer needs. */
 export interface NewErrorIssue {
-  artifactId: string;
+  /** The finding's polymorphic subject id (artifact / api-spec / db-model / …). */
+  subjectId: string;
   category: string;
   message: string;
 }
+
+/**
+ * A validation finding's subject: the polymorphic resource it concerns. `subjectId`
+ * is the resource id used for UI navigation + the rerun fingerprint; `artifactId`
+ * is the real (nullable) Artifact FK, populated ONLY for ARTIFACT subjects so the
+ * column stays referentially valid (an api-spec / db-model / diagram / project id
+ * is NOT an artifact and would violate the FK).
+ */
+interface IssueSubject {
+  subjectType: ValidationSubjectType;
+  subjectId: string;
+  artifactId: string | null;
+}
+const artifactSubject = (id: string): IssueSubject => ({ subjectType: "ARTIFACT", subjectId: id, artifactId: id });
+const apiSpecSubject = (id: string): IssueSubject => ({ subjectType: "API_SPEC", subjectId: id, artifactId: null });
+const databaseModelSubject = (id: string): IssueSubject => ({ subjectType: "DATABASE_MODEL", subjectId: id, artifactId: null });
+const diagramSubject = (id: string): IssueSubject => ({ subjectType: "DIAGRAM", subjectId: id, artifactId: null });
+const projectSubject = (id: string): IssueSubject => ({ subjectType: "PROJECT", subjectId: id, artifactId: null });
 
 /**
  * Result of a validation run. `issues` is the full recomputed set (as before);
@@ -78,8 +98,6 @@ export async function runValidationForProject(
   const projectRelations = relations.filter(
     (r) => artifactIds.has(r.sourceArtifactId) && artifactIds.has(r.targetArtifactId),
   );
-  const entityIds = new Set(databaseEntities.map((e) => e.id));
-
   type DraftIssue = Omit<ValidationIssue, "id" | "createdAt" | "updatedAt">;
   const drafts: DraftIssue[] = [];
 
@@ -100,7 +118,7 @@ export async function runValidationForProject(
   )) {
     drafts.push({
       projectId,
-      artifactId: f.artifactId,
+      ...artifactSubject(f.artifactId),
       severity: "WARNING",
       category: "DOCUMENTATION",
       message: f.message,
@@ -117,7 +135,7 @@ export async function runValidationForProject(
       if (!secures) {
         drafts.push({
           projectId,
-          artifactId: a.id,
+          ...artifactSubject(a.id),
           severity: "WARNING",
           category: "SECURITY",
           message: `Security policy "${a.title}" has no SECURES outgoing relation.`,
@@ -137,7 +155,7 @@ export async function runValidationForProject(
     if (specEndpoints.length === 0) {
       drafts.push({
         projectId,
-        artifactId: spec.artifactId ?? spec.id,
+        ...apiSpecSubject(spec.artifactId ?? spec.id),
         severity: "WARNING",
         category: "API",
         message: `API spec "${spec.title}" has no endpoints.`,
@@ -154,7 +172,7 @@ export async function runValidationForProject(
       if (!ep.summary || !ep.summary.trim()) {
         drafts.push({
           projectId,
-          artifactId: spec.artifactId ?? spec.id,
+          ...apiSpecSubject(spec.artifactId ?? spec.id),
           severity: "WARNING",
           category: "API",
           message: `Endpoint ${ep.method} ${ep.path} in "${spec.title}" has no summary.`,
@@ -167,7 +185,7 @@ export async function runValidationForProject(
       if (isSecuritySpec && !ep.requiresAuth && !isAuthActionPath(ep.path)) {
         drafts.push({
           projectId,
-          artifactId: spec.artifactId ?? spec.id,
+          ...apiSpecSubject(spec.artifactId ?? spec.id),
           severity: "WARNING",
           category: "SECURITY",
           message: `Endpoint ${ep.method} ${ep.path} on security-related spec "${spec.title}" is marked public (requiresAuth=false).`,
@@ -184,7 +202,7 @@ export async function runValidationForProject(
     if (modelEntities.length === 0) {
       drafts.push({
         projectId,
-        artifactId: model.artifactId ?? model.id,
+        ...databaseModelSubject(model.artifactId ?? model.id),
         severity: "WARNING",
         category: "DATABASE",
         message: `Database model "${model.title}" has no entities.`,
@@ -197,7 +215,7 @@ export async function runValidationForProject(
       if (entityFields.length === 0) {
         drafts.push({
           projectId,
-          artifactId: model.artifactId ?? model.id,
+          ...databaseModelSubject(model.artifactId ?? model.id),
           severity: "WARNING",
           category: "DATABASE",
           message: `Entity "${entity.name}" in "${model.title}" has no fields.`,
@@ -206,7 +224,7 @@ export async function runValidationForProject(
       } else if (!entityFields.some((f) => f.isPrimaryKey)) {
         drafts.push({
           projectId,
-          artifactId: model.artifactId ?? model.id,
+          ...databaseModelSubject(model.artifactId ?? model.id),
           severity: "WARNING",
           category: "DATABASE",
           message: `Entity "${entity.name}" in "${model.title}" has no primary key.`,
@@ -214,29 +232,41 @@ export async function runValidationForProject(
         });
       }
 
-      for (const field of entityFields) {
-        if (field.isForeignKey || field.referencesEntityId) {
-          if (!field.referencesEntityId) {
-            drafts.push({
-              projectId,
-              artifactId: model.artifactId ?? model.id,
-              severity: "ERROR",
-              category: "DATABASE",
-              message: `Foreign key "${entity.name}.${field.name}" has no target entity.`,
-              status: "OPEN",
-            });
-          } else if (!entityIds.has(field.referencesEntityId)) {
-            drafts.push({
-              projectId,
-              artifactId: model.artifactId ?? model.id,
-              severity: "ERROR",
-              category: "DATABASE",
-              message: `Foreign key "${entity.name}.${field.name}" references a missing entity.`,
-              status: "OPEN",
-            });
-          }
-        }
-      }
+    }
+  }
+
+  // ── Foreign-key integrity (shared pure rule — ONE implementation of the FK
+  //    heuristics, also unit-tested directly). Covers target existence (entity +
+  //    precise column), cross-model references, column/entity mismatch, and the
+  //    precise-column / non-key advisories. Severity/category come from the catalog
+  //    by code so identity stays single-sourced. ──
+  {
+    const modelById = new Map(databaseModels.map((m) => [m.id, m]));
+    const fkFindings = analyzeForeignKeyFindings({
+      models: databaseModels.map((m) => ({ id: m.id, artifactId: m.artifactId })),
+      entities: databaseEntities.map((e) => ({ id: e.id, name: e.name, databaseModelId: e.databaseModelId })),
+      fields: databaseFields.map((f) => ({
+        id: f.id,
+        entityId: f.entityId,
+        name: f.name,
+        isPrimaryKey: f.isPrimaryKey,
+        isForeignKey: f.isForeignKey,
+        referencesEntityId: f.referencesEntityId,
+        referencesFieldId: f.referencesFieldId,
+        description: f.description,
+      })),
+    });
+    for (const f of fkFindings) {
+      const entry = getFinding(f.code)!; // every FK code is in the catalog
+      const model = modelById.get(f.modelId);
+      drafts.push({
+        projectId,
+        ...databaseModelSubject(model ? model.artifactId ?? model.id : f.modelId),
+        severity: entry.severity,
+        category: entry.category,
+        message: f.message,
+        status: "OPEN",
+      });
     }
   }
 
@@ -257,7 +287,7 @@ export async function runValidationForProject(
     if (!src.trim()) {
       drafts.push({
         projectId,
-        artifactId: diagram.artifactId ?? diagram.id,
+        ...diagramSubject(diagram.artifactId ?? diagram.id),
         severity: "WARNING",
         category: "DIAGRAM",
         message: `Diagram "${diagram.title}" has an empty Mermaid source.`,
@@ -273,7 +303,7 @@ export async function runValidationForProject(
         if (!arrowOk) reasons.push("no relations/arrows detected");
         drafts.push({
           projectId,
-          artifactId: diagram.artifactId ?? diagram.id,
+          ...diagramSubject(diagram.artifactId ?? diagram.id),
           severity: "WARNING",
           category: "DIAGRAM",
           message: `Diagram "${diagram.title}" may be invalid Mermaid (${reasons.join(", ")}).`,
@@ -284,7 +314,7 @@ export async function runValidationForProject(
     if (diagram.type === "ARCHITECTURE" && !diagram.artifactId) {
       drafts.push({
         projectId,
-        artifactId: diagram.id,
+        ...diagramSubject(diagram.id),
         severity: "INFO",
         category: "DIAGRAM",
         message: `Architecture diagram "${diagram.title}" is not linked to an artifact.`,
@@ -313,7 +343,7 @@ export async function runValidationForProject(
     const entry = getFinding(f.code)!; // every architecture code is in the catalog
     drafts.push({
       projectId,
-      artifactId: f.artifactId,
+      ...artifactSubject(f.artifactId),
       severity: entry.severity,
       category: entry.category,
       message: f.message,
@@ -322,15 +352,14 @@ export async function runValidationForProject(
   }
 
   // ── Collaboration / governance heuristics ──
-  // This finding is project-level, not about any single artifact. `artifactId`
-  // is a required column (no FK), so we can't store null without a migration;
-  // instead we use the explicit project-level convention: store the projectId
-  // (never resolves to an artifact) and prefix the message with PROJECT_LEVEL_PREFIX
-  // so the UI renders "Project" instead of falling back to an arbitrary artifact.
+  // This finding is project-level, not about any single artifact. It uses the
+  // PROJECT subject (subjectId = projectId, artifactId = null → never resolves to an
+  // artifact) and prefixes the message with PROJECT_LEVEL_PREFIX so the UI renders
+  // "Project" (→ Team page) instead of falling back to an arbitrary artifact.
   if (project && artifacts.length > 0 && memberCount <= 1) {
     drafts.push({
       projectId,
-      artifactId: projectId,
+      ...projectSubject(projectId),
       severity: "INFO",
       category: "ARCHITECTURE",
       message: `${PROJECT_LEVEL_PREFIX}Single-user project may reduce collaboration visibility. Consider inviting team members on the Team page.`,
@@ -374,7 +403,7 @@ export async function runValidationForProject(
   for (const f of analyzeApiValidation(apiValidationInput)) {
     drafts.push({
       projectId,
-      artifactId: specArtifactById.get(f.apiSpecId) ?? f.apiSpecId,
+      ...apiSpecSubject(specArtifactById.get(f.apiSpecId) ?? f.apiSpecId),
       severity: f.severity,
       category: f.category,
       message: `${f.code} · ${f.message}`,
@@ -389,7 +418,7 @@ export async function runValidationForProject(
   const { issues, newErrorIssues } = await prisma.$transaction(async (tx) => {
     const previous = await tx.validationIssue.findMany({
       where: { projectId },
-      select: { artifactId: true, category: true, severity: true, message: true, status: true },
+      select: { subjectId: true, category: true, severity: true, message: true, status: true },
     });
     const restored = restoreIssueStatuses(drafts, buildStatusSnapshot(previous));
 
@@ -409,7 +438,7 @@ export async function runValidationForProject(
     return {
       issues: persisted,
       newErrorIssues: newErrorDrafts.map((d) => ({
-        artifactId: d.artifactId,
+        subjectId: d.subjectId,
         category: d.category,
         message: d.message,
       })),

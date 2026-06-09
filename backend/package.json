@@ -13,6 +13,8 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "seed": "tsx scripts/seed-demo.ts",
     "seed:testbed": "tsx scripts/seed-payload-testbed.ts",
+    "seed:impact": "tsx scripts/seed-impact-demo.ts",
+    "send:digest": "tsx scripts/send-weekly-digest.ts",
     "test:api": "bash scripts/test-api.sh",
     "test:unit": "node --import tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",

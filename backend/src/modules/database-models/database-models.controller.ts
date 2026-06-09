@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { DatabaseType, ProjectRole, type DatabaseEntity, type DatabaseField, type DatabaseModel } from "@prisma/client";
+import { DatabaseType, Prisma, ProjectRole, type DatabaseEntity, type DatabaseField, type DatabaseModel } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
@@ -8,6 +8,51 @@ import { recordVersionEvent } from "../versions/versions.engine.js";
 import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 
 const DATABASE_TYPES = Object.values(DatabaseType) as [DatabaseType, ...DatabaseType[]];
+
+/** True for a Prisma unique-constraint (P2002) violation — mapped to a clean 409. */
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+}
+
+/**
+ * Validate + normalize a field's FK target against the DB-enforced model scope.
+ * `referencesEntityId` is the coarse (entity) target kept for UI/ERD; the new
+ * `referencesFieldId` is the precise target column (normally the referenced
+ * entity's PK / a unique column). BOTH must resolve inside the SAME database model;
+ * a column target must sit in the referenced entity. When only the column is given
+ * the entity pointer is derived from it so the two never drift. Returns the resolved
+ * pair, or an error string the caller maps to 400 INVALID_FK.
+ */
+async function resolveFieldFkTargets(
+  databaseModelId: string,
+  refEntityId: string | null | undefined,
+  refFieldId: string | null | undefined,
+): Promise<{ referencesEntityId: string | null; referencesFieldId: string | null } | { error: string }> {
+  let entityId = refEntityId ?? null;
+  const fieldId = refFieldId ?? null;
+
+  if (entityId) {
+    const target = await prisma.databaseEntity.findUnique({ where: { id: entityId } });
+    if (!target || target.databaseModelId !== databaseModelId) {
+      return { error: "Foreign key target must belong to the same database model" };
+    }
+  }
+  if (fieldId) {
+    const targetField = await prisma.databaseField.findUnique({
+      where: { id: fieldId },
+      include: { entity: { select: { id: true, databaseModelId: true } } },
+    });
+    if (!targetField || targetField.entity.databaseModelId !== databaseModelId) {
+      return { error: "Foreign key target column must belong to the same database model" };
+    }
+    if (entityId && targetField.entityId !== entityId) {
+      return { error: "Foreign key target column must belong to the referenced entity" };
+    }
+    // Keep the coarse entity pointer consistent with the precise column.
+    if (!entityId) entityId = targetField.entityId;
+  }
+  return { referencesEntityId: entityId, referencesFieldId: fieldId };
+}
 
 async function serializeModel(m: DatabaseModel) {
   const entityCount = await prisma.databaseEntity.count({ where: { databaseModelId: m.id } });
@@ -48,6 +93,7 @@ function serializeField(f: DatabaseField) {
     isPrimaryKey: f.isPrimaryKey,
     isForeignKey: f.isForeignKey,
     referencesEntityId: f.referencesEntityId,
+    referencesFieldId: f.referencesFieldId,
     description: f.description,
   };
 }
@@ -122,6 +168,7 @@ const createFieldSchema = z.object({
   isPrimaryKey: z.boolean().optional().default(false),
   isForeignKey: z.boolean().optional().default(false),
   referencesEntityId: z.string().nullable().optional(),
+  referencesFieldId: z.string().nullable().optional(),
   description: z.string().optional().default(""),
 });
 
@@ -132,6 +179,7 @@ const patchFieldSchema = z.object({
   isPrimaryKey: z.boolean().optional(),
   isForeignKey: z.boolean().optional(),
   referencesEntityId: z.string().nullable().optional(),
+  referencesFieldId: z.string().nullable().optional(),
   description: z.string().optional(),
 });
 
@@ -302,13 +350,20 @@ export async function createEntity(req: AuthedRequest, res: Response) {
   const parsed = createEntitySchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const row = await prisma.databaseEntity.create({
-    data: {
-      databaseModelId: modelResult.row.id,
-      name: parsed.data.name,
-      description: parsed.data.description,
-    },
-  });
+  let row: DatabaseEntity;
+  try {
+    row = await prisma.databaseEntity.create({
+      data: {
+        databaseModelId: modelResult.row.id,
+        name: parsed.data.name,
+        description: parsed.data.description,
+      },
+    });
+  } catch (err) {
+    // DB-enforced @@unique([databaseModelId, name]) — clean 409, race-safe.
+    if (isUniqueViolation(err)) return fail(res, 409, "ENTITY_NAME_TAKEN", `An entity named "${parsed.data.name}" already exists in this model.`);
+    throw err;
+  }
   await prisma.databaseModel.update({
     where: { id: modelResult.row.id },
     data: { updatedAt: new Date() },
@@ -336,13 +391,19 @@ export async function patchEntity(req: AuthedRequest, res: Response) {
       ? fail(res, 404, "NOT_FOUND", "Entity not found")
       : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
-  const updated = await prisma.databaseEntity.update({
-    where: { id: result.row.id },
-    data: {
-      ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
-      ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
-    },
-  });
+  let updated: DatabaseEntity;
+  try {
+    updated = await prisma.databaseEntity.update({
+      where: { id: result.row.id },
+      data: {
+        ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+      },
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) return fail(res, 409, "ENTITY_NAME_TAKEN", `An entity named "${parsed.data.name}" already exists in this model.`);
+    throw err;
+  }
   await prisma.databaseModel.update({
     where: { id: result.model.id },
     data: { updatedAt: new Date() },
@@ -395,27 +456,33 @@ export async function createField(req: AuthedRequest, res: Response) {
   const parsed = createFieldSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  if (parsed.data.referencesEntityId) {
-    const target = await prisma.databaseEntity.findUnique({
-      where: { id: parsed.data.referencesEntityId },
-    });
-    if (!target || target.databaseModelId !== entityResult.row.databaseModelId) {
-      return fail(res, 400, "INVALID_FK", "Foreign key target must belong to the same database model");
-    }
-  }
+  const fk = await resolveFieldFkTargets(
+    entityResult.row.databaseModelId,
+    parsed.data.referencesEntityId,
+    parsed.data.referencesFieldId,
+  );
+  if ("error" in fk) return fail(res, 400, "INVALID_FK", fk.error);
 
-  const row = await prisma.databaseField.create({
-    data: {
-      entityId: entityResult.row.id,
-      name: parsed.data.name,
-      type: parsed.data.type,
-      required: parsed.data.required,
-      isPrimaryKey: parsed.data.isPrimaryKey,
-      isForeignKey: parsed.data.isForeignKey || !!parsed.data.referencesEntityId,
-      referencesEntityId: parsed.data.referencesEntityId ?? null,
-      description: parsed.data.description,
-    },
-  });
+  let row: DatabaseField;
+  try {
+    row = await prisma.databaseField.create({
+      data: {
+        entityId: entityResult.row.id,
+        name: parsed.data.name,
+        type: parsed.data.type,
+        required: parsed.data.required,
+        isPrimaryKey: parsed.data.isPrimaryKey,
+        isForeignKey: parsed.data.isForeignKey || !!fk.referencesEntityId || !!fk.referencesFieldId,
+        referencesEntityId: fk.referencesEntityId,
+        referencesFieldId: fk.referencesFieldId,
+        description: parsed.data.description,
+      },
+    });
+  } catch (err) {
+    // DB-enforced @@unique([entityId, name]) — clean 409, race-safe.
+    if (isUniqueViolation(err)) return fail(res, 409, "FIELD_NAME_TAKEN", `A field named "${parsed.data.name}" already exists in this entity.`);
+    throw err;
+  }
   await prisma.databaseEntity.update({
     where: { id: entityResult.row.id },
     data: { updatedAt: new Date() },
@@ -448,36 +515,43 @@ export async function patchField(req: AuthedRequest, res: Response) {
       : fail(res, 403, "FORBIDDEN", "Forbidden");
   }
 
-  if (parsed.data.referencesEntityId !== undefined && parsed.data.referencesEntityId !== null) {
-    const target = await prisma.databaseEntity.findUnique({
-      where: { id: parsed.data.referencesEntityId },
-    });
-    if (!target || target.databaseModelId !== result.entity.databaseModelId) {
-      return fail(res, 400, "INVALID_FK", "Foreign key target must belong to the same database model");
-    }
+  // Resolve + validate the FK target (entity + precise column) only when the patch
+  // touches either pointer. An absent value falls back to the existing row so the
+  // two stay consistent (and a column target stays inside its referenced entity).
+  let fkData: Prisma.DatabaseFieldUncheckedUpdateInput = {};
+  if (parsed.data.referencesEntityId !== undefined || parsed.data.referencesFieldId !== undefined) {
+    const refEntityId =
+      parsed.data.referencesEntityId !== undefined ? parsed.data.referencesEntityId : result.row.referencesEntityId;
+    const refFieldId =
+      parsed.data.referencesFieldId !== undefined ? parsed.data.referencesFieldId : result.row.referencesFieldId;
+    const fk = await resolveFieldFkTargets(result.entity.databaseModelId, refEntityId, refFieldId);
+    if ("error" in fk) return fail(res, 400, "INVALID_FK", fk.error);
+    fkData = {
+      referencesEntityId: fk.referencesEntityId,
+      referencesFieldId: fk.referencesFieldId,
+      // Setting any FK target implies the column is a foreign key.
+      ...(fk.referencesEntityId || fk.referencesFieldId ? { isForeignKey: true } : {}),
+    };
   }
 
-  const updated = await prisma.databaseField.update({
-    where: { id: result.row.id },
-    data: {
-      ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
-      ...(parsed.data.type !== undefined ? { type: parsed.data.type } : {}),
-      ...(parsed.data.required !== undefined ? { required: parsed.data.required } : {}),
-      ...(parsed.data.isPrimaryKey !== undefined
-        ? { isPrimaryKey: parsed.data.isPrimaryKey }
-        : {}),
-      ...(parsed.data.isForeignKey !== undefined
-        ? { isForeignKey: parsed.data.isForeignKey }
-        : {}),
-      ...(parsed.data.referencesEntityId !== undefined
-        ? {
-            referencesEntityId: parsed.data.referencesEntityId,
-            ...(parsed.data.referencesEntityId ? { isForeignKey: true } : {}),
-          }
-        : {}),
-      ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
-    },
-  });
+  let updated: DatabaseField;
+  try {
+    updated = await prisma.databaseField.update({
+      where: { id: result.row.id },
+      data: {
+        ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+        ...(parsed.data.type !== undefined ? { type: parsed.data.type } : {}),
+        ...(parsed.data.required !== undefined ? { required: parsed.data.required } : {}),
+        ...(parsed.data.isPrimaryKey !== undefined ? { isPrimaryKey: parsed.data.isPrimaryKey } : {}),
+        ...(parsed.data.isForeignKey !== undefined ? { isForeignKey: parsed.data.isForeignKey } : {}),
+        ...fkData,
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+      },
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) return fail(res, 409, "FIELD_NAME_TAKEN", `A field named "${parsed.data.name}" already exists in this entity.`);
+    throw err;
+  }
   await prisma.databaseEntity.update({
     where: { id: result.entity.id },
     data: { updatedAt: new Date() },

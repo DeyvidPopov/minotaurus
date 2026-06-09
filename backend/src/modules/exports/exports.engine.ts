@@ -149,6 +149,7 @@ export async function buildExportContent(
 
   if (wantsDatabaseModels) {
     const entityNameById = new Map(databaseEntities.map((e) => [e.id, e.name]));
+    const fieldNameById = new Map(databaseFields.map((f) => [f.id, f.name]));
     payload.databaseModels = databaseModels.map((m) => ({
       id: m.id,
       projectId: m.projectId,
@@ -184,6 +185,11 @@ export async function buildExportContent(
               referencesEntityId: f.referencesEntityId,
               referencesEntityName: f.referencesEntityId
                 ? entityNameById.get(f.referencesEntityId) ?? null
+                : null,
+              // Precise (column-level) FK target — the exact referenced column.
+              referencesFieldId: f.referencesFieldId,
+              referencesFieldName: f.referencesFieldId
+                ? fieldNameById.get(f.referencesFieldId) ?? null
                 : null,
               description: f.description,
             })),
@@ -310,6 +316,7 @@ export async function buildExportContent(
       lines.push("\n## Database models\n");
       const titleById = new Map(artifacts.map((a) => [a.id, a.title]));
       const entityNameById = new Map(databaseEntities.map((e) => [e.id, e.name]));
+      const fieldNameById = new Map(databaseFields.map((f) => [f.id, f.name]));
       for (const m of databaseModels) {
         lines.push(`### ${m.title}  \`${m.databaseType}\``);
         if (m.artifactId) lines.push(`Linked artifact: **${titleById.get(m.artifactId) ?? m.artifactId}**`);
@@ -330,7 +337,10 @@ export async function buildExportContent(
                 if (f.isPrimaryKey) flags.push("PK");
                 if (f.isForeignKey || f.referencesEntityId) {
                   const target = f.referencesEntityId ? entityNameById.get(f.referencesEntityId) : null;
-                  flags.push(`FK → ${target ?? "?"}`);
+                  // Show the EXACT referenced column when pinned (referencesFieldId),
+                  // else just the target entity.
+                  const targetColumn = f.referencesFieldId ? fieldNameById.get(f.referencesFieldId) : null;
+                  flags.push(`FK → ${target ?? "?"}${targetColumn ? `.${targetColumn}` : ""}`);
                 }
                 if (f.required) flags.push("required");
                 lines.push(`- \`${f.name}: ${f.type}\`${flags.length ? "  _" + flags.join(", ") + "_" : ""}`);
@@ -384,7 +394,7 @@ export async function buildExportContent(
       const titleById = new Map(artifacts.map((a) => [a.id, a.title]));
       for (const v of issues) {
         lines.push(
-          `- **${v.severity}** [${v.category}] ${v.message} — _${titleById.get(v.artifactId) ?? v.artifactId}_`,
+          `- **${v.severity}** [${v.category}] ${v.message} — _${titleById.get(v.subjectId) ?? v.subjectId}_`,
         );
       }
     }

@@ -24,6 +24,7 @@ import {
   ARTIFACT_TITLE_TAKEN_MESSAGE,
   checkArtifactTitleConflict,
 } from "../artifacts/artifact-title.js";
+import { resolvePreciseFkFieldId } from "../database-models/fk-resolve.js";
 
 const ARTIFACT_TYPES = Object.values(ArtifactType) as [ArtifactType, ...ArtifactType[]];
 
@@ -934,8 +935,11 @@ export async function confirmSqlSchemaEndpoint(req: AuthedRequest, res: Response
         createdById: req.user!.userId,
       },
     });
-    // First pass: create entities with no field references.
+    // First pass: create entities + their columns with NO field references.
     const entityIds = new Map<string, string>();
+    // Per-entity created columns (id + name + PK flag), keyed by the source entity
+    // name — pass 2 uses this to resolve a FK's PRECISE target column.
+    const fieldsByEntityName = new Map<string, { id: string; name: string; isPrimaryKey: boolean }[]>();
     const created: { entityId: string; fields: { id: string; name: string }[] }[] = [];
     for (const e of stored.entities!) {
       const ent = await tx.databaseEntity.create({
@@ -947,6 +951,7 @@ export async function confirmSqlSchemaEndpoint(req: AuthedRequest, res: Response
       });
       entityIds.set(e.name, ent.id);
       const createdFields: { id: string; name: string }[] = [];
+      const fieldMeta: { id: string; name: string; isPrimaryKey: boolean }[] = [];
       for (const f of e.fields ?? []) {
         const field = await tx.databaseField.create({
           data: {
@@ -957,29 +962,41 @@ export async function confirmSqlSchemaEndpoint(req: AuthedRequest, res: Response
             isPrimaryKey: !!f.isPrimaryKey,
             isForeignKey: !!f.isForeignKey,
             description: f.description ?? "",
-            // referencesEntityId left null in pass 1; pass 2 resolves them.
+            // referencesEntityId / referencesFieldId left null in pass 1; pass 2 resolves them.
           },
         });
         createdFields.push({ id: field.id, name: field.name });
+        fieldMeta.push({ id: field.id, name: field.name, isPrimaryKey: !!f.isPrimaryKey });
       }
+      fieldsByEntityName.set(e.name, fieldMeta);
       created.push({ entityId: ent.id, fields: createdFields });
     }
-    // Second pass: resolve FK referencesEntityId.
+    // Second pass: resolve each FK's referencesEntityId AND the precise
+    // referencesFieldId. Because EVERY entity + column already exists, a forward
+    // reference (referenced table declared later in the SQL) resolves correctly.
+    // The precise column is matched by the parsed `REFERENCES table(col)` name, with
+    // a single-PK fallback; if neither resolves the import still succeeds with
+    // referencesFieldId NULL and the validation engine surfaces a warning later.
     for (let i = 0; i < stored.entities!.length; i++) {
       const e = stored.entities![i];
-      const entityId = created[i].entityId;
       for (const f of e.fields ?? []) {
         if (!f.isForeignKey || !f.referencesEntity) continue;
         const targetEntityId = entityIds.get(f.referencesEntity);
         if (!targetEntityId) continue;
         const dbField = created[i].fields.find((cf) => cf.name === f.name);
         if (!dbField) continue;
+        const { fieldId } = resolvePreciseFkFieldId(
+          f.referencesField,
+          fieldsByEntityName.get(f.referencesEntity),
+        );
         await tx.databaseField.update({
           where: { id: dbField.id },
-          data: { referencesEntityId: targetEntityId },
+          data: {
+            referencesEntityId: targetEntityId,
+            ...(fieldId ? { referencesFieldId: fieldId } : {}),
+          },
         });
       }
-      void entityId;
     }
     return { model, created };
   });
