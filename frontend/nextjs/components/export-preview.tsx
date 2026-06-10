@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen, Database, Key, Link2, ArrowRight, GitMerge, History } from "lucide-react";
+import { Box, Network, Shield, ChevronDown, FileText, BookOpen, Plug, Lock, LockOpen, Database, Key, Link2, ArrowRight, GitMerge, History, Sparkles } from "lucide-react";
 import { MermaidPreview } from "@/components/mermaid-preview";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -142,6 +142,45 @@ interface ExportedImpactRow {
   };
 }
 
+interface ExportedAiFinding {
+  title: string;
+  badge?: string;
+  observation: string;
+  recommendation?: string;
+  unverified?: boolean;
+}
+
+interface ExportedAiReviewBlock {
+  generatedAt: string;
+  model: string;
+  stale: boolean;
+  truncated: boolean;
+  unverifiedCount?: number;
+  executiveSummary: string;
+  strengths: ExportedAiFinding[];
+  risks: ExportedAiFinding[];
+  blindSpots: ExportedAiFinding[];
+  governanceReview: ExportedAiFinding[];
+  validationCommentary: ExportedAiFinding[];
+  recommendations: ExportedAiFinding[];
+}
+
+interface ExportedAiAdvisoryBlock {
+  generatedAt: string;
+  model: string;
+  stale: boolean;
+  truncated: boolean;
+  executiveSummary: string;
+  focusAreas: ExportedAiFinding[];
+  opportunities: ExportedAiFinding[];
+  recommendations: ExportedAiFinding[];
+}
+
+interface ExportedAiReview {
+  review?: ExportedAiReviewBlock;
+  advisory?: ExportedAiAdvisoryBlock;
+}
+
 interface ExportContent {
   project?: ExportedProject;
   generatedAt?: string;
@@ -154,6 +193,7 @@ interface ExportContent {
   versionHistory?: ExportedVersionEvent[];
   recentChanges?: ExportedVersionEvent[];
   impactAnalysis?: ExportedImpactRow[];
+  aiReview?: ExportedAiReview | null;
 }
 
 export interface ExportPreviewModel {
@@ -196,6 +236,7 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
   const diagrams = parsed?.diagrams ?? [];
   const versionHistory = parsed?.versionHistory ?? [];
   const impactRows = parsed?.impactAnalysis ?? [];
+  const aiReview = parsed?.aiReview ?? null;
   const docCount = artifacts.filter((a) => a.documentation?.markdownContent?.trim()).length;
 
   return (
@@ -246,6 +287,7 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
             </Card>
           ) : (
             <>
+              <AiReviewSection data={aiReview} />
               <ArtifactsSection artifacts={artifacts} />
               <ApiSpecsSection apiSpecs={apiSpecs} />
               <DatabaseModelsSection databaseModels={databaseModels} />
@@ -438,6 +480,123 @@ const METHOD_TONE: Record<ExportedApiEndpoint["method"], string> = {
   PATCH: "var(--c-warning)",
   DELETE: "var(--c-danger)",
 };
+
+function aiBadgeTone(badge: string): "danger" | "warning" | "info" | "default" {
+  switch (badge.toUpperCase()) {
+    case "CRITICAL": return "danger";
+    case "HIGH": return "warning";
+    case "MEDIUM": return "info";
+    default: return "default";
+  }
+}
+
+function AiFindingGroup({ heading, items }: { heading: string; items: ExportedAiFinding[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-2">
+      <div className="text-[11px] uppercase tracking-wider text-fg-subtle mb-1">{heading}</div>
+      <ul className="flex flex-col gap-1.5">
+        {items.map((f, i) => (
+          <li key={i} className="text-[12.5px]">
+            <span className="inline-flex items-center gap-1.5 flex-wrap">
+              {f.badge && <Badge tone={aiBadgeTone(f.badge)}>{f.badge}</Badge>}
+              <span className="font-medium">{f.title}</span>
+              {f.unverified && <span className="text-fg-subtle italic text-[11.5px]">unverified</span>}
+            </span>
+            {f.observation && <span className="text-fg-muted"> — {f.observation}</span>}
+            {f.recommendation && (
+              <div className="text-[11.5px] text-fg-subtle ml-3 mt-0.5">↳ {f.recommendation}</div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function AiBlock({
+  kind, model, generatedAt, stale, truncated, unverifiedCount, summary, groups,
+}: {
+  kind: string;
+  model: string;
+  generatedAt: string;
+  stale: boolean;
+  truncated: boolean;
+  unverifiedCount?: number;
+  summary: string;
+  groups: { heading: string; items: ExportedAiFinding[] }[];
+}) {
+  return (
+    <div className="bg-panel-2 border border-border rounded-md p-3">
+      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+        <Sparkles size={13} className="text-accent" />
+        <span className="font-semibold text-[13.5px]">{kind}</span>
+        <Badge mono>{model}</Badge>
+        <span className="text-[11.5px] text-fg-subtle">
+          generated {new Date(generatedAt).toLocaleDateString()}
+        </span>
+        {stale ? <Badge tone="warning">Project changed since generated</Badge> : <Badge tone="success">Current</Badge>}
+        {truncated && <Badge tone="warning">truncated</Badge>}
+      </div>
+      {typeof unverifiedCount === "number" && unverifiedCount > 0 && (
+        <div className="text-[11.5px] text-fg-subtle mb-1.5">
+          {unverifiedCount} finding(s) could not be evidence-verified.
+        </div>
+      )}
+      {summary && <div className="text-[12.5px] text-fg-muted">{summary}</div>}
+      {groups.map((g) => (
+        <AiFindingGroup key={g.heading} heading={g.heading} items={g.items} />
+      ))}
+    </div>
+  );
+}
+
+function AiReviewSection({ data }: { data: ExportedAiReview | null }) {
+  if (!data || (!data.review && !data.advisory)) return null;
+  return (
+    <Card title="AI Review / Advisor">
+      <div className="text-[11.5px] text-fg-subtle mb-2.5">
+        AI-generated interpretation of the deterministic analysis — advisory, not part of the scored assessment.
+      </div>
+      <div className="flex flex-col gap-3">
+        {data.review && (
+          <AiBlock
+            kind="Full Review"
+            model={data.review.model}
+            generatedAt={data.review.generatedAt}
+            stale={data.review.stale}
+            truncated={data.review.truncated}
+            unverifiedCount={data.review.unverifiedCount}
+            summary={data.review.executiveSummary}
+            groups={[
+              { heading: "Strengths", items: data.review.strengths },
+              { heading: "Risks", items: data.review.risks },
+              { heading: "Blind spots", items: data.review.blindSpots },
+              { heading: "Governance review", items: data.review.governanceReview },
+              { heading: "Validation commentary", items: data.review.validationCommentary },
+              { heading: "Recommendations", items: data.review.recommendations },
+            ]}
+          />
+        )}
+        {data.advisory && (
+          <AiBlock
+            kind="Advisor — Next Steps"
+            model={data.advisory.model}
+            generatedAt={data.advisory.generatedAt}
+            stale={data.advisory.stale}
+            truncated={data.advisory.truncated}
+            summary={data.advisory.executiveSummary}
+            groups={[
+              { heading: "Current focus areas", items: data.advisory.focusAreas },
+              { heading: "Opportunities", items: data.advisory.opportunities },
+              { heading: "Recommended next steps", items: data.advisory.recommendations },
+            ]}
+          />
+        )}
+      </div>
+    </Card>
+  );
+}
 
 function ApiSpecsSection({ apiSpecs }: { apiSpecs: ExportedApiSpec[] }) {
   if (apiSpecs.length === 0) {

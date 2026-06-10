@@ -26,6 +26,7 @@ export interface ReportPlan {
     risks: boolean;
     validationFindings: boolean;
     apiPayload: boolean;
+    aiReview: boolean;
     traceability: boolean;
     governance: boolean;
     versionHistory: boolean;
@@ -108,6 +109,8 @@ export function buildReportPlan(
     risks: has("VALIDATION") && has("ARTIFACTS") && has("RELATIONS"),
     validationFindings: has("VALIDATION"),
     apiPayload: has("API_SPECS") && !empty && analysis.apiIntel.totalEndpoints > 0,
+    // Content-aware (like apiPayload): only when a review/advisory was frozen in.
+    aiReview: has("AI_REVIEW") && !!content.aiReview && !!(content.aiReview.review || content.aiReview.advisory),
     traceability: has("ARTIFACTS") && has("RELATIONS") && hasTraceData,
     governance: has("TEAM"),
     versionHistory: has("VERSION_HISTORY"),

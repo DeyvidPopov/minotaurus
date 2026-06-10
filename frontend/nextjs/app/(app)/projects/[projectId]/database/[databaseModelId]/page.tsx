@@ -239,6 +239,17 @@ export default function DatabaseModelDetailPage({
     return `v${max + 1}`;
   }, [model, modelVariants]);
 
+  // Variant labels already in use (trimmed). The Save-as-variant modal blocks a
+  // duplicate, because diagram titles are intentionally NOT unique at the DB level
+  // — without this guard an identical name silently creates a second copy.
+  const existingVariantNames = useMemo(() => {
+    if (!model) return [] as string[];
+    const prefix = `${model.title} ERD${ERD_VARIANT_SEP}`;
+    return modelVariants
+      .map((d) => (d.title.startsWith(prefix) ? d.title.slice(prefix.length).trim() : d.title.trim()))
+      .filter(Boolean);
+  }, [model, modelVariants]);
+
   if (!model) {
     return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
   }
@@ -503,6 +514,7 @@ export default function DatabaseModelDetailPage({
         <SaveVariantModal
           modelTitle={model.title}
           defaultName={nextVariantName}
+          existingNames={existingVariantNames}
           onClose={() => setSavingVariant(false)}
           onSave={async (label) => { await saveErdVariant(label); }}
         />
@@ -955,9 +967,14 @@ function ErdView({
             {existingDiagram ? (
               <>
                 {diagramStale && (
-                  <Button size="sm" variant="primary" icon={<RefreshCw size={12} />} onClick={onUpdateDiagram}>
-                    Update diagram
-                  </Button>
+                  <>
+                    <Button size="sm" variant="primary" icon={<RefreshCw size={12} />} onClick={onUpdateDiagram}>
+                      Update diagram
+                    </Button>
+                    {/* A variant only makes sense as a fork of a *divergence* — so it's
+                        offered exactly when the diagram is out of date, beside Update. */}
+                    <Button size="sm" icon={<GitBranch size={12} />} onClick={onSaveVariant}>Save as variant</Button>
+                  </>
                 )}
                 <Link href={`/projects/${projectId}/diagrams/${existingDiagram.id}`}>
                   <Button size="sm" icon={<ExternalLink size={12} />}>Open diagram</Button>
@@ -966,7 +983,6 @@ function ErdView({
             ) : (
               <Button size="sm" icon={<GitMerge size={12} />} onClick={onGenerateDiagram}>Generate diagram</Button>
             )}
-            <Button size="sm" icon={<GitBranch size={12} />} onClick={onSaveVariant}>Save as variant</Button>
           </div>
         }
       >
@@ -1430,25 +1446,36 @@ function ErdDiffSummary({ diff }: { diff: { added: string[]; removed: string[] }
 function SaveVariantModal({
   modelTitle,
   defaultName,
+  existingNames,
   onClose,
   onSave,
 }: {
   modelTitle: string;
   defaultName: string;
+  existingNames: string[];
   onClose: () => void;
   onSave: (label: string) => Promise<void>;
 }) {
   const [name, setName] = useState(defaultName);
   const [busy, setBusy] = useState(false);
 
+  const trimmed = name.trim();
+  // Diagram titles aren't DB-unique, so guard the duplicate here (case-insensitive).
+  const duplicate = existingNames.some((n) => n.toLowerCase() === trimmed.toLowerCase());
+  const canSave = !!trimmed && !duplicate && !busy;
+
   const submit = async () => {
-    if (!name.trim()) {
+    if (!trimmed) {
       toast.error("Give the variant a name");
+      return;
+    }
+    if (duplicate) {
+      toast.error("A variant with that name already exists");
       return;
     }
     setBusy(true);
     try {
-      await onSave(name.trim());
+      await onSave(trimmed);
     } finally {
       setBusy(false);
     }
@@ -1467,17 +1494,28 @@ function SaveVariantModal({
             value={name}
             autoFocus
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") void submit(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && canSave) void submit(); }}
             placeholder="v2 · Denormalized · Event-sourced"
-            className="bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent"
+            className={cn(
+              "bg-panel border rounded-sm px-2.5 py-2 text-[13.5px] outline-none",
+              duplicate ? "border-danger focus:border-danger" : "border-border focus:border-accent",
+            )}
           />
         </Field>
-        <div className="text-[12px] text-fg-subtle">
-          Saved as <span className="font-mono text-fg-muted">{modelTitle} ERD{ERD_VARIANT_SEP}{name.trim() || "…"}</span>
-        </div>
+        {duplicate ? (
+          <div className="text-[12px] text-danger">
+            A variant named{" "}
+            <span className="font-mono">{modelTitle} ERD{ERD_VARIANT_SEP}{trimmed}</span>{" "}
+            already exists — pick a different name.
+          </div>
+        ) : (
+          <div className="text-[12px] text-fg-subtle">
+            Saved as <span className="font-mono text-fg-muted">{modelTitle} ERD{ERD_VARIANT_SEP}{trimmed || "…"}</span>
+          </div>
+        )}
         <div className="flex justify-end gap-2 mt-1">
           <Button onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="primary" icon={<Save size={13} />} onClick={submit} disabled={busy || !name.trim()}>
+          <Button variant="primary" icon={<Save size={13} />} onClick={submit} disabled={!canSave}>
             {busy ? "Saving…" : "Save variant"}
           </Button>
         </div>

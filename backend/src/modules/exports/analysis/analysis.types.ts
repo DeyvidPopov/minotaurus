@@ -133,6 +133,55 @@ export interface SnapshotMember {
   name?: string | null;
 }
 
+// ── AI Review / Advisor narrative frozen into the snapshot ──
+// AI prose embedded in an export must be FROZEN as stored bytes (Safety Rule 3):
+// the renderer never calls AI and never recomputes a score — it presents what was
+// captured at export-create time. Built by modules/ai/architecture/export-block.ts
+// from the latest persisted AiSession(REVIEW)/(ADVISOR). Advisory only — never part
+// of the deterministic scored analysis.
+
+export interface AiReviewExportFinding {
+  title: string;
+  /** Severity (risks) or priority (recommendations); absent for plain notes. */
+  badge?: string;
+  observation: string;
+  recommendation?: string;
+  /** True when the deterministic verifier could not ground this in evidence. */
+  unverified?: boolean;
+}
+
+export interface AiReviewExportReview {
+  generatedAt: string;
+  model: string;
+  /** Project state changed since this review was generated (hash mismatch). */
+  stale: boolean;
+  truncated: boolean;
+  unverifiedCount: number;
+  executiveSummary: string;
+  strengths: AiReviewExportFinding[];
+  risks: AiReviewExportFinding[];
+  blindSpots: AiReviewExportFinding[];
+  governanceReview: AiReviewExportFinding[];
+  validationCommentary: AiReviewExportFinding[];
+  recommendations: AiReviewExportFinding[];
+}
+
+export interface AiReviewExportAdvisory {
+  generatedAt: string;
+  model: string;
+  stale: boolean;
+  truncated: boolean;
+  executiveSummary: string;
+  focusAreas: AiReviewExportFinding[];
+  opportunities: AiReviewExportFinding[];
+  recommendations: AiReviewExportFinding[];
+}
+
+export interface AiReviewExportBlock {
+  review?: AiReviewExportReview;
+  advisory?: AiReviewExportAdvisory;
+}
+
 export interface ExportSnapshot {
   project?: SnapshotProject | null;
   generatedAt?: string;
@@ -144,6 +193,9 @@ export interface ExportSnapshot {
   validationIssues?: SnapshotIssue[];
   versionHistory?: SnapshotVersionEvent[];
   team?: SnapshotMember[];
+  /** Frozen AI Review/Advisor narrative (present only when AI_REVIEW is in scope
+   *  and a review/advisory exists). Advisory, never scored. */
+  aiReview?: AiReviewExportBlock | null;
 }
 
 // ───────────────────────────── Output contract ─────────────────────────────

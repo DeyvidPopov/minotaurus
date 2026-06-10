@@ -9,6 +9,7 @@ import { recordVersionEvent } from "../versions/versions.engine.js";
 import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
 import { analyzeExportSnapshot } from "./analysis/metrics.engine.js";
 import { renderArchitecturePdf } from "./pdf/pdf.renderer.js";
+import { loadAiReviewExportBlock } from "../ai/architecture/export-block.js";
 
 // `diagramSvgs` is an optional map of diagramId -> client-rendered SVG markup.
 // Mermaid only renders in a browser DOM, so the frontend captures the SVG at
@@ -48,7 +49,13 @@ export async function createExport(req: AuthedRequest, res: Response) {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
-  const content = await buildExportContent(projectId, parsed.data.format, parsed.data.sections);
+  // AI Review/Advisor narrative is opt-in. When selected, load + freeze the
+  // latest persisted review/advisory (with staleness resolved) into the snapshot;
+  // if none exists the block is null and the section is simply omitted. This is
+  // the ONLY place AI prose enters an export, and it's frozen as stored bytes.
+  const wantsAiReview = parsed.data.sections.some((s) => s.toUpperCase() === "AI_REVIEW");
+  const aiReview = wantsAiReview ? await loadAiReviewExportBlock(projectId) : null;
+  const content = await buildExportContent(projectId, parsed.data.format, parsed.data.sections, aiReview);
   // PDF embeds rendered diagrams; merge any client-captured SVGs (other formats
   // ignore them — Markdown returns a string, JSON keeps the field harmlessly).
   const finalContent =

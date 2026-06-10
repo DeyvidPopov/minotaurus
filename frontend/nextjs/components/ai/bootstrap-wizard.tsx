@@ -482,8 +482,8 @@ export function BootstrapWizard({
 
   if (inline) {
     return (
-      <div className="text-left">
-        <div className="flex items-center justify-between gap-2 mb-4">
+      <div className="text-left flex flex-col max-h-[calc(100vh-15rem)] min-h-0">
+        <div className="flex items-center justify-between gap-2 mb-4 shrink-0">
           <div className="text-[14px] font-semibold flex items-center gap-2 min-w-0">
             <Sparkles size={15} className="text-accent shrink-0" />
             <span className="truncate">Generate Initial Architecture with AI</span>
@@ -496,7 +496,11 @@ export function BootstrapWizard({
             <X size={14} />
           </button>
         </div>
-        {content}
+        {/* Bounded, scrollable region so the review step's `sticky bottom-0` footer
+            pins to the bottom of THIS card (its nearest scroll ancestor) instead of
+            the page viewport — otherwise it floats detached at the bottom of the
+            screen. Mirrors the modal variant's `overflow-y-auto` body. */}
+        <div className="flex-1 min-h-0 overflow-y-auto">{content}</div>
       </div>
     );
   }

@@ -3,8 +3,77 @@
 
 import type { Artifact, ExportFormat } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
+import { formatSchemaForExport } from "./format-schema.js";
+import type {
+  AiReviewExportAdvisory,
+  AiReviewExportBlock,
+  AiReviewExportFinding,
+  AiReviewExportReview,
+} from "./analysis/analysis.types.js";
 
 export const EXPORT_FORMATS: ExportFormat[] = ["JSON", "MARKDOWN", "PDF"];
+
+// Render an endpoint payload schema as a fenced JSON code block indented two
+// spaces so GitHub-flavored Markdown nests it under its `- ` endpoint bullet.
+function pushMarkdownSchemaBlock(lines: string[], label: string, formatted: string): void {
+  lines.push("");
+  lines.push(`  _${label}_`);
+  lines.push("");
+  lines.push("  ```json");
+  for (const ln of formatted.split("\n")) lines.push("  " + ln);
+  lines.push("  ```");
+}
+
+// Render one AI finding group (strengths / risks / recommendations / …) as a
+// `####` subsection with a bullet per item. Badge (severity/priority) is bold-
+// prefixed; an optional recommendation and an "unverified" marker drop below.
+function pushAiFindingGroup(lines: string[], heading: string, items: AiReviewExportFinding[]): void {
+  if (items.length === 0) return;
+  lines.push(`\n#### ${heading}`);
+  for (const f of items) {
+    const badge = f.badge ? `**[${f.badge}]** ` : "";
+    lines.push(`- ${badge}**${f.title}** — ${f.observation}${f.unverified ? "  _(unverified)_" : ""}`);
+    if (f.recommendation) lines.push(`  - _Recommendation:_ ${f.recommendation}`);
+  }
+}
+
+function pushAiReviewMarkdown(lines: string[], block: AiReviewExportBlock): void {
+  lines.push("\n## AI Architecture Review\n");
+  lines.push("_AI-generated interpretation of the deterministic analysis — advisory, not part of the scored assessment._\n");
+
+  const provenance = (r: AiReviewExportReview | AiReviewExportAdvisory): string => {
+    const bits = [`Model: \`${r.model}\``, `Generated: ${r.generatedAt.slice(0, 10)}`,
+      r.stale ? "**⚠ Project changed since this was generated**" : "Current"];
+    if (r.truncated) bits.push("_output truncated_");
+    return bits.join(" · ");
+  };
+
+  const rev = block.review;
+  if (rev) {
+    lines.push("### Full Review");
+    lines.push(provenance(rev));
+    if (rev.unverifiedCount > 0) lines.push(`_${rev.unverifiedCount} finding(s) could not be evidence-verified._`);
+    if (rev.executiveSummary) lines.push(`\n${rev.executiveSummary}`);
+    pushAiFindingGroup(lines, "Strengths", rev.strengths);
+    pushAiFindingGroup(lines, "Risks", rev.risks);
+    pushAiFindingGroup(lines, "Blind spots", rev.blindSpots);
+    pushAiFindingGroup(lines, "Governance review", rev.governanceReview);
+    pushAiFindingGroup(lines, "Validation commentary", rev.validationCommentary);
+    pushAiFindingGroup(lines, "Recommendations", rev.recommendations);
+    lines.push("");
+  }
+
+  const adv = block.advisory;
+  if (adv) {
+    lines.push("### Advisor — Next Steps");
+    lines.push(provenance(adv));
+    if (adv.executiveSummary) lines.push(`\n${adv.executiveSummary}`);
+    pushAiFindingGroup(lines, "Current focus areas", adv.focusAreas);
+    pushAiFindingGroup(lines, "Opportunities", adv.opportunities);
+    pushAiFindingGroup(lines, "Recommended next steps", adv.recommendations);
+    lines.push("");
+  }
+}
 
 export function serializeArtifactForExport(a: Artifact) {
   const { documentationContent, ...rest } = a;
@@ -22,6 +91,10 @@ export async function buildExportContent(
   projectId: string,
   format: ExportFormat,
   sections: string[],
+  // AI Review/Advisor narrative, pre-assembled + staleness-resolved by the
+  // caller (modules/ai/.../export-block.ts). Frozen into the snapshot here so the
+  // renderers stay AI-free (Safety Rule 3). The engine never loads it itself.
+  aiReview?: AiReviewExportBlock | null,
 ): Promise<unknown> {
   const [project, artifacts, allRelations, issues, apiSpecs, apiEndpoints, databaseModels, databaseEntities, databaseFields, diagrams, versionEvents, members] =
     await Promise.all([
@@ -60,18 +133,28 @@ export async function buildExportContent(
   );
 
   const wanted = new Set(sections.map((s) => s.toUpperCase()));
-  const wantsArtifacts = wanted.has("ARTIFACTS") || wanted.has("DOCUMENTATION");
+  // Empty scope = full export. This mirrors the PDF report planner
+  // (pdf/report-plan.ts), which treats an empty section list as a full report
+  // for back-compat with older ExportPackage rows that stored no sections.
+  // Without this parity, a `sections: []` snapshot was assembled near-empty
+  // while the PDF still rendered every section heading ("No artifacts." …).
+  const all = wanted.size === 0;
+  const has = (token: string): boolean => all || wanted.has(token);
+
+  const wantsArtifacts = has("ARTIFACTS") || has("DOCUMENTATION");
   const wantsValidation =
-    wanted.has("VALIDATION") ||
-    wanted.has("VALIDATION_ISSUES") ||
-    wanted.has("VALIDATION_REPORT");
-  const wantsGraph = wanted.has("GRAPH");
-  const wantsApiSpecs = wanted.has("API_SPECS") || wanted.has("API_ENDPOINTS");
-  const wantsDatabaseModels = wanted.has("DATABASE_MODELS") || wanted.has("DATABASE_ENTITIES");
-  const wantsDiagrams = wanted.has("DIAGRAMS");
-  const wantsVersionHistory = wanted.has("VERSION_HISTORY") || wanted.has("RECENT_CHANGES");
-  const wantsImpact = wanted.has("IMPACT_ANALYSIS") || wanted.has("IMPACT");
-  const wantsTeam = wanted.has("TEAM") || wanted.has("MEMBERS");
+    has("VALIDATION") || has("VALIDATION_ISSUES") || has("VALIDATION_REPORT");
+  const wantsGraph = has("GRAPH");
+  const wantsApiSpecs = has("API_SPECS") || has("API_ENDPOINTS");
+  const wantsDatabaseModels = has("DATABASE_MODELS") || has("DATABASE_ENTITIES");
+  const wantsDiagrams = has("DIAGRAMS");
+  const wantsVersionHistory = has("VERSION_HISTORY") || has("RECENT_CHANGES");
+  const wantsImpact = has("IMPACT_ANALYSIS") || has("IMPACT");
+  const wantsTeam = has("TEAM") || has("MEMBERS");
+  const wantsRelations = has("RELATIONS");
+  const wantsAiReview = has("AI_REVIEW");
+  const aiReviewBlock =
+    wantsAiReview && aiReview && (aiReview.review || aiReview.advisory) ? aiReview : null;
 
   const payload: Record<string, unknown> = {
     project,
@@ -90,7 +173,7 @@ export async function buildExportContent(
   }
 
   if (wantsArtifacts) payload.artifacts = artifacts.map(serializeArtifactForExport);
-  if (wanted.has("RELATIONS")) {
+  if (wantsRelations) {
     payload.relations = relations.map((r) => ({
       id: r.id,
       sourceArtifactId: r.sourceArtifactId,
@@ -255,6 +338,10 @@ export async function buildExportContent(
     }));
   }
 
+  // Frozen AI narrative (JSON + PDF read it from the object payload; Markdown
+  // renders it below). Already staleness-resolved by the caller.
+  if (aiReviewBlock) payload.aiReview = aiReviewBlock;
+
   if (wantsGraph) {
     payload.graph = {
       nodes: artifacts.map((a) => ({
@@ -373,12 +460,16 @@ export async function buildExportContent(
             lines.push(
               `- **${e.method} ${e.path}** — ${e.summary || "_no summary_"}${e.requiresAuth ? " · 🔒 auth required" : ""}`,
             );
+            const req = formatSchemaForExport(e.requestSchema);
+            const resp = formatSchemaForExport(e.responseSchema);
+            if (req) pushMarkdownSchemaBlock(lines, "Request payload", req);
+            if (resp) pushMarkdownSchemaBlock(lines, "Response payload", resp);
           }
         }
         lines.push("");
       }
     }
-    if (wanted.has("RELATIONS")) {
+    if (wantsRelations) {
       lines.push("\n## Relations\n");
       const titleById = new Map(artifacts.map((a) => [a.id, a.title]));
       for (const r of relations) {
@@ -403,6 +494,7 @@ export async function buildExportContent(
         );
       }
     }
+    if (aiReviewBlock) pushAiReviewMarkdown(lines, aiReviewBlock);
     return lines.join("\n");
   }
 

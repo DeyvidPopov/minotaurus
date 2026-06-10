@@ -37,6 +37,7 @@ const SECTIONS = [
   { id: "VALIDATION", label: "Validation issues" },
   { id: "VERSION_HISTORY", label: "Version history / recent changes" },
   { id: "IMPACT_ANALYSIS", label: "Impact analysis (per artifact)" },
+  { id: "AI_REVIEW", label: "AI Review / Advisor" },
 ];
 
 export default function ExportPage({ params }: { params: { projectId: string } }) {
@@ -49,6 +50,9 @@ export default function ExportPage({ params }: { params: { projectId: string } }
   const [preview, setPreview] = useState<ExportDetail | null>(null);
   const [previewState, setPreviewState] = useState<"idle" | "loading" | "error">("idle");
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // Whether a Full Review or Advisor exists — gates the opt-in "AI Review" section
+  // (null = still probing). The /latest endpoints 404 when none has been generated.
+  const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
 
   const load = async () => {
     setExportsError(null);
@@ -66,6 +70,23 @@ export default function ExportPage({ params }: { params: { projectId: string } }
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  // Probe whether an AI review/advisory exists, so the section is only offered
+  // when there's something to include. A 404 (or 403 for low roles) → unavailable.
+  useEffect(() => {
+    let cancelled = false;
+    const probe = async (path: string) => {
+      try { await apiClient.get(path); return true; } catch { return false; }
+    };
+    (async () => {
+      const [hasReview, hasAdvisor] = await Promise.all([
+        probe(`/projects/${projectId}/ai/review/latest`),
+        probe(`/projects/${projectId}/ai/advisor/latest`),
+      ]);
+      if (!cancelled) setAiAvailable(hasReview || hasAdvisor);
+    })();
+    return () => { cancelled = true; };
   }, [projectId]);
 
   // For PDF, render each diagram's Mermaid to SVG in-browser (Mermaid needs a
@@ -195,12 +216,20 @@ export default function ExportPage({ params }: { params: { projectId: string } }
           <div>
             <label className="text-[12.5px] text-fg-muted font-medium block mb-1.5">Sections</label>
             <div className="grid sm:grid-cols-3 gap-1.5">
-              {SECTIONS.map((s) => (
-                <label key={s.id} className="flex items-center gap-2 text-[13px] bg-panel-2 border border-border rounded-md px-2.5 py-2 cursor-pointer">
-                  <input type="checkbox" checked={picked.has(s.id)} onChange={() => toggle(s.id)} />
-                  {s.label}
-                </label>
-              ))}
+              {SECTIONS.map((s) => {
+                const isAi = s.id === "AI_REVIEW";
+                const disabled = isAi && aiAvailable === false;
+                return (
+                  <label
+                    key={s.id}
+                    title={disabled ? "Generate an AI Review or Advisor first" : undefined}
+                    className={`flex items-center gap-2 text-[13px] bg-panel-2 border border-border rounded-md px-2.5 py-2 ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  >
+                    <input type="checkbox" disabled={disabled} checked={picked.has(s.id)} onChange={() => toggle(s.id)} />
+                    {s.label}{isAi && aiAvailable === false ? " (none yet)" : ""}
+                  </label>
+                );
+              })}
             </div>
           </div>
         </div>

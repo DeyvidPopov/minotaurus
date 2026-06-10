@@ -13,7 +13,14 @@ import { createHash } from "node:crypto";
 import PdfPrinter from "pdfmake/src/printer";
 import type { Content, TDocumentDefinitions } from "pdfmake/interfaces";
 import type { RenderInput } from "./pdf.types.js";
-import type { AnalysisResult, ExportSnapshot, RiskFinding } from "../analysis/analysis.types.js";
+import type {
+  AiReviewExportAdvisory,
+  AiReviewExportFinding,
+  AiReviewExportReview,
+  AnalysisResult,
+  ExportSnapshot,
+  RiskFinding,
+} from "../analysis/analysis.types.js";
 import { MINOTAURUS_LOGO_DATA_URI, MINOTAURUS_LOGO_SVG } from "./logo.js";
 import {
   bar,
@@ -41,6 +48,7 @@ import {
 import { fitDiagram, normalizeMermaidSvgForPdf } from "./diagram-svg.js";
 import { buildReportPlan, type ReportPlan } from "./report-plan.js";
 import { getFinding } from "../../findings/finding-catalog.js";
+import { formatSchemaForExport } from "../format-schema.js";
 
 // Recommendations come from the canonical finding catalog (the single source for
 // every emitted finding code, validation-carried and analysis-only alike), with a
@@ -113,23 +121,36 @@ function buildDocDefinition(input: RenderInput): TDocumentDefinitions {
   // Cover + Contents always. Each remaining section is gated by the plan, so
   // the auto TOC (tocItem on rendered section headers) lists exactly what is
   // rendered — no empty pages, no phantom TOC rows.
+  // Order is four bands: intro → assessment → findings → coverage/analysis →
+  // reference. Findings (risks + validation) are front-loaded right after the
+  // narrative (answer-first); the coverage/insight metrics (incl. API Payload
+  // Intelligence) group together; the bulky Diagram Inventory drops into the
+  // reference band so it doesn't interrupt the assessment→findings flow.
   const content_: Content[] = [
+    // intro
     ...cover(input, projectName, plan),
     { toc: { title: { text: "Contents", style: "h1", margin: [0, 0, 0, 12] } } },
+    // assessment
     ...(inc.executiveSummary ? executiveSummary(analysis, content) : []),
     ...(inc.healthDashboard ? healthDashboard(analysis) : []),
     ...(inc.narrative ? narrative(analysis, content) : []),
+    // findings
+    ...(inc.risks ? risks(analysis) : []),
+    ...(inc.validationFindings ? validationFindings(analysis, content) : []),
+    // coverage / analysis
     ...(inc.documentationCoverage ? documentationCoverage(analysis) : []),
     ...(inc.graphInsights ? graphInsights(analysis) : []),
-    ...(inc.diagrams ? diagramsSection(content) : []),
-    ...(inc.risks ? risks(analysis) : []),
     ...(inc.apiPayload ? apiPayloadIntelligence(analysis) : []),
-    ...(inc.validationFindings ? validationFindings(analysis, content) : []),
     ...(inc.traceability ? traceability(analysis, content) : []),
     ...(inc.governance ? governance(analysis) : []),
+    // AI interpretation (advisory, frozen — clearly fenced from the scored analysis)
+    ...(inc.aiReview ? aiReviewSection(content) : []),
+    // reference
+    ...(inc.diagrams ? diagramsSection(content) : []),
     ...(inc.versionHistory ? versionHistory(content) : []),
-    ...exportMetadata(analysis, meta, plan),
     ...(inc.appendix ? appendix(content, plan) : []),
+    // colophon — provenance/housekeeping, always the closing page
+    ...exportMetadata(analysis, meta, plan),
   ];
 
   return {
@@ -560,6 +581,108 @@ function apiPayloadIntelligence(a: AnalysisResult): Content[] {
   // surface canonically in the risk register, so rendering them here too was
   // triplication. The metrics above (counts/coverage) are kept.
 
+  return out;
+}
+
+// ────────────────────────────── AI Architecture Review (frozen, advisory) ──────────────────────────────
+// Presentation of AI prose FROZEN into the snapshot at export-create time
+// (content.aiReview). No AI call, no score — this section is advisory and clearly
+// fenced off from the deterministic assessment (Safety Rule 3).
+
+function aiBadgeColor(badge: string): string {
+  switch (badge.toUpperCase()) {
+    case "CRITICAL": return SEVERITY_COLOR.CRITICAL;
+    case "HIGH": return SEVERITY_COLOR.ERROR;
+    case "MEDIUM": return SEVERITY_COLOR.WARNING;
+    case "LOW": return SEVERITY_COLOR.INFO;
+    default: return COLORS.muted;
+  }
+}
+
+function aiFindingGroup(heading: string, items: AiReviewExportFinding[]): Content[] {
+  if (items.length === 0) return [];
+  return [
+    subhead(heading, 8),
+    {
+      ul: items.map((f) => {
+        const head: Content[] = [];
+        if (f.badge) head.push({ text: `[${safe(f.badge)}] `, bold: true, color: aiBadgeColor(f.badge) });
+        head.push({ text: safe(f.title), bold: true });
+        head.push({ text: ` — ${safe(f.observation)}` });
+        if (f.unverified) head.push({ text: "  (unverified)", italics: true, color: COLORS.muted });
+        const stack: Content[] = [{ text: head, style: "td", margin: [0, 1, 0, 0] }];
+        if (f.recommendation)
+          stack.push({
+            text: [{ text: "Recommendation: ", bold: true, color: COLORS.muted }, { text: safe(f.recommendation) }],
+            style: "small",
+            margin: [0, 0, 0, 1],
+          });
+        return { stack } as Content;
+      }),
+    } as Content,
+  ];
+}
+
+function aiProvenance(r: { model: string; generatedAt: string; stale: boolean; truncated: boolean }): Content[] {
+  const rows: [string, string][] = [
+    ["Model", safe(r.model)],
+    ["Generated", fmtDate(r.generatedAt)],
+    ["Status", r.stale ? "Project changed since generated (may be outdated)" : "Current"],
+  ];
+  if (r.truncated) rows.push(["Note", "Output was truncated; some sections may be incomplete."]);
+  const out: Content[] = [kvTable(rows)];
+  if (r.stale)
+    out.push({
+      text: "This narrative predates the current project state and may not reflect recent changes.",
+      style: "small",
+      italics: true,
+      color: SEVERITY_COLOR.WARNING,
+      margin: [0, 2, 0, 6],
+    });
+  return out;
+}
+
+function aiReviewBody(r: AiReviewExportReview): Content[] {
+  const out: Content[] = [subhead("Full Review", 4), ...aiProvenance(r)];
+  if (r.unverifiedCount > 0)
+    out.push(note(`${r.unverifiedCount} finding(s) could not be evidence-verified and are advisory-only.`));
+  if (r.executiveSummary) out.push(paragraph(r.executiveSummary));
+  out.push(
+    ...aiFindingGroup("Strengths", r.strengths),
+    ...aiFindingGroup("Risks", r.risks),
+    ...aiFindingGroup("Blind spots", r.blindSpots),
+    ...aiFindingGroup("Governance review", r.governanceReview),
+    ...aiFindingGroup("Validation commentary", r.validationCommentary),
+    ...aiFindingGroup("Recommendations", r.recommendations),
+  );
+  return out;
+}
+
+function aiAdvisoryBody(a: AiReviewExportAdvisory): Content[] {
+  const out: Content[] = [subhead("Advisor — Next Steps", 12), ...aiProvenance(a)];
+  if (a.executiveSummary) out.push(paragraph(a.executiveSummary));
+  out.push(
+    ...aiFindingGroup("Current focus areas", a.focusAreas),
+    ...aiFindingGroup("Opportunities", a.opportunities),
+    ...aiFindingGroup("Recommended next steps", a.recommendations),
+  );
+  return out;
+}
+
+function aiReviewSection(content: ExportSnapshot): Content[] {
+  const block = content.aiReview;
+  const out: Content[] = [
+    section(
+      "AI Architecture Review",
+      "AI interpretation of the deterministic analysis — advisory, not part of the scored assessment.",
+    ),
+  ];
+  if (!block || (!block.review && !block.advisory)) {
+    out.push(note("No AI review or advisory available."));
+    return out;
+  }
+  if (block.review) out.push(...aiReviewBody(block.review));
+  if (block.advisory) out.push(...aiAdvisoryBody(block.advisory));
   return out;
 }
 
@@ -1042,6 +1165,26 @@ function diagramsSection(content: ExportSnapshot): Content[] {
   return out;
 }
 
+// Monospace code block for an API payload schema (mirrors the Mermaid source
+// block in the Diagram Inventory). Presentation only.
+function schemaBlock(text: string): Content {
+  return {
+    table: { widths: ["*"], body: [[{ text: safe(text), style: "tdMono", fontSize: 7 }]] },
+    layout: {
+      hLineWidth: () => 0.5,
+      vLineWidth: () => 0.5,
+      hLineColor: () => COLORS.border,
+      vLineColor: () => COLORS.border,
+      paddingLeft: () => 6,
+      paddingRight: () => 6,
+      paddingTop: () => 5,
+      paddingBottom: () => 5,
+      fillColor: () => COLORS.panel,
+    },
+    margin: [0, 0, 0, 6],
+  };
+}
+
 function appendix(content: ExportSnapshot, plan: ReportPlan): Content[] {
   const out: Content[] = [section("Appendix", "Raw supporting data from the SSOT snapshot.")];
   const inc = plan.include;
@@ -1089,22 +1232,45 @@ function appendix(content: ExportSnapshot, plan: ReportPlan): Content[] {
       for (const s of apiSpecs) {
         out.push({ text: safe(s.title ?? s.id), style: "h3", margin: [0, 6, 0, 2] });
         const eps = asArray<NonNullable<NonNullable<ExportSnapshot["apiSpecs"]>[number]["endpoints"]>[number]>(s.endpoints);
-        if (eps.length === 0) out.push(note("No endpoints."));
-        else
-          out.push(
-            dataTable(
-              [
-                { header: "Method", width: 50 },
-                { header: "Path", width: "*", mono: true },
-                { header: "Auth", width: 40 },
-              ],
-              eps.map((e) => [
-                safe((e as { method?: string }).method ?? ""),
-                safe((e as { path?: string }).path ?? ""),
-                (e as { requiresAuth?: boolean }).requiresAuth ? "Yes" : "No",
-              ]),
-            ),
-          );
+        if (eps.length === 0) {
+          out.push(note("No endpoints."));
+          continue;
+        }
+        out.push(
+          dataTable(
+            [
+              { header: "Method", width: 50 },
+              { header: "Path", width: "*", mono: true },
+              { header: "Auth", width: 40 },
+            ],
+            eps.map((e) => [
+              safe(e.method ?? ""),
+              safe(e.path ?? ""),
+              e.requiresAuth ? "Yes" : "No",
+            ]),
+          ),
+        );
+        // Per-endpoint request/response payload schemas (pretty-printed JSON,
+        // free-text verbatim). Only endpoints that define a schema are shown.
+        for (const e of eps) {
+          const req = formatSchemaForExport(e.requestSchema);
+          const resp = formatSchemaForExport(e.responseSchema);
+          if (!req && !resp) continue;
+          out.push({
+            text: `${safe(e.method ?? "")} ${safe(e.path ?? "")}`.trim(),
+            style: "h3",
+            fontSize: 9,
+            margin: [0, 7, 0, 2],
+          });
+          if (req) {
+            out.push({ text: "Request payload", style: "caption", bold: true, color: COLORS.muted, margin: [0, 1, 0, 2] });
+            out.push(schemaBlock(req));
+          }
+          if (resp) {
+            out.push({ text: "Response payload", style: "caption", bold: true, color: COLORS.muted, margin: [0, 2, 0, 2] });
+            out.push(schemaBlock(resp));
+          }
+        }
       }
   }
 

@@ -24,6 +24,13 @@ function fullSnapshot(): ExportSnapshot {
     validationIssues: [{ id: "i1", artifactId: "a2", severity: "ERROR", category: "API", message: "m", status: "OPEN" }],
     versionHistory: [{ id: "v1", entityId: "p1", action: "VALIDATED", createdAt: GEN }],
     team: [{ id: "t1", role: "OWNER" }, { id: "t2", role: "ARCHITECT" }],
+    aiReview: {
+      review: {
+        generatedAt: GEN, model: "m", stale: false, truncated: false, unverifiedCount: 0,
+        executiveSummary: "ok", strengths: [], risks: [], blindSpots: [],
+        governanceReview: [], validationCommentary: [], recommendations: [],
+      },
+    },
   };
 }
 
@@ -32,7 +39,7 @@ function planFor(sections: string[], snap = fullSnapshot()) {
 }
 
 test("full export (all sections) renders the whole report", () => {
-  const p = planFor(["ARTIFACTS", "RELATIONS", "API_SPECS", "DATABASE_MODELS", "DIAGRAMS", "VALIDATION", "VERSION_HISTORY", "TEAM", "IMPACT_ANALYSIS"]);
+  const p = planFor(["ARTIFACTS", "RELATIONS", "API_SPECS", "DATABASE_MODELS", "DIAGRAMS", "VALIDATION", "VERSION_HISTORY", "TEAM", "IMPACT_ANALYSIS", "AI_REVIEW"]);
   assert.equal(p.diagramsOnly, false);
   assert.equal(p.reportTitle, "Architecture Intelligence Report");
   for (const k of Object.keys(p.include) as (keyof typeof p.include)[]) {
