@@ -318,15 +318,6 @@ export default function RegisterPage() {
     goToStep(1);
   };
 
-  // Step 3 → back to verify: drop the consumed code so the boxes start fresh.
-  const backToVerify = () => {
-    if (loading) return;
-    setCode("");
-    setCodeInvalid(false);
-    setCodeResetSignal((n) => n + 1);
-    goToStep(2);
-  };
-
   const codeComplete = code.replace(/\D/g, "").length === CODE_LENGTH;
   const passwordValue = passwordForm.watch("password");
 
@@ -533,16 +524,6 @@ export default function RegisterPage() {
                     </>
                   )}
                 </Button>
-              )}
-              {!sessionExpired && (
-                <button
-                  type="button"
-                  onClick={backToVerify}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1 self-start text-[12.5px] text-fg-muted hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ArrowLeft size={12} aria-hidden /> Back
-                </button>
               )}
             </form>
           </>

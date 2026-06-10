@@ -2,8 +2,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, X, Database } from "lucide-react";
+import { X, Database } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,6 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Empty } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
-import { OpenLink } from "@/components/ui/open-link";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   DATABASE_TYPES,
@@ -53,18 +53,19 @@ export default function DatabaseModelsListPage({ params }: { params: { projectId
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  const term = q.trim().toLowerCase();
   const filtered = (models ?? []).filter(
     (m) =>
       (typeFilter === "ALL" || m.databaseType === typeFilter) &&
-      (!q.trim() ||
-        m.title.toLowerCase().includes(q.toLowerCase()) ||
-        m.description.toLowerCase().includes(q.toLowerCase())),
+      (!term ||
+        m.title.toLowerCase().includes(term) ||
+        m.description.toLowerCase().includes(term)),
   );
 
   const artifactsById = new Map(artifacts.map((a) => [a.id, a]));
 
   return (
-    <div className="px-8 py-6 max-w-[1200px] mx-auto">
+    <div className="px-4 py-6 md:px-8 max-w-[1200px] mx-auto">
       <PageHeader
         title="Database models"
         subtitle={
@@ -74,13 +75,13 @@ export default function DatabaseModelsListPage({ params }: { params: { projectId
         }
         actions={
           <>
-            <SearchInput value={q} onChange={setQ} placeholder="Filter…" className="w-[220px]" />
+            <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full sm:w-[220px]" />
             <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "ALL" | DatabaseType)}
               className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
               <option value="ALL">All databases</option>
               {DATABASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreating(true)}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               New database model
             </Button>
           </>
@@ -93,7 +94,7 @@ export default function DatabaseModelsListPage({ params }: { params: { projectId
           title="No database models yet"
           message="Describe the data stores your services rely on. Each model owns entities; each entity owns fields with optional primary and foreign keys."
           action={
-            <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreating(true)}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               New database model
             </Button>
           }
@@ -101,55 +102,94 @@ export default function DatabaseModelsListPage({ params }: { params: { projectId
       ) : filtered.length === 0 ? (
         <Empty title="No models match" message="Try a different filter." />
       ) : (
-        <Card padded={false}>
-          <table className="w-full text-[13px]">
-            <thead className="bg-panel">
-              <tr className="text-fg-muted text-[11.5px] uppercase tracking-wider">
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Title</th>
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Database</th>
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Linked artifact</th>
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Entities</th>
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Updated</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((m) => {
-                const art = m.artifactId ? artifactsById.get(m.artifactId) : null;
-                return (
-                  <tr key={m.id} className="hover:bg-panel-hover cursor-pointer" onClick={() => router.push(`/projects/${projectId}/database/${m.id}`)}>
-                    <td className="px-3.5 py-3 border-b border-border">
-                      <div className="font-medium">{m.title}</div>
-                      <div className="text-[12px] text-fg-muted truncate max-w-[420px]">
-                        {m.description || <em className="text-fg-subtle">No description</em>}
-                      </div>
-                    </td>
-                    <td className="px-3.5 py-3 border-b border-border">
-                      <Badge mono>{m.databaseType}</Badge>
-                    </td>
-                    <td className="px-3.5 py-3 border-b border-border">
-                      {art ? (
-                        <div className="flex items-center gap-2">
-                          <TypeChip type={art.type} />
-                          <span>{art.title}</span>
+        <>
+          {/* Desktop: table (md and up). */}
+          <Card padded={false} className="hidden md:block">
+            <table className="w-full text-[13px]">
+              <thead className="bg-panel">
+                <tr className="text-fg-muted text-[11.5px] uppercase tracking-wider">
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Title</th>
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Database</th>
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Linked artifact</th>
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Entities</th>
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((m) => {
+                  const art = m.artifactId ? artifactsById.get(m.artifactId) : null;
+                  return (
+                    <tr key={m.id} className="hover:bg-panel-hover cursor-pointer" onClick={() => router.push(`/projects/${projectId}/database/${m.id}`)}>
+                      <td className="px-3.5 py-3 border-b border-border">
+                        <div className="font-medium">{m.title}</div>
+                        <div className="text-[12px] text-fg-muted truncate max-w-[420px]">
+                          {m.description || <em className="text-fg-subtle">No description</em>}
                         </div>
-                      ) : (
-                        <span className="text-fg-subtle text-[12px]">—</span>
-                      )}
-                    </td>
-                    <td className="px-3.5 py-3 border-b border-border tabular-nums">
-                      {m.entityCount > 0 ? <Badge tone="success">{m.entityCount}</Badge> : <span className="text-fg-subtle">0</span>}
-                    </td>
-                    <td className="px-3.5 py-3 border-b border-border text-fg-muted text-[12.5px]">{timeAgo(m.updatedAt)}</td>
-                    <td className="px-3.5 py-3 border-b border-border text-right">
-                      <OpenLink href={`/projects/${projectId}/database/${m.id}`} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
+                      </td>
+                      <td className="px-3.5 py-3 border-b border-border">
+                        <Badge mono>{m.databaseType}</Badge>
+                      </td>
+                      <td className="px-3.5 py-3 border-b border-border">
+                        {art ? (
+                          <div className="flex items-center gap-2">
+                            <TypeChip type={art.type} />
+                            <span>{art.title}</span>
+                          </div>
+                        ) : (
+                          <span className="text-fg-subtle text-[12px]">—</span>
+                        )}
+                      </td>
+                      <td className="px-3.5 py-3 border-b border-border tabular-nums">
+                        {m.entityCount > 0 ? <Badge tone="success">{m.entityCount}</Badge> : <span className="text-fg-subtle">0</span>}
+                      </td>
+                      <td className="px-3.5 py-3 border-b border-border text-fg-muted text-[12.5px]">{timeAgo(m.updatedAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+
+          {/* Mobile: stacked cards (below md). No horizontal scroll; every column survives. */}
+          <div className="md:hidden space-y-2.5">
+            {filtered.map((m) => {
+              const art = m.artifactId ? artifactsById.get(m.artifactId) : null;
+              return (
+                <Link
+                  key={m.id}
+                  href={`/projects/${projectId}/database/${m.id}`}
+                  className="block rounded-lg border border-border bg-panel p-3 hover:bg-panel-hover transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-medium leading-snug min-w-0">{m.title}</div>
+                    <Badge mono>{m.databaseType}</Badge>
+                  </div>
+                  <p className="mt-1 text-[12px] text-fg-muted line-clamp-2">
+                    {m.description || <em className="text-fg-subtle">No description</em>}
+                  </p>
+                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    {art ? (
+                      <>
+                        <TypeChip type={art.type} />
+                        <span className="text-[12.5px] text-fg-muted">{art.title}</span>
+                      </>
+                    ) : (
+                      <span className="text-fg-subtle text-[12px]">No linked artifact</span>
+                    )}
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-x-3 gap-y-1.5 flex-wrap text-[11.5px] text-fg-muted">
+                    {m.entityCount > 0 ? (
+                      <Badge tone="success">{m.entityCount} {m.entityCount === 1 ? "entity" : "entities"}</Badge>
+                    ) : (
+                      <span>0 entities</span>
+                    )}
+                    <span>{timeAgo(m.updatedAt)}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {creating && (

@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FileText, Plug, GitMerge, Database, ExternalLink, X, Info,
-  Upload as UploadIcon, Search, ArrowLeft, Link as LinkIcon, Plus, ChevronDown, ChevronUp,
+  Upload as UploadIcon, Search, ArrowLeft, ArrowRight, Link as LinkIcon, Plus, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -172,10 +172,10 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
       <div className="bg-panel-2 border border-border rounded-md px-3.5 py-2.5 mb-5 flex items-start gap-2 text-[12.5px] text-fg-muted">
         <Info size={13} className="mt-0.5 shrink-0" />
         <div>
-          <strong className="text-fg">Markdown ingestion is live.</strong> The parser is deterministic
-          (no AI): it extracts the first H1 as the title, lists headings, computes a word count, and
-          produces a plain-text excerpt. The original Markdown body is preserved unchanged.
-          OpenAPI / Mermaid / SQL parsers land in later phases.
+          <strong className="text-fg">All four parsers are live and deterministic — no AI.</strong> Every
+          import follows the same <span className="text-fg">draft → parse → preview → confirm</span> flow,
+          so you review exactly what will be created before anything is written. Your original source is
+          preserved unchanged.
         </div>
       </div>
 
@@ -183,7 +183,13 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
         <h2 className="text-[15px] font-semibold tracking-tight mb-3">Source types</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {SOURCE_TYPES.map((s) => (
-            <div key={s.type} className="bg-panel border border-border rounded-lg p-4 flex flex-col gap-2.5">
+            <button
+              key={s.type}
+              type="button"
+              onClick={() => handleStart(s)}
+              disabled={!canMutate}
+              className="group text-left bg-panel border border-border rounded-lg p-4 flex flex-col gap-2.5 transition-colors hover:border-border-strong disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-border"
+            >
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-md bg-accent-soft text-accent grid place-items-center">
                   {s.icon}
@@ -191,13 +197,14 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
                 <div className="text-[14px] font-semibold">{s.label}</div>
               </div>
               <div className="text-[12.5px] text-fg-muted leading-relaxed flex-1">{s.description}</div>
-              <div className="flex items-center justify-between gap-2 mt-1">
-                <Badge tone={s.parserReady ? "success" : "default"}>{s.badge}</Badge>
-                <Button size="sm" onClick={() => handleStart(s)} disabled={!canMutate}>
+              <div className="flex items-center justify-end gap-2 mt-1">
+                {!s.parserReady && <Badge tone="default" className="mr-auto">{s.badge}</Badge>}
+                <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-accent transition-[gap] group-hover:gap-1.5 group-disabled:text-fg-subtle">
                   {s.parserReady ? "Start import" : "Start draft"}
-                </Button>
+                  <ArrowRight size={13} />
+                </span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
         {!canMutate && (
@@ -210,10 +217,12 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
       <section>
         <h2 className="text-[15px] font-semibold tracking-tight mb-3">Ingestion history</h2>
         {records.length === 0 ? (
-          <Empty
-            title="No ingestion records yet"
-            message="Pick a source type above to begin."
-          />
+          <div className="border border-dashed border-border-strong rounded-lg px-5 py-7 text-center bg-panel-2">
+            <div className="text-[13.5px] font-medium">No imports yet</div>
+            <p className="text-fg-muted text-[12.5px] mt-1 mb-0">
+              Pick a source type above to bring existing docs, specs, diagrams or schemas into the project.
+            </p>
+          </div>
         ) : (
           <Card padded={false}>
             <div className="overflow-x-auto">

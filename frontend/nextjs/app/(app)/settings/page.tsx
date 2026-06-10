@@ -2,14 +2,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Lock, LogOut, Upload, Construction, Check, Mail, X, Loader2, ArrowLeft } from "lucide-react";
+import { Save, Lock, LogOut, Check, Mail, X, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Tabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Empty } from "@/components/ui/empty";
 import { CodeInput } from "@/components/ui/code-input";
 import { useAuth } from "@/lib/auth-context";
 import { useTweaks } from "@/components/providers";
@@ -21,13 +20,13 @@ import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import type { Project, User } from "@/lib/types";
 
-type TabId = "profile" | "workspace" | "notifications" | "tokens" | "danger";
+type TabId = "profile" | "workspace" | "notifications" | "danger";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<TabId>("profile");
 
   return (
-    <div className="px-8 py-6 max-w-[920px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1320px] mx-auto">
       <PageHeader title="Settings" subtitle="Manage your account and workspace preferences." />
 
       <Tabs
@@ -37,7 +36,6 @@ export default function SettingsPage() {
           { id: "profile", label: "Profile" },
           { id: "workspace", label: "Workspace" },
           { id: "notifications", label: "Notifications" },
-          { id: "tokens", label: "API tokens" },
           { id: "danger", label: "Danger zone" },
         ]}
       />
@@ -45,7 +43,6 @@ export default function SettingsPage() {
       {tab === "profile" && <ProfileTab />}
       {tab === "workspace" && <WorkspaceTab />}
       {tab === "notifications" && <NotificationsTab />}
-      {tab === "tokens" && <TokensTab />}
       {tab === "danger" && <DangerTab />}
     </div>
   );
@@ -81,8 +78,6 @@ function ProfileTab() {
   const dirty =
     firstName.trim() !== user.firstName ||
     lastName.trim() !== user.lastName;
-
-  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || user.initials;
 
   const save = async () => {
     setSaving(true);
@@ -126,22 +121,7 @@ function ProfileTab() {
   return (
     <div className="flex flex-col gap-5">
       <Card title="Profile">
-        <div className="flex items-start gap-5 flex-wrap">
-          <div className="flex flex-col items-center gap-2">
-            <div
-              className="grid place-items-center rounded-full bg-accent-soft text-accent font-semibold border border-border"
-              style={{ width: 72, height: 72, fontSize: 24 }}
-              aria-label="Avatar"
-            >
-              {initials || "?"}
-            </div>
-            <Button size="sm" icon={<Upload size={12} />} disabled title="Photo upload coming next">
-              Upload photo
-            </Button>
-            <span className="text-[10.5px] text-fg-subtle">Coming next</span>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3 flex-1 min-w-[240px]">
+        <div className="grid sm:grid-cols-2 gap-3">
             <Field label="First name">
               <input value={firstName} onChange={(e) => setFirstName(e.target.value)}
                 className="w-full bg-panel border border-border rounded-sm px-2.5 py-2 text-[13.5px] outline-none focus:border-accent" />
@@ -165,7 +145,6 @@ function ProfileTab() {
                 <span className="text-[11.5px] text-fg-subtle">Read-only</span>
               </div>
             </Field>
-          </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-4">
@@ -594,7 +573,7 @@ const NOTIFICATION_ROWS: { key: NotificationKey; label: string; hint: string }[]
   {
     key: "validationAlertsEnabled",
     label: "Validation alerts",
-    hint: "Email me when a new ERROR-severity validation issue appears.",
+    hint: "Email me when a new error or critical validation issue appears.",
   },
 ];
 
@@ -669,15 +648,6 @@ function NotificationsTab() {
             </div>
           ))}
 
-          {/* Slack — deliberately not implemented for the MVP. */}
-          <div className="flex items-start gap-3 p-3 bg-panel-2 border border-border rounded-md opacity-70">
-            <div className="min-w-0 flex-1">
-              <div className="text-[13.5px] font-medium">Slack notifications</div>
-              <div className="text-[12px] text-fg-muted">Post to a Slack channel on export creation.</div>
-            </div>
-            <Badge mono>SOON</Badge>
-          </div>
-
           <div className="text-[11.5px] text-fg-subtle mt-1">
             Email delivery will use your verified account email.
           </div>
@@ -720,20 +690,6 @@ function Toggle({
         )}
       />
     </button>
-  );
-}
-
-// ────────────────────────── API tokens ──────────────────────────
-
-function TokensTab() {
-  return (
-    <Card>
-      <Empty
-        icon={<Construction size={28} />}
-        title="API tokens — coming next"
-        message="Personal access tokens will let external tools and CI pipelines hit the SSOT API without the browser login flow. Planned scopes: read-only export, read/write artifacts, full admin."
-      />
-    </Card>
   );
 }
 

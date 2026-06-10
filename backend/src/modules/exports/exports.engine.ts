@@ -36,7 +36,12 @@ export async function buildExportContent(
       prisma.apiEndpoint.findMany({ where: { apiSpec: { projectId } } }),
       prisma.databaseModel.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
       prisma.databaseEntity.findMany({ where: { databaseModel: { projectId } } }),
-      prisma.databaseField.findMany({ where: { entity: { databaseModel: { projectId } } } }),
+      // Ordered by `position` so exported ERDs/JSON match the field order users set
+      // on the model page (per-entity `.filter` below preserves this relative order).
+      prisma.databaseField.findMany({
+        where: { entity: { databaseModel: { projectId } } },
+        orderBy: [{ position: "asc" }, { name: "asc" }],
+      }),
       prisma.diagram.findMany({ where: { projectId }, orderBy: { createdAt: "asc" } }),
       prisma.versionEvent.findMany({
         where: { projectId },

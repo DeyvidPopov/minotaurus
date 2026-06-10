@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Edit, Trash2, Save, X, Copy, Maximize2, Minimize2, Wand2,
   CheckCircle2, AlertTriangle, Loader2, ChevronDown,
@@ -35,6 +36,7 @@ export default function DiagramDetailPage({
 }) {
   const { projectId, diagramId } = params;
   const router = useRouter();
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const initialEdit = searchParams?.get("edit") === "1";
 
@@ -101,14 +103,24 @@ export default function DiagramDetailPage({
     }
   };
 
-  const exitEdit = () => {
-    if (dirty && !confirm("Discard unsaved changes?")) return;
+  const exitEdit = async () => {
+    if (dirty && !(await confirm({
+      title: "Discard changes?",
+      message: "You have unsaved changes to this diagram. Discard them?",
+      confirmLabel: "Discard",
+    }))) return;
     setSource(savedSource);
     setEditing(false);
   };
 
   const onDelete = async () => {
-    if (!confirm(`Delete diagram "${diagram.title}"? This cannot be undone.`)) return;
+    if (!(await confirm({
+      title: "Delete diagram",
+      message: `This permanently deletes the diagram "${diagram.title}" and cannot be undone.`,
+      confirmLabel: "Delete diagram",
+      destructive: true,
+      confirmPhrase: diagram.title,
+    }))) return;
     try {
       await diagramsApi.remove(diagram.id);
       toast.success("Diagram deleted");
@@ -151,11 +163,13 @@ export default function DiagramDetailPage({
     return (
       <div className="fixed inset-0 z-[120] bg-bg flex flex-col">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
-          <Badge mono>{diagram.type}</Badge>
-          <div className="font-semibold text-[14px]">{diagram.title}</div>
+          <Badge mono className="shrink-0 hidden sm:inline-flex">{diagram.type}</Badge>
+          <div className="font-semibold text-[14px] flex-1 min-w-0 truncate">{diagram.title}</div>
           <StatusPill status={status} />
-          <div className="flex-1" />
-          <Button icon={<Minimize2 size={13} />} onClick={() => setFullscreen(false)}>Exit fullscreen</Button>
+          <Button className="shrink-0" icon={<Minimize2 size={13} />} onClick={() => setFullscreen(false)}>
+            <span className="hidden sm:inline">Exit fullscreen</span>
+            <span className="sm:hidden">Exit</span>
+          </Button>
         </div>
         <div className="flex-1 bg-panel-2 min-h-0">
           <MermaidPreview
@@ -199,7 +213,7 @@ export default function DiagramDetailPage({
               <Button icon={<Copy size={13} />} onClick={copySource}>Copy Mermaid</Button>
               <Button icon={<Maximize2 size={13} />} onClick={() => setFullscreen(true)}>Fullscreen</Button>
               <Button icon={<Edit size={13} />} onClick={() => setEditingMeta(true)}>Metadata</Button>
-              <Button icon={<Trash2 size={13} />} onClick={onDelete}>Delete</Button>
+              <Button variant="danger" icon={<Trash2 size={13} />} onClick={onDelete}>Delete</Button>
             </>
           )
         }

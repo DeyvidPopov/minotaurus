@@ -3,10 +3,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { Sun, Moon, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTweaks } from "@/components/providers";
+import { cn } from "@/lib/utils";
 import { ShortcutHint } from "@/components/ui/shortcut-hint";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
@@ -80,6 +81,22 @@ export function Topbar({ onOpenSearch, onOpenMobileNav }: { onOpenSearch: () => 
     }
   } else if (segs[0] === "settings") crumbs.push({ label: "Settings", now: true });
 
+  const renderCrumb = (c: Crumb, extra = "") =>
+    c.href ? (
+      <Link href={c.href} className={cn("px-1.5 py-1 rounded", c.now ? "text-fg font-medium" : "hover:bg-panel-hover hover:text-fg", extra)}>
+        {c.label}
+      </Link>
+    ) : (
+      <span className={cn("px-1.5 py-1", c.now && "text-fg font-medium", extra)}>{c.label}</span>
+    );
+
+  const sep = <span className="text-fg-subtle text-[11px] shrink-0">/</span>;
+  // Mobile collapses everything between the first and last crumb into a single "…"
+  // so a long project/entity name can never explode the bar into multiple lines.
+  const collapse = crumbs.length >= 3;
+  const parent = crumbs[crumbs.length - 2]; // nearest ancestor — the "…" links here
+  const hiddenLabels = crumbs.slice(1, -1).map((c) => c.label).join(" / ");
+
   return (
     <div className="flex items-center gap-3 h-[52px] px-4 border-b border-border bg-bg flex-none min-w-0">
       <button
@@ -90,20 +107,40 @@ export function Topbar({ onOpenSearch, onOpenMobileNav }: { onOpenSearch: () => 
         <Menu size={16} />
       </button>
 
-      <div className="flex items-center gap-1.5 text-[13px] text-fg-muted min-w-0 flex-shrink">
-        {crumbs.map((c, i) => (
-          <span key={i} className="flex items-center gap-1.5">
-            {i > 0 && <span className="text-fg-subtle text-[11px]">/</span>}
-            {c.href ? (
-              <Link href={c.href} className={`px-1.5 py-1 rounded ${c.now ? "text-fg font-medium" : "hover:bg-panel-hover hover:text-fg"}`}>
-                {c.label}
-              </Link>
-            ) : (
-              <span className={c.now ? "text-fg font-medium px-1.5 py-1" : "px-1.5 py-1"}>{c.label}</span>
-            )}
-          </span>
-        ))}
-      </div>
+      <nav aria-label="Breadcrumb" className="min-w-0 flex-shrink text-[13px] text-fg-muted">
+        {/* Desktop: the full trail (unchanged behavior). */}
+        <div className="hidden md:flex items-center gap-1.5 min-w-0">
+          {crumbs.map((c, i) => (
+            <span key={i} className="flex items-center gap-1.5">
+              {i > 0 && sep}
+              {renderCrumb(c)}
+            </span>
+          ))}
+        </div>
+        {/* Mobile: first / … / last — one line, last crumb truncates. */}
+        <div className="flex md:hidden items-center gap-1.5 min-w-0">
+          {collapse ? (
+            <>
+              {renderCrumb(crumbs[0], "shrink-0 whitespace-nowrap")}
+              {sep}
+              {parent?.href ? (
+                <Link href={parent.href} title={hiddenLabels} aria-label={`Parent pages: ${hiddenLabels}`} className="px-1 py-1 rounded shrink-0 hover:bg-panel-hover hover:text-fg">…</Link>
+              ) : (
+                <span title={hiddenLabels} className="px-1 py-1 shrink-0">…</span>
+              )}
+              {sep}
+              {renderCrumb(crumbs[crumbs.length - 1], "min-w-0 flex-1 truncate whitespace-nowrap")}
+            </>
+          ) : (
+            crumbs.map((c, i) => (
+              <Fragment key={i}>
+                {i > 0 && sep}
+                {renderCrumb(c, i === crumbs.length - 1 ? "min-w-0 flex-1 truncate whitespace-nowrap" : "shrink-0 whitespace-nowrap")}
+              </Fragment>
+            ))
+          )}
+        </div>
+      </nav>
 
       <button
         onClick={onOpenSearch}

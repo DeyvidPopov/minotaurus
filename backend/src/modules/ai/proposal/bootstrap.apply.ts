@@ -301,6 +301,7 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
                 referencesEntityId: refId,
                 // referencesFieldId resolved in Pass C, once every column exists.
                 description: "",
+                position: k, // preserve the proposal's field order (gaps from skips are fine)
               },
             });
             const meta = fieldsByEntityId.get(entityId) ?? [];

@@ -32,43 +32,9 @@ import {
   type VersionEntityType,
   type VersionEvent,
 } from "@/lib/api/versions";
+import { ACTION_COLOR } from "@/lib/activity";
+import { ActivityRow } from "@/components/activity/activity-row";
 import { ApiError } from "@/lib/api/client";
-import { timeAgo } from "@/lib/utils";
-
-const ACTION_COLOR: Record<VersionAction, string> = {
-  CREATED: "var(--c-success)",
-  UPDATED: "var(--c-info)",
-  DELETED: "var(--c-danger)",
-  LINKED: "var(--c-info)",
-  UNLINKED: "var(--fg-muted)",
-  VALIDATED: "var(--c-warning)",
-  EXPORTED: "#a78bfa",
-};
-
-const ACTION_VERB: Record<VersionAction, string> = {
-  CREATED: "created",
-  UPDATED: "updated",
-  DELETED: "deleted",
-  LINKED: "linked",
-  UNLINKED: "unlinked",
-  VALIDATED: "validated",
-  EXPORTED: "exported",
-};
-
-// Entities where the stored `title` repeats information already in the verb +
-// entity-type line (e.g. relations are "source → target"). Keep the layout
-// consistent with the dashboard's Recent changes widget.
-const HIDE_SECONDARY_TITLE = new Set<VersionEntityType>(["RELATION"]);
-
-function entityTypeLabel(t: VersionEntityType): string {
-  return t.toLowerCase().replace(/_/g, " ");
-}
-
-function authorFirstName(event: VersionEvent): string {
-  const full = event.triggeredByName?.trim();
-  if (!full) return "Someone";
-  return full.split(/\s+/)[0];
-}
 
 const ENTITY_ICON: Record<VersionEntityType, React.ReactNode> = {
   PROJECT: <Box size={14} />,
@@ -121,8 +87,8 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
     let items = events ?? [];
     if (entityType !== "ALL") items = items.filter((e) => e.entityType === entityType);
     if (action !== "ALL") items = items.filter((e) => e.action === action);
-    if (search.trim()) {
-      const t = search.toLowerCase();
+    const t = search.trim().toLowerCase();
+    if (t) {
       items = items.filter(
         (e) =>
           e.title.toLowerCase().includes(t) ||
@@ -136,7 +102,7 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
 
   return (
-    <div className="px-8 py-6">
+    <div className="px-4 py-6 md:px-8">
       <PageHeader
         title="Version history"
         subtitle={
@@ -146,7 +112,7 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
         }
         actions={
           <>
-            <SearchInput value={search} onChange={setSearch} placeholder="Filter…" className="w-[220px]" />
+            <SearchInput value={search} onChange={setSearch} placeholder="Search by title…" className="w-full sm:w-[220px]" />
             <select value={entityType} onChange={(e) => setEntityType(e.target.value as typeof entityType)}
               className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
               <option value="ALL">All entities</option>
@@ -187,33 +153,11 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
 
 function EventRow({ event, projectId }: { event: VersionEvent; projectId: string }) {
   const c = ACTION_COLOR[event.action];
-  const targetHref = entityHref(projectId, event);
-  const initials = event.triggeredByInitials?.trim() || "?";
-  const fullName = event.triggeredByName?.trim() || "Unknown user";
-  const showTitle = !HIDE_SECONDARY_TITLE.has(event.entityType) && !!event.title.trim();
   return (
-    <li className="flex items-center gap-3 px-3.5 py-3 hover:bg-panel-hover transition-colors">
-      <span
-        className="inline-grid place-items-center rounded-full text-[10.5px] font-semibold shrink-0"
-        style={{
-          width: 28,
-          height: 28,
-          color: c,
-          background: `color-mix(in srgb, ${c} 14%, transparent)`,
-          border: `1px solid color-mix(in srgb, ${c} 30%, transparent)`,
-        }}
-        title={fullName}
-        aria-label={fullName}
-      >
-        {initials}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] leading-tight truncate">
-          <strong className="text-fg font-semibold">{authorFirstName(event)}</strong>{" "}
-          <span className="text-fg-muted">{ACTION_VERB[event.action]}</span>{" "}
-          <span className="font-mono text-fg-muted">{entityTypeLabel(event.entityType)}</span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap mt-1">
+    <ActivityRow
+      event={event}
+      secondary={
+        <div className="flex items-center gap-2 flex-wrap">
           <span
             className="inline-flex items-center gap-1 text-[10.5px] px-1.5 py-0.5 rounded font-mono font-bold leading-none"
             style={{
@@ -228,19 +172,10 @@ function EventRow({ event, projectId }: { event: VersionEvent; projectId: string
             {ENTITY_ICON[event.entityType]}
             {event.entityType}
           </Badge>
-          {showTitle && (
-            <span className="text-[13px] font-medium truncate">{event.title}</span>
-          )}
         </div>
-        {event.description && (
-          <div className="text-[12.5px] text-fg-muted mt-1 truncate">{event.description}</div>
-        )}
-      </div>
-      <div className="text-[11.5px] text-fg-subtle font-mono shrink-0 flex flex-col items-end gap-1">
-        <span>{timeAgo(event.createdAt)}</span>
-        <OpenLink href={targetHref} />
-      </div>
-    </li>
+      }
+      trailing={<OpenLink href={entityHref(projectId, event)} />}
+    />
   );
 }
 

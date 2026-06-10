@@ -52,10 +52,13 @@ export function BootstrapWizard({
   projectId,
   onClose,
   onApplied,
+  inline = false,
 }: {
   projectId: string;
   onClose: () => void;
   onApplied: () => Promise<void> | void;
+  /** Render the flow in place (no modal overlay) — e.g. swapped into the empty-project card. */
+  inline?: boolean;
 }) {
   const [step, setStep] = useState<"describe" | "review">("describe");
   const [idea, setIdea] = useState("");
@@ -206,9 +209,7 @@ export function BootstrapWizard({
     }
   };
 
-  return (
-    <Modal title="Generate Initial Architecture with AI" onClose={onClose}>
-      {generating ? (
+  const content = generating ? (
         <GeneratingView />
       ) : step === "describe" ? (
         <div className="flex flex-col gap-3">
@@ -477,7 +478,32 @@ export function BootstrapWizard({
             </div>
           </div>
         )
-      )}
+      );
+
+  if (inline) {
+    return (
+      <div className="text-left">
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="text-[14px] font-semibold flex items-center gap-2 min-w-0">
+            <Sparkles size={15} className="text-accent shrink-0" />
+            <span className="truncate">Generate Initial Architecture with AI</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 grid place-items-center rounded-sm text-fg-muted hover:bg-panel-hover hover:text-fg shrink-0"
+            aria-label="Close"
+          >
+            <X size={14} />
+          </button>
+        </div>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Modal title="Generate Initial Architecture with AI" onClose={onClose}>
+      {content}
     </Modal>
   );
 }
@@ -621,7 +647,7 @@ function DatabaseModelRow({
                     {f.isPrimaryKey && <Badge tone="success" mono>PK</Badge>}
                     {(f.isForeignKey || f.referencesEntityName) && (
                       <Badge tone="warning" mono>
-                        FK{f.referencesEntityName ? ` → ${f.referencesEntityName}` : ""}
+                        FK{f.referencesEntityName ? ` → ${f.referencesEntityName}${f.referencesFieldName ? `.${f.referencesFieldName}` : ""}` : ""}
                       </Badge>
                     )}
                     {f.required && <span className="text-fg-subtle">required</span>}

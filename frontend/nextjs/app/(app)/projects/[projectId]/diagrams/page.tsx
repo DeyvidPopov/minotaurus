@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, GitMerge, X, Info } from "lucide-react";
+import { GitMerge, X, Info } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -57,31 +57,32 @@ export default function DiagramsListPage({ params }: { params: { projectId: stri
   }, [projectId]);
 
   const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
     return (diagrams ?? []).filter(
       (d) =>
         (typeFilter === "ALL" || d.type === typeFilter) &&
-        (!q.trim() ||
-          d.title.toLowerCase().includes(q.toLowerCase()) ||
-          d.description.toLowerCase().includes(q.toLowerCase())),
+        (!term ||
+          d.title.toLowerCase().includes(term) ||
+          d.description.toLowerCase().includes(term)),
     );
   }, [diagrams, q, typeFilter]);
 
   const artifactsById = useMemo(() => new Map(artifacts.map((a) => [a.id, a])), [artifacts]);
 
   return (
-    <div className="px-8 py-6 max-w-[1280px] mx-auto">
+    <div className="px-4 py-6 md:px-8 max-w-[1280px] mx-auto">
       <PageHeader
         title="Diagrams"
         subtitle={diagrams === null ? "Loading…" : `${diagrams.length} diagram${diagrams.length === 1 ? "" : "s"} · architecture visualisations`}
         actions={
           <>
-            <SearchInput value={q} onChange={setQ} placeholder="Filter…" className="w-[220px]" />
+            <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full sm:w-[220px]" />
             <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "ALL" | DiagramType)}
               className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
               <option value="ALL">All types</option>
               {DIAGRAM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreating(true)}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               New diagram
             </Button>
           </>
@@ -101,7 +102,7 @@ export default function DiagramsListPage({ params }: { params: { projectId: stri
           title="No diagrams yet"
           message="Use Mermaid to sketch flows, sequences, ER diagrams or component layouts. Pick a starter template to begin."
           action={
-            <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreating(true)}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               New diagram
             </Button>
           }

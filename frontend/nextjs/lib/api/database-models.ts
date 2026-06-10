@@ -19,7 +19,10 @@ export interface DatabaseField {
   required: boolean;
   isPrimaryKey: boolean;
   isForeignKey: boolean;
+  /** Coarse FK target (entity) — kept for easy ERD/UI rendering. */
   referencesEntityId: string | null;
+  /** Precise FK target (specific column) — normally the referenced entity's PK. */
+  referencesFieldId: string | null;
   description: string;
 }
 
@@ -82,11 +85,14 @@ export const databaseEntitiesApi = {
 export const databaseFieldsApi = {
   create: (
     entityId: string,
-    body: Partial<Pick<DatabaseField, "name" | "type" | "required" | "isPrimaryKey" | "isForeignKey" | "referencesEntityId" | "description">>,
+    body: Partial<Pick<DatabaseField, "name" | "type" | "required" | "isPrimaryKey" | "isForeignKey" | "referencesEntityId" | "referencesFieldId" | "description">>,
   ) => apiClient.post<DatabaseField>(`/database-entities/${entityId}/fields`, body),
   update: (
     fieldId: string,
-    body: Partial<Pick<DatabaseField, "name" | "type" | "required" | "isPrimaryKey" | "isForeignKey" | "referencesEntityId" | "description">>,
+    body: Partial<Pick<DatabaseField, "name" | "type" | "required" | "isPrimaryKey" | "isForeignKey" | "referencesEntityId" | "referencesFieldId" | "description">>,
   ) => apiClient.patch<DatabaseField>(`/database-fields/${fieldId}`, body),
   remove: (fieldId: string) => apiClient.delete<void>(`/database-fields/${fieldId}`),
+  /** Persist a new field order for an entity. `fieldIds` must be the full set, once each. */
+  reorder: (entityId: string, fieldIds: string[]) =>
+    apiClient.patch<DatabaseField[]>(`/database-entities/${entityId}/fields/reorder`, { fieldIds }),
 };

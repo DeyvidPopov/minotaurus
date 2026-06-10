@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Empty } from "@/components/ui/empty";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { membersApi, type ProjectMember, type ProjectRole } from "@/lib/api/members";
 import { projectsApi } from "@/lib/api/projects";
 import { ApiError } from "@/lib/api/client";
@@ -33,6 +34,7 @@ const ROLE_TONE: Record<ProjectRole, "warning" | "success" | "info" | "default">
 export default function TeamPage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
   const { user: me } = useAuth();
+  const confirm = useConfirm();
   const [project, setProject] = useState<Project | null>(null);
   const [members, setMembers] = useState<ProjectMember[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +117,13 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
 
   const removeMember = async (member: ProjectMember) => {
     const label = member.user.name || member.user.email;
-    if (!window.confirm(`Remove ${label} from this project?`)) return;
+    if (!(await confirm({
+      title: "Remove member",
+      message: `This removes ${label} from the project. They will lose access.`,
+      confirmLabel: "Remove member",
+      destructive: true,
+      confirmPhrase: label,
+    }))) return;
     try {
       await membersApi.remove(projectId, member.id);
       toast.success(`Removed ${label}`);

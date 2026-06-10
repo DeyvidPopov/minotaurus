@@ -32,3 +32,37 @@ export function timeAgo(iso: string) {
 export function truncate(s: string, n: number) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Locale-independent absolute date, e.g. "Jun 6, 2026". Deliberately does NOT use
+ * `toLocaleDateString()` — that picks up the host OS locale and leaks suffixes like
+ * the Bulgarian "г." into an otherwise-English UI. Keep one English format everywhere.
+ */
+export function formatDate(iso: string) {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+// Narrow, conservative filler markers. Substrings only match obvious seed/placeholder
+// copy; exact tokens cover the common one-word fillers. Kept intentionally small so a
+// real description is never mistaken for a placeholder.
+const PLACEHOLDER_PHRASES = ["testbed artifact", "lorem ipsum", "sample artifact", "placeholder description", "placeholder text"];
+const PLACEHOLDER_EXACT = new Set(["todo", "tbd", "n/a", "na", "none", "no description"]);
+
+/**
+ * True when a description is empty or obvious filler that shouldn't occupy prime
+ * header space. Matches only known filler phrases, a few exact one-word fillers, or
+ * a description that merely restates the title. Conservative by design.
+ */
+export function isPlaceholderDescription(description?: string | null, title?: string) {
+  const norm = (description ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!norm) return true;
+  const stripped = norm.replace(/[.\s]+$/, "");
+  if (PLACEHOLDER_EXACT.has(stripped)) return true;
+  if (PLACEHOLDER_PHRASES.some((m) => norm.includes(m))) return true;
+  if (title && norm === title.trim().toLowerCase()) return true;
+  return false;
+}

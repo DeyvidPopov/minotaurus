@@ -133,13 +133,13 @@ ARTIFACTS.forEach((art) => {
 });
 
 export const ISSUES: ValidationIssue[] = [
-  { id: "vi_1", severity: "CRITICAL", category: "SECURITY",      message: "Payments API spec marked DRAFT but service is ACTIVE in production.", artifactId: "api-payments", status: "OPEN",    createdAt: daysAgo(1) },
-  { id: "vi_2", severity: "ERROR",    category: "DOCUMENTATION", message: "Search Service has no linked documentation.",                          artifactId: "svc-search",   status: "OPEN",    createdAt: daysAgo(1) },
-  { id: "vi_3", severity: "WARNING",  category: "API",           message: "POST /payments/intents has no request schema example.",                artifactId: "api-payments", status: "OPEN",    createdAt: daysAgo(2) },
-  { id: "vi_4", severity: "WARNING",  category: "ARCHITECTURE",  message: "Webhooks Service is DEPRECATED but still receives traffic.",           artifactId: "svc-webhooks", status: "OPEN",    createdAt: daysAgo(3) },
-  { id: "vi_5", severity: "WARNING",  category: "RELATIONSHIP",  message: "Orders depends on Inventory but no SLA documented.",                   artifactId: "svc-orders",   status: "OPEN",    createdAt: daysAgo(3) },
-  { id: "vi_6", severity: "INFO",     category: "VERSIONING",    message: "Authentication Guide hasn't been updated in 28 days.",                 artifactId: "doc-auth",     status: "OPEN",    createdAt: daysAgo(5) },
-  { id: "vi_7", severity: "INFO",     category: "DATABASE",      message: "users_db has 1 column without explicit NOT NULL constraint.",          artifactId: "db-users",     status: "OPEN",    createdAt: daysAgo(6) },
+  { id: "vi_1", severity: "CRITICAL", category: "SECURITY",      message: "Payments API spec marked DRAFT but service is ACTIVE in production.", subjectType: "ARTIFACT", subjectId: "api-payments", artifactId: "api-payments", status: "OPEN",    createdAt: daysAgo(1) },
+  { id: "vi_2", severity: "ERROR",    category: "DOCUMENTATION", message: "Search Service has no linked documentation.",                          subjectType: "ARTIFACT", subjectId: "svc-search",   artifactId: "svc-search",   status: "OPEN",    createdAt: daysAgo(1) },
+  { id: "vi_3", severity: "WARNING",  category: "API",           message: "POST /payments/intents has no request schema example.",                subjectType: "ARTIFACT", subjectId: "api-payments", artifactId: "api-payments", status: "OPEN",    createdAt: daysAgo(2) },
+  { id: "vi_4", severity: "WARNING",  category: "ARCHITECTURE",  message: "Webhooks Service is DEPRECATED but still receives traffic.",           subjectType: "ARTIFACT", subjectId: "svc-webhooks", artifactId: "svc-webhooks", status: "OPEN",    createdAt: daysAgo(3) },
+  { id: "vi_5", severity: "WARNING",  category: "RELATIONSHIP",  message: "Orders depends on Inventory but no SLA documented.",                   subjectType: "ARTIFACT", subjectId: "svc-orders",   artifactId: "svc-orders",   status: "OPEN",    createdAt: daysAgo(3) },
+  { id: "vi_6", severity: "INFO",     category: "VERSIONING",    message: "Authentication Guide hasn't been updated in 28 days.",                 subjectType: "ARTIFACT", subjectId: "doc-auth",     artifactId: "doc-auth",     status: "OPEN",    createdAt: daysAgo(5) },
+  { id: "vi_7", severity: "INFO",     category: "DATABASE",      message: "users_db has 1 column without explicit NOT NULL constraint.",          subjectType: "ARTIFACT", subjectId: "db-users",     artifactId: "db-users",     status: "OPEN",    createdAt: daysAgo(6) },
 ];
 
 export const VERSIONS: VersionEntry[] = [

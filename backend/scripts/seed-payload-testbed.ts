@@ -378,6 +378,7 @@ async function main() {
   }
   for (const m of MODELS) {
     for (const e of m.entities) {
+      let pos = 0;
       for (const f of e.fields) {
         const ref = f.fk ? entityIdByName.get(f.fk) ?? null : null;
         await prisma.databaseField.create({
@@ -389,6 +390,7 @@ async function main() {
             isPrimaryKey: !!f.pk,
             isForeignKey: !!f.fk,
             referencesEntityId: ref,
+            position: pos++,
           },
         });
       }

@@ -71,7 +71,12 @@ async function serializeModel(m: DatabaseModel) {
 }
 
 async function serializeEntity(e: DatabaseEntity) {
-  const fields = await prisma.databaseField.findMany({ where: { entityId: e.id } });
+  // Fields are user-orderable (see `position`); secondary `name` keeps ties
+  // deterministic (e.g. bulk-created rows that share the default position 0).
+  const fields = await prisma.databaseField.findMany({
+    where: { entityId: e.id },
+    orderBy: [{ position: "asc" }, { name: "asc" }],
+  });
   return {
     id: e.id,
     databaseModelId: e.databaseModelId,
@@ -181,6 +186,11 @@ const patchFieldSchema = z.object({
   referencesEntityId: z.string().nullable().optional(),
   referencesFieldId: z.string().nullable().optional(),
   description: z.string().optional(),
+});
+
+const reorderFieldsSchema = z.object({
+  // The full, new left-to-right order of this entity's field ids.
+  fieldIds: z.array(z.string().min(1)).min(1),
 });
 
 export async function listModels(req: AuthedRequest, res: Response) {
@@ -463,6 +473,13 @@ export async function createField(req: AuthedRequest, res: Response) {
   );
   if ("error" in fk) return fail(res, 400, "INVALID_FK", fk.error);
 
+  // Append the new field after existing ones (max position + 1).
+  const positionAgg = await prisma.databaseField.aggregate({
+    where: { entityId: entityResult.row.id },
+    _max: { position: true },
+  });
+  const nextPosition = (positionAgg._max.position ?? -1) + 1;
+
   let row: DatabaseField;
   try {
     row = await prisma.databaseField.create({
@@ -476,6 +493,7 @@ export async function createField(req: AuthedRequest, res: Response) {
         referencesEntityId: fk.referencesEntityId,
         referencesFieldId: fk.referencesFieldId,
         description: parsed.data.description,
+        position: nextPosition,
       },
     });
   } catch (err) {
@@ -604,4 +622,62 @@ export async function deleteField(req: AuthedRequest, res: Response) {
     metadata: { entityId: result.entity.id, databaseModelId: result.model.id },
   });
   return ok(res, null, "Field deleted");
+}
+
+export async function reorderFields(req: AuthedRequest, res: Response) {
+  const entityResult = await findEntityForUser(req.params.entityId, req.user!.userId, "DEVELOPER");
+  if ("error" in entityResult) {
+    return entityResult.error === "not_found"
+      ? fail(res, 404, "NOT_FOUND", "Entity not found")
+      : fail(res, 403, "FORBIDDEN", "Forbidden");
+  }
+  const parsed = reorderFieldsSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
+
+  const existing = await prisma.databaseField.findMany({
+    where: { entityId: entityResult.row.id },
+    select: { id: true },
+  });
+  const requested = parsed.data.fieldIds;
+  const requestedSet = new Set(requested);
+  const existingIds = new Set(existing.map((f) => f.id));
+  // The payload must be an exact permutation of this entity's fields — no missing,
+  // extra, duplicate, or foreign ids — so a stale/partial client can't corrupt order.
+  const isExactPermutation =
+    requested.length === existing.length &&
+    requestedSet.size === requested.length &&
+    requested.every((id) => existingIds.has(id));
+  if (!isExactPermutation) {
+    return fail(res, 400, "INVALID_REORDER", "fieldIds must list exactly this entity's fields, each once.");
+  }
+
+  await prisma.$transaction(
+    requested.map((id, index) =>
+      prisma.databaseField.update({ where: { id }, data: { position: index } }),
+    ),
+  );
+  await prisma.databaseEntity.update({
+    where: { id: entityResult.row.id },
+    data: { updatedAt: new Date() },
+  });
+  await prisma.databaseModel.update({
+    where: { id: entityResult.model.id },
+    data: { updatedAt: new Date() },
+  });
+  await recordVersionEvent({
+    projectId: entityResult.model.projectId,
+    entityType: "DATABASE_ENTITY",
+    entityId: entityResult.row.id,
+    action: "UPDATED",
+    title: entityResult.row.name,
+    description: "Reordered fields",
+    triggeredBy: req.user!.userId,
+    metadata: { databaseModelId: entityResult.model.id, reorderedFields: true },
+  });
+
+  const fields = await prisma.databaseField.findMany({
+    where: { entityId: entityResult.row.id },
+    orderBy: [{ position: "asc" }, { name: "asc" }],
+  });
+  return ok(res, fields.map(serializeField), "Fields reordered");
 }

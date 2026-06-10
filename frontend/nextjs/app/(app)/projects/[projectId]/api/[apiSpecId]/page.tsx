@@ -4,7 +4,8 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Edit, Trash2, Plus, X, Lock, LockOpen, Save } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { ChevronRight, Edit, Trash2, X, Lock, LockOpen, Save } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ export default function ApiSpecDetailPage({
 }) {
   const { projectId, apiSpecId } = params;
   const router = useRouter();
+  const confirm = useConfirm();
 
   const [spec, setSpec] = useState<ApiSpec | null>(null);
   const [endpoints, setEndpoints] = useState<ApiEndpoint[]>([]);
@@ -108,7 +110,13 @@ export default function ApiSpecDetailPage({
   }
 
   const onDeleteSpec = async () => {
-    if (!confirm(`Delete API spec "${spec.title}"? Its ${endpoints.length} endpoint(s) will also be removed.`)) return;
+    if (!(await confirm({
+      title: "Delete API spec",
+      message: `This permanently deletes "${spec.title}" and its ${endpoints.length} endpoint(s).`,
+      confirmLabel: "Delete API spec",
+      destructive: true,
+      confirmPhrase: spec.title,
+    }))) return;
     try {
       await apiSpecsApi.remove(spec.id);
       toast.success("API spec deleted");
@@ -119,7 +127,14 @@ export default function ApiSpecDetailPage({
   };
 
   const onDeleteEndpoint = async (id: string) => {
-    if (!confirm("Delete this endpoint?")) return;
+    const ep = endpoints.find((e) => e.id === id);
+    if (!(await confirm({
+      title: "Delete endpoint",
+      message: ep ? `This permanently deletes the ${ep.method} ${ep.path} endpoint.` : "This permanently deletes the endpoint.",
+      confirmLabel: "Delete endpoint",
+      destructive: true,
+      confirmPhrase: ep?.path,
+    }))) return;
     try {
       await apiEndpointsApi.remove(id);
       toast.success("Endpoint deleted");
@@ -130,7 +145,7 @@ export default function ApiSpecDetailPage({
   };
 
   return (
-    <div className="px-8 py-6 max-w-[1100px] mx-auto">
+    <div className="px-8 py-6 max-w-[1200px] mx-auto">
       <PageHeader
         eyebrow={
           <>
@@ -144,7 +159,7 @@ export default function ApiSpecDetailPage({
         actions={
           <>
             <Button icon={<Edit size={13} />} onClick={() => setEditingSpec(true)}>Edit</Button>
-            <Button icon={<Trash2 size={13} />} onClick={onDeleteSpec}>Delete</Button>
+            <Button variant="danger" icon={<Trash2 size={13} />} onClick={onDeleteSpec}>Delete</Button>
           </>
         }
       >
@@ -177,7 +192,7 @@ export default function ApiSpecDetailPage({
           padded={false}
           title={`Endpoints (${endpoints.length})`}
           action={
-            <Button size="sm" variant="primary" icon={<Plus size={12} />} onClick={() => setCreatingEndpoint(true)}>
+            <Button size="sm" variant="primary" onClick={() => setCreatingEndpoint(true)}>
               Add endpoint
             </Button>
           }
@@ -187,7 +202,7 @@ export default function ApiSpecDetailPage({
               title="No endpoints yet"
               message="Add the HTTP routes this spec describes."
               action={
-                <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreatingEndpoint(true)}>
+                <Button variant="primary" onClick={() => setCreatingEndpoint(true)}>
                   Add endpoint
                 </Button>
               }
@@ -198,10 +213,10 @@ export default function ApiSpecDetailPage({
                 <tr className="text-fg-muted text-[11.5px] uppercase tracking-wider">
                   <th className="text-left px-3.5 py-2.5 border-b border-border">Method</th>
                   <th className="text-left px-3.5 py-2.5 border-b border-border">Path</th>
-                  <th className="text-left px-3.5 py-2.5 border-b border-border">Summary</th>
-                  <th className="text-left px-3.5 py-2.5 border-b border-border">Auth</th>
-                  <th className="text-left px-3.5 py-2.5 border-b border-border">Updated</th>
-                  <th />
+                  <th className="text-left px-3.5 py-2.5 border-b border-border hidden md:table-cell">Summary</th>
+                  <th className="text-left px-3.5 py-2.5 border-b border-border hidden md:table-cell">Auth</th>
+                  <th className="text-left px-3.5 py-2.5 border-b border-border hidden md:table-cell">Updated</th>
+                  <th className="border-b border-border" />
                 </tr>
               </thead>
               <tbody>
@@ -236,16 +251,30 @@ export default function ApiSpecDetailPage({
                             </span>
                           </div>
                         </td>
-                        <td className="px-3.5 py-2.5 font-mono text-[12.5px]">{ep.path}</td>
-                        <td className="px-3.5 py-2.5">{ep.summary || <em className="text-fg-subtle">No summary</em>}</td>
-                        <td className="px-3.5 py-2.5">
+                        <td className="px-3.5 py-2.5 font-mono text-[12.5px]">
+                          <div className="break-all">{ep.path}</div>
+                          {/* On mobile the Summary/Auth columns are hidden — fold them
+                              into a sub-line under the path so nothing is lost. */}
+                          <div className="md:hidden mt-1.5 flex flex-col gap-1 font-sans text-[11.5px] text-fg-muted">
+                            {ep.summary
+                              ? <span>{ep.summary}</span>
+                              : <span className="text-fg-subtle italic">No summary</span>}
+                            {ep.requiresAuth ? (
+                              <span className="inline-flex items-center gap-1"><Lock size={10} /> Auth required</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1"><LockOpen size={10} /> Public</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3.5 py-2.5 hidden md:table-cell">{ep.summary || <em className="text-fg-subtle">No summary</em>}</td>
+                        <td className="px-3.5 py-2.5 hidden md:table-cell">
                           {ep.requiresAuth ? (
                             <span className="inline-flex items-center gap-1 text-[12px] text-fg"><Lock size={11} /> required</span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-[12px] text-fg-muted"><LockOpen size={11} /> public</span>
                           )}
                         </td>
-                        <td className="px-3.5 py-2.5 text-fg-muted text-[12px]">{timeAgo(ep.updatedAt)}</td>
+                        <td className="px-3.5 py-2.5 text-fg-muted text-[12px] hidden md:table-cell">{timeAgo(ep.updatedAt)}</td>
                         <td className="px-3.5 py-2.5 text-right">
                           <div className="flex items-center gap-1 justify-end">
                             <Button size="sm" icon={<Edit size={12} />} onClick={(e) => { e.stopPropagation(); setEditingEndpoint(ep); }} />

@@ -15,8 +15,8 @@ export function Card({ title, subtitle, action, children, padded = true, classNa
   return (
     <div className={cn("bg-panel border border-border rounded-lg overflow-hidden", className)}>
       {(title || action) && (
-        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border">
-          <div>
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border flex-wrap">
+          <div className="min-w-0">
             {title && <div className="text-[13.5px] font-semibold">{title}</div>}
             {subtitle && <div className="text-[12.5px] text-fg-muted">{subtitle}</div>}
           </div>

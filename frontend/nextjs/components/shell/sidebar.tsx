@@ -50,12 +50,12 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
   const inProj: Item[] = project ? [
     { id: "overview",   label: "Overview",        href: `/projects/${project.id}`,             icon: <Compass size={16} />, exact: true },
     { id: "artifacts",  label: "Artifacts",       href: `/projects/${project.id}/artifacts`,   icon: <Box size={16} />,    badge: project.artifactCount },
-    { id: "graph",      label: "Knowledge Graph", href: `/projects/${project.id}/graph`,       icon: <Network size={16} /> },
     { id: "api",        label: "API Specs",       href: `/projects/${project.id}/api`,         icon: <Plug size={16} /> },
     { id: "database",   label: "Database Model",  href: `/projects/${project.id}/database`,    icon: <Database size={16} /> },
     { id: "diagrams",   label: "Diagrams",        href: `/projects/${project.id}/diagrams`,    icon: <GitMerge size={16} /> },
     { id: "docs",       label: "Documentation",   href: `/projects/${project.id}/docs`,        icon: <BookOpen size={16} /> },
     { id: "ingestion",  label: "Ingestion",       href: `/projects/${project.id}/ingestion`,   icon: <Download size={16} /> },
+    { id: "graph",      label: "Knowledge Graph", href: `/projects/${project.id}/graph`,       icon: <Network size={16} /> },
     { id: "validation", label: "Validation",      href: `/projects/${project.id}/validation`,  icon: <Shield size={16} />, badge: liveValidationCount ?? project.validationIssueCount, badgeTone: "warning" },
     { id: "review",     label: "AI Review",       href: `/projects/${project.id}/review`,      icon: <Sparkles size={16} /> },
     { id: "versions",   label: "Version History", href: `/projects/${project.id}/versions`,    icon: <History size={16} /> },
@@ -126,13 +126,22 @@ function SidebarSection({ items, isActive }: { items: Item[]; isActive: (href: s
           <span className={cn(active && "text-accent")}>{it.icon}</span>
           <span className="flex-1">{it.label}</span>
           {it.badge != null && it.badge > 0 && (
-            it.badgeTone === "warning"
-              ? <Badge tone="warning">{it.badge}</Badge>
-              : <span className="text-[11px] text-fg-subtle">{it.badge}</span>
+            <SidebarBadge value={it.badge} tone={it.badgeTone} />
           )}
         </Link>
         );
       })}
     </div>
   );
+}
+
+// Severity-graded badge for the validation count: 1–9 renders plain (like the
+// other numeric badges), 10–19 yellow, 20+ red. Plain numeric badges (artifacts,
+// team) carry no tone and always render uncolored.
+function SidebarBadge({ value, tone }: { value: number; tone?: "warning" }) {
+  if (tone === "warning") {
+    if (value >= 20) return <Badge tone="danger">{value}</Badge>;
+    if (value >= 10) return <Badge tone="warning">{value}</Badge>;
+  }
+  return <span className="text-[11px] text-fg-subtle">{value}</span>;
 }

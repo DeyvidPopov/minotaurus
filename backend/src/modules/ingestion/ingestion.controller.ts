@@ -952,6 +952,7 @@ export async function confirmSqlSchemaEndpoint(req: AuthedRequest, res: Response
       entityIds.set(e.name, ent.id);
       const createdFields: { id: string; name: string }[] = [];
       const fieldMeta: { id: string; name: string; isPrimaryKey: boolean }[] = [];
+      let fieldPosition = 0;
       for (const f of e.fields ?? []) {
         const field = await tx.databaseField.create({
           data: {
@@ -963,6 +964,7 @@ export async function confirmSqlSchemaEndpoint(req: AuthedRequest, res: Response
             isForeignKey: !!f.isForeignKey,
             description: f.description ?? "",
             // referencesEntityId / referencesFieldId left null in pass 1; pass 2 resolves them.
+            position: fieldPosition++, // preserve the declared column order from the SQL
           },
         });
         createdFields.push({ id: field.id, name: field.name });

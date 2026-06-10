@@ -3,9 +3,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { RefreshCw, Upload, Sparkles, Plus, Box, Network, Shield, Package, Star, History, Plug, Database, GitMerge, Pencil, Trash2, Link2, Unlink } from "lucide-react";
+import { RefreshCw, Upload, Sparkles, Plus, Star, Box, Network, Shield, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { FILL_ACTIONS_MOBILE } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { SeverityBadge } from "@/components/ui/severity-badge";
@@ -19,11 +20,11 @@ import { BootstrapWizard } from "@/components/ai/bootstrap-wizard";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { validationApi } from "@/lib/api";
-import { versionsApi, type VersionAction, type VersionEntityType, type VersionEvent } from "@/lib/api/versions";
+import { versionsApi, type VersionEvent } from "@/lib/api/versions";
+import { ActivityRow } from "@/components/activity/activity-row";
+import { groupActivityRuns } from "@/lib/activity";
 import { apiClient, ApiError } from "@/lib/api/client";
-import { Badge } from "@/components/ui/badge";
-import type { Artifact, Project, Relation, ValidationIssue } from "@/lib/types";
-import { timeAgo } from "@/lib/utils";
+import type { Artifact, Project, Relation, Severity, ValidationIssue } from "@/lib/types";
 
 type ProjectRelation = {
   id: string;
@@ -31,6 +32,8 @@ type ProjectRelation = {
   targetArtifactId: string;
   relationType: Relation["type"];
 };
+
+const SEVERITY_RANK: Record<Severity, number> = { CRITICAL: 0, ERROR: 1, WARNING: 2, INFO: 3 };
 
 export default function WorkspacePage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
@@ -51,7 +54,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
         artifactsApi.list(projectId),
         apiClient.get<{ nodes: unknown[]; edges: ProjectRelation[] | { id: string; source: string; target: string; type: Relation["type"] }[] }>(`/projects/${projectId}/graph`),
         validationApi.list(projectId),
-        versionsApi.list(projectId, { limit: 10 }),
+        versionsApi.list(projectId, { limit: 12 }),
       ]);
       setProject(p);
       setArtifacts(arts);
@@ -84,6 +87,17 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
   }
 
   const openIssues = issues.filter((i) => i.status === "OPEN");
+  const sortedIssues = [...openIssues].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
+  const errorLike = openIssues.filter((i) => i.severity === "ERROR" || i.severity === "CRITICAL").length;
+  const findingsColor = errorLike > 0 ? "var(--c-danger)" : openIssues.length > 0 ? "var(--c-warning)" : "var(--fg)";
+  const documentedCount = artifacts.filter((a) => (a.documentationContent ?? "").trim().length > 0).length;
+
+  const summary: { label: string; value: number; href: string; icon: React.ReactNode; color?: string }[] = [
+    { label: "Artifacts",     value: artifacts.length,  href: `/projects/${project.id}/artifacts`,  icon: <Box size={15} /> },
+    { label: "Relations",     value: relations.length,  href: `/projects/${project.id}/graph`,       icon: <Network size={15} /> },
+    { label: "Open findings", value: openIssues.length, href: `/projects/${project.id}/validation`,  icon: <Shield size={15} />, color: findingsColor },
+    { label: "Documented",    value: documentedCount,   href: `/projects/${project.id}/docs`,         icon: <BookOpen size={15} /> },
+  ];
 
   const runValidation = async () => {
     setRunning(true);
@@ -99,24 +113,24 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
   };
 
   return (
-    <div className="px-8 py-6">
+    <div className="px-4 sm:px-6 lg:px-8 py-6">
       <div className="mb-6">
-        {/* Sub-nav row: logo + name + actions on one line */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+        {/* Header: title + actions. Stacks on mobile, single row from sm up. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <ProjectMark color={project.color} size={42} seed={project.id} />
-            <h1 className="text-2xl font-semibold tracking-tight m-0 flex items-center gap-2.5 min-w-0">
-              <span className="truncate">{project.name}</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight m-0 truncate min-w-0">{project.name}</h1>
               <StatusBadge status="ACTIVE" />
               {project.starred && <Star size={16} className="text-warning shrink-0" />}
-            </h1>
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <div className={`flex items-center gap-2 flex-wrap sm:shrink-0 ${FILL_ACTIONS_MOBILE}`}>
             <Button icon={<RefreshCw size={14} />} onClick={runValidation} disabled={running}>
               {running ? "Validating…" : "Run validation"}
             </Button>
             <Link href={`/projects/${project.id}/export`}><Button icon={<Upload size={14} />}>Export SSOT</Button></Link>
-            <Link href={`/projects/${project.id}/artifacts/new`}><Button variant="primary" icon={<Plus size={14} />}>New artifact</Button></Link>
+            <Link href={`/projects/${project.id}/artifacts/new`}><Button variant="primary">New artifact</Button></Link>
           </div>
         </div>
         {/* Description: full-width row underneath, capped for readability */}
@@ -127,68 +141,81 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
         />
       </div>
 
+      {artifacts.length === 0 ? (
+        <div className={`rounded-lg border border-border bg-panel mt-2 mx-auto ${wizardOpen ? "max-w-3xl p-5 sm:p-6" : "max-w-2xl p-8 text-center"}`}>
+          {wizardOpen ? (
+            // In place of a modal, the empty-project card becomes the AI flow;
+            // Cancel/close returns it to the initial state below.
+            <BootstrapWizard
+              inline
+              projectId={project.id}
+              onClose={() => setWizardOpen(false)}
+              onApplied={refresh}
+            />
+          ) : (
+            <>
+              <div className="w-12 h-12 rounded-lg bg-accent-soft text-accent grid place-items-center mx-auto mb-4">
+                <Network size={22} />
+              </div>
+              <h2 className="text-[17px] font-semibold tracking-tight m-0">Your project is currently empty</h2>
+              <p className="text-fg-muted text-[13.5px] mt-1.5 mb-5 max-w-md mx-auto">
+                Start manually, or generate an initial architecture draft with AI — you review and confirm every item before anything is saved.
+              </p>
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-center gap-2.5">
+                <Link href={`/projects/${project.id}/artifacts/new`} className="w-full sm:w-auto">
+                  <Button icon={<Plus size={14} />} className="w-full sm:w-auto">Start Building Manually</Button>
+                </Link>
+                <Button variant="primary" icon={<Sparkles size={14} />} onClick={() => setWizardOpen(true)} className="w-full sm:w-auto">
+                  Generate Initial Architecture with AI
+                </Button>
+              </div>
+              <div className="text-[11.5px] text-fg-subtle mt-3.5">
+                AI creates a draft only. Nothing is saved until you confirm.
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+      <>
+      {/* At-a-glance project summary — counts that double as navigation, not action duplicates. */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-7">
-        {[
-          { icon: <Box />,      label: "New artifact", href: `/projects/${project.id}/artifacts/new` },
-          { icon: <Network />,  label: "Graph",        href: `/projects/${project.id}/graph` },
-          { icon: <Shield />,   label: "Validation",   href: `/projects/${project.id}/validation` },
-          { icon: <Package />,  label: "Export",       href: `/projects/${project.id}/export` },
-        ].map((q, i) => (
-          <Link key={i} href={q.href} className="bg-panel border border-border rounded-lg p-3.5 flex flex-col gap-2 hover:border-border-strong transition-colors">
-            <div className="w-[30px] h-[30px] rounded-md bg-accent-soft text-accent grid place-items-center">
-              {/* @ts-ignore */}
-              {q.icon}
+        {summary.map((s) => (
+          <Link
+            key={s.label}
+            href={s.href}
+            className="bg-panel border border-border rounded-lg p-3.5 hover:border-border-strong transition-colors"
+          >
+            <div className="flex items-center justify-between text-fg-muted">
+              <span className="text-[12px]">{s.label}</span>
+              <span className="text-fg-subtle">{s.icon}</span>
             </div>
-            <div className="text-[13.5px] font-medium">{q.label}</div>
+            <div className="text-[24px] font-semibold leading-none mt-2" style={{ color: s.color ?? "var(--fg)" }}>
+              {s.value}
+            </div>
           </Link>
         ))}
       </div>
 
-      {artifacts.length === 0 ? (
-        <div className="rounded-lg border border-border bg-panel p-8 text-center max-w-2xl mx-auto mt-2">
-          <div className="w-12 h-12 rounded-lg bg-accent-soft text-accent grid place-items-center mx-auto mb-4">
-            <Network size={22} />
-          </div>
-          <h2 className="text-[17px] font-semibold tracking-tight m-0">Your project is currently empty</h2>
-          <p className="text-fg-muted text-[13.5px] mt-1.5 mb-5 max-w-md mx-auto">
-            Start manually, or generate an initial architecture draft with AI — you review and confirm every item before anything is saved.
-          </p>
-          <div className="flex items-center justify-center gap-2.5 flex-wrap">
-            <Link href={`/projects/${project.id}/artifacts/new`}>
-              <Button icon={<Plus size={14} />}>Start Building Manually</Button>
-            </Link>
-            <Button variant="primary" icon={<Sparkles size={14} />} onClick={() => setWizardOpen(true)}>
-              Generate Initial Architecture with AI
-            </Button>
-          </div>
-          <div className="text-[11.5px] text-fg-subtle mt-3.5">
-            AI creates a draft only. Nothing is saved until you confirm.
-          </div>
-        </div>
-      ) : (
-      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-5 items-start">
-        <Card
-          title="Knowledge graph"
-          subtitle={`${artifacts.length} nodes · ${relations.length} relations`}
-          action={<OpenLink href={`/projects/${project.id}/graph`} />}
-          padded={false}
-        >
-          <div style={{ height: 360, position: "relative" }}>
-            {artifacts.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-fg-muted text-[13px] px-4 text-center">
-                No artifacts yet — create one to start building the graph.
-              </div>
-            ) : (
+      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-5 items-start">
+        {/* Left: the architecture (graph) + what needs attention (validation) */}
+        <div className="flex flex-col gap-5 min-w-0">
+          <Card
+            title="Knowledge graph"
+            subtitle={`${artifacts.length} nodes · ${relations.length} relations`}
+            action={<OpenLink href={`/projects/${project.id}/graph`} />}
+            padded={false}
+            className="min-w-0"
+          >
+            <div style={{ height: 380, position: "relative" }}>
               <GraphCanvas artifacts={artifacts} relations={relations} nodeStyle={graphNodeStyle} storageKey={`project:${projectId}`} showMiniMap={false} minZoom={0.05} />
-            )}
-          </div>
-        </Card>
+            </div>
+          </Card>
 
-        <div className="flex flex-col gap-5">
           <Card title="Validation snapshot" action={
             <OpenLink href={`/projects/${project.id}/validation`} />
           }>
-            <div className="grid grid-cols-4 gap-2 mb-3.5">
+            {/* 2×2 on phones, 1×4 from sm up — severity counts never clip. Ordered high→low severity. */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3.5">
               {[
                 { lbl: "Critical", n: openIssues.filter((i) => i.severity === "CRITICAL").length, c: "var(--c-danger)" },
                 { lbl: "Errors",   n: openIssues.filter((i) => i.severity === "ERROR").length,    c: "var(--c-danger)" },
@@ -201,29 +228,46 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
                 </div>
               ))}
             </div>
-            {openIssues.slice(0, 3).map((iss) => {
+            {/* Highest-severity findings first (errors before warnings before info). */}
+            {sortedIssues.slice(0, 3).map((iss) => {
               const art = artifacts.find((a) => a.id === iss.artifactId);
+              const href = iss.artifactId
+                ? `/projects/${project.id}/artifacts/${iss.artifactId}`
+                : `/projects/${project.id}/validation`;
               return (
-                <Link key={iss.id} href={`/projects/${project.id}/artifacts/${iss.artifactId}`} className="flex items-center gap-2.5 py-2 border-b border-border last:border-0">
+                <Link key={iss.id} href={href} className="flex items-center gap-2.5 py-2 border-b border-border last:border-0">
                   <SeverityBadge severity={iss.severity} />
                   <div className="min-w-0 flex-1">
                     <div className="text-[13px] truncate">{iss.message}</div>
-                    <div className="text-[11.5px] text-fg-muted">{art?.title || ""}</div>
+                    {art?.title && <div className="text-[11.5px] text-fg-muted truncate">{art.title}</div>}
                   </div>
                 </Link>
               );
             })}
+            {openIssues.length > 3 && (
+              <Link
+                href={`/projects/${project.id}/validation`}
+                className="block text-[12.5px] text-accent hover:underline pt-2.5"
+              >
+                +{openIssues.length - 3} more findings
+              </Link>
+            )}
             {openIssues.length === 0 && (
-              <div className="text-fg-muted text-[13px] py-3">No open issues. Run validation to refresh.</div>
+              <div className="text-fg-muted text-[13px] py-3">No open findings.</div>
             )}
           </Card>
+        </div>
 
+        {/* Right: traceability — a tall, narrow activity list that fills its column */}
+        <div className="flex flex-col gap-5 min-w-0">
           <Card
             title="Recent changes"
             subtitle={
               recentEvents === null
                 ? "Loading…"
-                : `${recentEvents.length === 0 ? "No events yet" : "Newest first · backed by version history"}`
+                : recentEvents.length === 0
+                ? "No changes yet"
+                : "Newest first"
             }
             action={<OpenLink href={`/projects/${project.id}/versions`} />}
             padded={false}
@@ -231,108 +275,20 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
             {recentEvents === null ? (
               <div className="px-3.5 py-6 text-fg-muted text-[13px]">Loading recent changes…</div>
             ) : recentEvents.length === 0 ? (
-              <div className="px-3.5 py-6 text-fg-muted text-[13px]">No recent changes yet.</div>
+              <div className="px-3.5 py-6 text-fg-muted text-[13px]">No changes have been recorded yet.</div>
             ) : (
               <ul className="divide-y divide-border">
-                {recentEvents.map((e, i, arr) => (
-                  <RecentChangeRow key={e.id} event={e} isFirst={i === 0} isLast={i === arr.length - 1} />
+                {groupActivityRuns(recentEvents).map((g) => (
+                  <ActivityRow key={g.event.id} event={g.event} count={g.count} />
                 ))}
               </ul>
             )}
           </Card>
         </div>
       </div>
-      )}
-
-      {wizardOpen && (
-        <BootstrapWizard
-          projectId={projectId}
-          onClose={() => setWizardOpen(false)}
-          onApplied={refresh}
-        />
+      </>
       )}
     </div>
   );
 }
 
-const ACTION_COLOR: Record<VersionAction, string> = {
-  CREATED: "var(--c-success)",
-  UPDATED: "var(--c-info)",
-  DELETED: "var(--c-danger)",
-  LINKED: "var(--c-info)",
-  UNLINKED: "var(--fg-muted)",
-  VALIDATED: "var(--c-warning)",
-  EXPORTED: "#a78bfa",
-};
-
-const ACTION_VERB: Record<VersionAction, string> = {
-  CREATED: "created",
-  UPDATED: "updated",
-  DELETED: "deleted",
-  LINKED: "linked",
-  UNLINKED: "unlinked",
-  VALIDATED: "validated",
-  EXPORTED: "exported",
-};
-
-// Entities whose stored `title` is already self-describing through the verb +
-// entity-type line (e.g. relations render "source → target" which duplicates
-// information). Hide the second line for those to match the timeline mockup.
-const HIDE_SECONDARY_TITLE = new Set<VersionEntityType>(["RELATION"]);
-
-function entityTypeLabel(t: VersionEntityType): string {
-  return t.toLowerCase().replace(/_/g, " ");
-}
-
-function authorName(event: VersionEvent): string {
-  return event.triggeredByName?.trim() || "Someone";
-}
-
-function RecentChangeRow({ event, isFirst, isLast }: { event: VersionEvent; isFirst: boolean; isLast: boolean }) {
-  const c = ACTION_COLOR[event.action];
-  const showTitle = !HIDE_SECONDARY_TITLE.has(event.entityType) && !!event.title.trim();
-  return (
-    <li className="relative flex items-start gap-3 pl-4 pr-3.5 py-3">
-      {/* rail above the dot (omit on first row) */}
-      {!isFirst && (
-        <span
-          aria-hidden="true"
-          className="absolute left-[20.5px] top-0 h-[17px] w-px"
-          style={{ background: "var(--border)" }}
-        />
-      )}
-      {/* rail below the dot (omit on last row) */}
-      {!isLast && (
-        <span
-          aria-hidden="true"
-          className="absolute left-[20.5px] top-[26px] bottom-0 w-px"
-          style={{ background: "var(--border)" }}
-        />
-      )}
-      {/* timeline dot */}
-      <span
-        aria-hidden="true"
-        className="relative z-[1] mt-1 w-2.5 h-2.5 rounded-full shrink-0"
-        style={{
-          borderWidth: 2,
-          borderStyle: "solid",
-          borderColor: c,
-          background: "var(--panel)",
-        }}
-        title={event.entityType}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] leading-tight truncate">
-          <strong className="text-fg font-semibold">{authorName(event)}</strong>{" "}
-          <span className="text-fg-muted">{ACTION_VERB[event.action]}</span>{" "}
-          <span className="font-mono text-fg-muted">{entityTypeLabel(event.entityType)}</span>
-          <span className="text-fg-subtle"> · </span>
-          <span className="text-fg-subtle">{timeAgo(event.createdAt)}</span>
-        </div>
-        {showTitle && (
-          <div className="text-[13px] text-fg font-normal truncate mt-1">{event.title}</div>
-        )}
-      </div>
-    </li>
-  );
-}

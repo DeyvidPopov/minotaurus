@@ -36,6 +36,8 @@ export interface ProposedDatabaseField {
   isPrimaryKey: boolean;
   isForeignKey: boolean;
   referencesEntityName?: string | null;
+  /** Optional precise FK target column; apply falls back to the target's single PK. */
+  referencesFieldName?: string | null;
   confidence: number;
 }
 export interface ProposedDatabaseEntity {
@@ -99,6 +101,8 @@ export interface DiagramDecision extends ItemDecision {
 export interface DatabaseFieldDecision extends ItemDecision {
   name: string;
   resolvedReference?: boolean;
+  /** Set when `referencesFieldName` matched a column of the referenced entity. */
+  resolvedFieldReference?: boolean;
 }
 export interface DatabaseEntityDecision extends ItemDecision {
   name: string;

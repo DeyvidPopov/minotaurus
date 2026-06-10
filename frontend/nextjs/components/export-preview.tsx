@@ -88,6 +88,8 @@ interface ExportedDatabaseField {
   isForeignKey?: boolean;
   referencesEntityId?: string | null;
   referencesEntityName?: string | null;
+  referencesFieldId?: string | null;
+  referencesFieldName?: string | null;
 }
 
 interface ExportedDatabaseEntity {
@@ -557,6 +559,7 @@ function DatabaseModelsSection({ databaseModels }: { databaseModels: ExportedDat
                               {f.referencesEntityName && (
                                 <span className="ml-auto text-fg-subtle text-[11px] inline-flex items-center gap-1">
                                   <ArrowRight size={9} /> {f.referencesEntityName}
+                                  {f.referencesFieldName ? `.${f.referencesFieldName}` : ""}
                                 </span>
                               )}
                             </div>

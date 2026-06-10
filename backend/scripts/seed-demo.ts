@@ -311,16 +311,16 @@ async function main() {
 
   await prisma.databaseField.createMany({
     data: [
-      { entityId: usersEntity.id,    name: "id",            type: "uuid",        isPrimaryKey: true, required: true },
-      { entityId: usersEntity.id,    name: "email",         type: "text",        required: true },
-      { entityId: usersEntity.id,    name: "password_hash", type: "text",        required: true },
-      { entityId: usersEntity.id,    name: "created_at",    type: "timestamptz", required: true },
-      { entityId: sessionsEntity.id, name: "id",            type: "uuid",        isPrimaryKey: true, required: true },
-      { entityId: sessionsEntity.id, name: "user_id",       type: "uuid",        isForeignKey: true, referencesEntityId: usersEntity.id, required: true, description: "Owning user" },
-      { entityId: sessionsEntity.id, name: "expires_at",    type: "timestamptz", required: true },
-      { entityId: sessionsEntity.id, name: "revoked_at",    type: "timestamptz" },
-      { entityId: rolesEntity.id,    name: "id",            type: "uuid",        isPrimaryKey: true, required: true },
-      { entityId: rolesEntity.id,    name: "name",          type: "text",        required: true },
+      { entityId: usersEntity.id,    name: "id",            type: "uuid",        isPrimaryKey: true, required: true, position: 0 },
+      { entityId: usersEntity.id,    name: "email",         type: "text",        required: true, position: 1 },
+      { entityId: usersEntity.id,    name: "password_hash", type: "text",        required: true, position: 2 },
+      { entityId: usersEntity.id,    name: "created_at",    type: "timestamptz", required: true, position: 3 },
+      { entityId: sessionsEntity.id, name: "id",            type: "uuid",        isPrimaryKey: true, required: true, position: 0 },
+      { entityId: sessionsEntity.id, name: "user_id",       type: "uuid",        isForeignKey: true, referencesEntityId: usersEntity.id, required: true, description: "Owning user", position: 1 },
+      { entityId: sessionsEntity.id, name: "expires_at",    type: "timestamptz", required: true, position: 2 },
+      { entityId: sessionsEntity.id, name: "revoked_at",    type: "timestamptz", position: 3 },
+      { entityId: rolesEntity.id,    name: "id",            type: "uuid",        isPrimaryKey: true, required: true, position: 0 },
+      { entityId: rolesEntity.id,    name: "name",          type: "text",        required: true, position: 1 },
     ],
   });
 

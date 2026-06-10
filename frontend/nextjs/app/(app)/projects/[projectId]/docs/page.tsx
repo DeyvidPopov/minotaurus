@@ -80,7 +80,7 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
   const showMissing = filter !== "documented";
 
   return (
-    <div className="px-8 py-6">
+    <div className="px-4 py-6 md:px-8">
       <PageHeader
         title="Documentation"
         subtitle={`${summary.coveragePercent}% coverage · ${summary.documentedArtifacts} of ${summary.totalArtifacts} artifacts documented`}
@@ -102,10 +102,12 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5 mb-4">
-        <SearchInput value={query} onChange={setQuery} placeholder="Search by title…" className="flex-1 min-w-[260px] max-w-[420px]" />
+        <SearchInput value={query} onChange={setQuery} placeholder="Search by title…" className="w-full sm:flex-1 sm:min-w-[260px] sm:max-w-[420px]" />
         <Segmented<Filter>
           value={filter}
           onChange={setFilter}
+          fullWidthMobile
+          className="sm:ml-auto"
           options={[
             { value: "all",        label: `All (${summary.totalArtifacts})` },
             { value: "documented", label: `Documented (${summary.documentedArtifacts})` },
@@ -205,7 +207,7 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
             <Card padded={false}>
               <ul className="divide-y divide-border">
                 {matchedMissing.map((m) => (
-                  <li key={m.artifactId} className="flex items-center gap-3 px-4 py-3">
+                  <li key={m.artifactId} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <div className="text-[13.5px] font-medium truncate">{m.artifactTitle}</div>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -213,7 +215,7 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
                         <StatusBadge status={m.artifactStatus} />
                       </div>
                     </div>
-                    <Link href={`/projects/${projectId}/artifacts/${m.artifactId}?tab=documentation`}>
+                    <Link href={`/projects/${projectId}/artifacts/${m.artifactId}?tab=documentation`} className="shrink-0 self-start sm:self-auto">
                       <Button size="sm" icon={<Plus size={13} />}>Add documentation</Button>
                     </Link>
                   </li>

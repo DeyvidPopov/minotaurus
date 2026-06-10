@@ -13,6 +13,7 @@ export * from "./versions";
 export * from "./members";
 export * from "./ingestion";
 export * from "./ai";
+export * from "./dashboard";
 
 import { apiClient } from "./client";
 import type {

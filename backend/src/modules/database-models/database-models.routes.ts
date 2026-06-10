@@ -12,6 +12,7 @@ import {
   patchEntity,
   patchField,
   patchModel,
+  reorderFields,
 } from "./database-models.controller.js";
 
 export const projectDatabaseModelsRouter = Router({ mergeParams: true });
@@ -29,6 +30,8 @@ databaseModelsRouter.delete("/:databaseModelId", deleteModel);
 
 export const databaseEntityFieldsRouter = Router({ mergeParams: true });
 databaseEntityFieldsRouter.post("/", createField);
+// PATCH /database-entities/:entityId/fields/reorder — rewrite the field order.
+databaseEntityFieldsRouter.patch("/reorder", reorderFields);
 
 export const databaseEntitiesRouter = Router();
 databaseEntitiesRouter.patch("/:entityId", patchEntity);

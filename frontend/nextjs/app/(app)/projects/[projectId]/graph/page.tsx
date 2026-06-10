@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Link as LinkIcon, LayoutGrid, Share2, ChevronDown, Check } from "lucide-react";
+import { LayoutGrid, Share2, ChevronDown, Check, Maximize2, Minimize2 } from "lucide-react";
 import { toast } from "sonner";
 import { ARTIFACT_TYPES, EDGE_COLOR } from "@/lib/mock-data";
 import type { Artifact, ArtifactType, Project, Relation, RelationType } from "@/lib/types";
@@ -22,7 +22,6 @@ import { useTweaks } from "@/components/providers";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { apiClient, ApiError } from "@/lib/api/client";
-import { validationApi } from "@/lib/api";
 
 interface GraphEdge {
   id: string;
@@ -47,11 +46,12 @@ export default function GraphPage({ params }: { params: { projectId: string } })
   const [typeFilter, setTypeFilter] = useState<Set<string> | null>(null);
   const [selected, setSelected] = useState<Artifact | null>(null);
   const [search, setSearch] = useState("");
-  const [running, setRunning] = useState(false);
   const [relayoutSignal, setRelayoutSignal] = useState(0);
   const [inferredEdges, setInferredEdges] = useState<InferredGraphEdge[]>([]);
   const [showReal, setShowReal] = useState(true);
   const [showInferred, setShowInferred] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
     try {
@@ -131,55 +131,92 @@ export default function GraphPage({ params }: { params: { projectId: string } })
   const incoming = selected ? relations.filter((r) => r.target === selected.id) : [];
   const outgoing = selected ? relations.filter((r) => r.source === selected.id) : [];
 
-  const runValidation = async () => {
-    setRunning(true);
-    try {
-      await validationApi.run(projectId);
-      toast.success("Validation complete");
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Validation failed");
-    } finally {
-      setRunning(false);
+  // Native browser fullscreen on the whole graph view (toolbar + canvas), so the
+  // view controls stay reachable. Kept in sync with the OS via `fullscreenchange`
+  // (covers the Esc key / browser-driven exits, not just our button).
+  const toggleFullscreen = () => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.();
+    } else {
+      el.requestFullscreen?.().catch(() => toast.error("Fullscreen isn't available here"));
     }
   };
 
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
   return (
-    <div className="grid h-full overflow-hidden" style={{ gridTemplateRows: "auto 1fr" }}>
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2.5 flex-wrap">
-        <div className="min-w-0">
-          <div className="text-[14.5px] font-semibold">{project?.name ?? "Project"} · Knowledge graph</div>
-          <div className="text-[12px] text-fg-muted whitespace-nowrap">
+    <div ref={rootRef} className="grid h-full overflow-hidden bg-bg" style={{ gridTemplateRows: "auto 1fr" }}>
+      <div className="px-4 py-3 border-b border-border flex items-center gap-x-3 gap-y-2 flex-wrap">
+        {/* On desktop the title flex-grows (flex-basis:0 via flex-1 + min-w-0), so it
+            contributes ~0 to the wrap calculation and the view controls stay on the
+            first row — the grown title then pushes search + controls flush right (it
+            truncates instead of wrapping when squeezed). On mobile flex-1 is OFF so the
+            title keeps its content width and the w-full search/controls stack below it. */}
+        <div className="min-w-0 sm:flex-1">
+          <div className="text-[14.5px] font-semibold sm:truncate">{project?.name ?? "Project"} · Knowledge graph</div>
+          <div className="text-[12px] text-fg-muted whitespace-nowrap sm:truncate">
             {artifacts.length} artifacts · {relations.length} relations
             {inferredEdges.length > 0 && ` · ${inferredEdges.length} inferred`}
           </div>
         </div>
-        <SearchInput value={search} onChange={setSearch} placeholder="Find a node…" className="w-[200px] ml-1" />
-        <div className="flex-1" />
-        <span className="text-[12px] text-fg-muted whitespace-nowrap">Node style</span>
-        <Segmented value={graphNodeStyle} onChange={(v) => set("graphNodeStyle", v)} options={[
-          { value: "shape", label: "Shape" },
-          { value: "color", label: "Color" },
-          { value: "minimal", label: "Minimal" },
-        ]} />
-        <Button
-          icon={<LayoutGrid size={14} />}
-          onClick={() => setRelayoutSignal((n) => n + 1)}
-          title="Auto-arrange nodes left → right"
+        <SearchInput value={search} onChange={setSearch} placeholder="Search by name…" className="w-full sm:w-[200px] sm:ml-1" />
+
+        {/* View controls — node appearance, layout, edge visibility, fullscreen.
+            On mobile the cluster spans the full row; the two wide controls (node
+            style + edges) grow while Relayout and Fullscreen collapse to compact
+            icon-only buttons, so each wide control pairs with a small icon and the
+            node-style segmented keeps room for all three labels. At sm+ it reverts
+            to the content-width desktop group with full labels, pushed flush right by
+            the flex-grown title (no ml-auto needed). The old standalone "Node style"
+            label moved to a tooltip to declutter. */}
+        <div
+          role="group"
+          aria-label="View controls"
+          className="w-full sm:w-auto flex items-center gap-2 flex-wrap justify-end"
         >
-          Relayout
-        </Button>
-        <EdgesDropdown
-          showReal={showReal}
-          showInferred={showInferred}
-          inferredCount={inferredEdges.length}
-          onChange={(real, inferred) => { setShowReal(real); setShowInferred(inferred); }}
-        />
-        <Button icon={<RefreshCw size={14} />} onClick={runValidation} disabled={running}>
-          {running ? "Validating…" : "Validate"}
-        </Button>
-        <Link href={`/projects/${projectId}/artifacts/new`}>
-          <Button variant="primary" icon={<LinkIcon size={14} />}>Add artifact</Button>
-        </Link>
+          {/* Node style — widest mobile share so all three labels fit. */}
+          <span className="flex flex-1 min-w-[12rem] sm:flex-none sm:min-w-0" title="Node style">
+            <Segmented fullWidthMobile value={graphNodeStyle} onChange={(v) => set("graphNodeStyle", v)} options={[
+              { value: "shape", label: "Shape" },
+              { value: "color", label: "Color" },
+              { value: "minimal", label: "Minimal" },
+            ]} />
+          </span>
+          {/* Relayout — icon-only on mobile (label hidden) to stay compact. */}
+          <Button
+            icon={<LayoutGrid size={14} />}
+            onClick={() => setRelayoutSignal((n) => n + 1)}
+            title="Auto-arrange nodes left → right"
+            aria-label="Relayout — auto-arrange nodes"
+            className="flex-none"
+          >
+            <span className="hidden sm:inline">Relayout</span>
+          </Button>
+          <EdgesDropdown
+            className="flex-1 min-w-[8rem] sm:flex-none sm:min-w-0"
+            showReal={showReal}
+            showInferred={showInferred}
+            inferredCount={inferredEdges.length}
+            onChange={(real, inferred) => { setShowReal(real); setShowInferred(inferred); }}
+          />
+          {/* Fullscreen — icon-only on mobile (label hidden) to stay compact. */}
+          <Button
+            icon={isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            onClick={toggleFullscreen}
+            aria-pressed={isFullscreen}
+            aria-label={isFullscreen ? "Exit fullscreen" : "View graph fullscreen"}
+            title={isFullscreen ? "Exit fullscreen (Esc)" : "View graph fullscreen"}
+            className="flex-none"
+          >
+            <span className="hidden sm:inline">{isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
+          </Button>
+        </div>
       </div>
 
       <div className="relative overflow-hidden">
@@ -282,11 +319,14 @@ function EdgesDropdown({
   showInferred,
   inferredCount,
   onChange,
+  className,
 }: {
   showReal: boolean;
   showInferred: boolean;
   inferredCount: number;
   onChange: (real: boolean, inferred: boolean) => void;
+  /** Extra classes for the root (used for the mobile fill/grow behavior). */
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -310,7 +350,7 @@ function EdgesDropdown({
   const current = options.find((o) => o.real === showReal && o.inferred === showInferred) ?? options[0];
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className={`relative ${className ?? ""}`}>
       <Button
         variant={showInferred ? "primary" : "default"}
         icon={<Share2 size={14} />}
@@ -319,6 +359,7 @@ function EdgesDropdown({
         aria-haspopup="menu"
         aria-expanded={open}
         title="Choose which edges are drawn (real relations / inferred API links)"
+        className="w-full sm:w-auto"
       >
         Edges: {current.label}
       </Button>

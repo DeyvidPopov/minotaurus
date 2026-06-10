@@ -476,6 +476,10 @@ model DatabaseField {
   // refinement, not a breaking requirement. Self-relation on DatabaseField.
   referencesFieldId  String?
   description        String  @default("")
+  // Display order within the entity (0-based). Drives the field-table row order on
+  // the DB-model page and the ERD column order; set to max+1 on create and rewritten
+  // by the fields reorder endpoint. Backfilled from physical row order on migration.
+  position           Int     @default(0)
 
   entity             DatabaseEntity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
   referencesEntity   DatabaseEntity? @relation("FieldReferences", fields: [referencesEntityId], references: [id], onDelete: SetNull)

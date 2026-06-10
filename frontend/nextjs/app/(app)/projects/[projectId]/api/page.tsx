@@ -4,14 +4,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/search-input";
 import { Empty } from "@/components/ui/empty";
-import { OpenLink } from "@/components/ui/open-link";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
 import { artifactsApi } from "@/lib/api/artifacts";
@@ -47,18 +46,19 @@ export default function ApiSpecsListPage({ params }: { params: { projectId: stri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
+  const term = q.trim().toLowerCase();
   const filtered = (specs ?? []).filter(
     (s) =>
-      !q.trim() ||
-      s.title.toLowerCase().includes(q.toLowerCase()) ||
-      s.description.toLowerCase().includes(q.toLowerCase()) ||
-      s.baseUrl.toLowerCase().includes(q.toLowerCase()),
+      !term ||
+      s.title.toLowerCase().includes(term) ||
+      s.description.toLowerCase().includes(term) ||
+      s.baseUrl.toLowerCase().includes(term),
   );
 
   const artifactsById = new Map(artifacts.map((a) => [a.id, a]));
 
   return (
-    <div className="px-8 py-6 max-w-[1200px] mx-auto">
+    <div className="px-4 py-6 md:px-8 max-w-[1200px] mx-auto">
       <PageHeader
         title="API specifications"
         subtitle={
@@ -68,8 +68,8 @@ export default function ApiSpecsListPage({ params }: { params: { projectId: stri
         }
         actions={
           <>
-            <SearchInput value={q} onChange={setQ} placeholder="Filter…" className="w-[220px]" />
-            <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreating(true)}>
+            <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full sm:w-[220px]" />
+            <Button variant="primary" onClick={() => setCreating(true)}>
               New API spec
             </Button>
           </>
@@ -81,7 +81,7 @@ export default function ApiSpecsListPage({ params }: { params: { projectId: stri
           title="No API specs yet"
           message="Document the public HTTP surface of your services. Each spec can link to an artifact (a service or an API_SPEC artifact) and own a list of endpoints."
           action={
-            <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreating(true)}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               New API spec
             </Button>
           }
@@ -89,55 +89,94 @@ export default function ApiSpecsListPage({ params }: { params: { projectId: stri
       ) : filtered.length === 0 ? (
         <Empty title="No specs match" message="Try a different filter." />
       ) : (
-        <Card padded={false}>
-          <table className="w-full text-[13px]">
-            <thead className="bg-panel">
-              <tr className="text-fg-muted text-[11.5px] uppercase tracking-wider">
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Title</th>
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Version</th>
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Linked artifact</th>
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Endpoints</th>
-                <th className="text-left px-3.5 py-2.5 border-b border-border">Updated</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((s) => {
-                const art = s.artifactId ? artifactsById.get(s.artifactId) : null;
-                return (
-                  <tr key={s.id} className="hover:bg-panel-hover cursor-pointer" onClick={() => router.push(`/projects/${projectId}/api/${s.id}`)}>
-                    <td className="px-3.5 py-3 border-b border-border">
-                      <div className="font-medium">{s.title}</div>
-                      <div className="text-[12px] text-fg-muted truncate max-w-[420px]">
-                        {s.description || s.baseUrl || <em className="text-fg-subtle">No description</em>}
-                      </div>
-                    </td>
-                    <td className="px-3.5 py-3 border-b border-border">
-                      <Badge mono>v{s.version}</Badge>
-                    </td>
-                    <td className="px-3.5 py-3 border-b border-border">
-                      {art ? (
-                        <div className="flex items-center gap-2">
-                          <TypeChip type={art.type} />
-                          <span>{art.title}</span>
+        <>
+          {/* Desktop: table (md and up). */}
+          <Card padded={false} className="hidden md:block">
+            <table className="w-full text-[13px]">
+              <thead className="bg-panel">
+                <tr className="text-fg-muted text-[11.5px] uppercase tracking-wider">
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Title</th>
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Version</th>
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Linked artifact</th>
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Endpoints</th>
+                  <th className="text-left font-medium px-3.5 py-2.5 border-b border-border">Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s) => {
+                  const art = s.artifactId ? artifactsById.get(s.artifactId) : null;
+                  return (
+                    <tr key={s.id} className="hover:bg-panel-hover cursor-pointer" onClick={() => router.push(`/projects/${projectId}/api/${s.id}`)}>
+                      <td className="px-3.5 py-3 border-b border-border">
+                        <div className="font-medium">{s.title}</div>
+                        <div className="text-[12px] text-fg-muted truncate max-w-[420px]">
+                          {s.description || s.baseUrl || <em className="text-fg-subtle">No description</em>}
                         </div>
-                      ) : (
-                        <span className="text-fg-subtle text-[12px]">—</span>
-                      )}
-                    </td>
-                    <td className="px-3.5 py-3 border-b border-border tabular-nums">
-                      {s.endpointCount > 0 ? <Badge tone="success">{s.endpointCount}</Badge> : <span className="text-fg-subtle">0</span>}
-                    </td>
-                    <td className="px-3.5 py-3 border-b border-border text-fg-muted text-[12.5px]">{timeAgo(s.updatedAt)}</td>
-                    <td className="px-3.5 py-3 border-b border-border text-right">
-                      <OpenLink href={`/projects/${projectId}/api/${s.id}`} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
+                      </td>
+                      <td className="px-3.5 py-3 border-b border-border">
+                        <Badge mono>v{s.version}</Badge>
+                      </td>
+                      <td className="px-3.5 py-3 border-b border-border">
+                        {art ? (
+                          <div className="flex items-center gap-2">
+                            <TypeChip type={art.type} />
+                            <span>{art.title}</span>
+                          </div>
+                        ) : (
+                          <span className="text-fg-subtle text-[12px]">—</span>
+                        )}
+                      </td>
+                      <td className="px-3.5 py-3 border-b border-border tabular-nums">
+                        {s.endpointCount > 0 ? <Badge tone="success">{s.endpointCount}</Badge> : <span className="text-fg-subtle">0</span>}
+                      </td>
+                      <td className="px-3.5 py-3 border-b border-border text-fg-muted text-[12.5px]">{timeAgo(s.updatedAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+
+          {/* Mobile: stacked cards (below md). No horizontal scroll; every column survives. */}
+          <div className="md:hidden space-y-2.5">
+            {filtered.map((s) => {
+              const art = s.artifactId ? artifactsById.get(s.artifactId) : null;
+              return (
+                <Link
+                  key={s.id}
+                  href={`/projects/${projectId}/api/${s.id}`}
+                  className="block rounded-lg border border-border bg-panel p-3 hover:bg-panel-hover transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-medium leading-snug min-w-0">{s.title}</div>
+                    <Badge mono>v{s.version}</Badge>
+                  </div>
+                  <p className="mt-1 text-[12px] text-fg-muted line-clamp-2">
+                    {s.description || s.baseUrl || <em className="text-fg-subtle">No description</em>}
+                  </p>
+                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    {art ? (
+                      <>
+                        <TypeChip type={art.type} />
+                        <span className="text-[12.5px] text-fg-muted">{art.title}</span>
+                      </>
+                    ) : (
+                      <span className="text-fg-subtle text-[12px]">No linked artifact</span>
+                    )}
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-x-3 gap-y-1.5 flex-wrap text-[11.5px] text-fg-muted">
+                    {s.endpointCount > 0 ? (
+                      <Badge tone="success">{s.endpointCount} {s.endpointCount === 1 ? "endpoint" : "endpoints"}</Badge>
+                    ) : (
+                      <span>0 endpoints</span>
+                    )}
+                    <span>{timeAgo(s.updatedAt)}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {creating && (

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { CmdK } from "./cmdk";
+import { ReactivationBanner } from "./reactivation-banner";
 import { useTweaks } from "@/components/providers";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -68,6 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar projectId={projectId} />
         <div className="flex flex-col min-w-0 min-h-0 overflow-hidden">
           <Topbar onOpenSearch={() => setCmdOpen(true)} onOpenMobileNav={() => setMobileNav(true)} />
+          <ReactivationBanner />
           <div className="mino-app-content flex-1 min-h-0 min-w-0 overflow-auto relative">{children}</div>
         </div>
       </div>

@@ -309,6 +309,15 @@ body {
   border: 1px solid var(--border) !important;
   border-radius: var(--r-sm) !important;
 }
+/* On phones the minimap is just clutter over a small canvas — hide it. Only the
+   full knowledge-graph page renders a minimap (every embedded GraphCanvas passes
+   showMiniMap={false}), so this is effectively scoped to that page. Matches the
+   CSS-driven mobile breakpoint used by the off-canvas nav drawer. */
+@media (max-width: 767.98px) {
+  .react-flow__minimap {
+    display: none !important;
+  }
+}
 
 /* small utilities not worth a Tailwind plugin */
 .skel {

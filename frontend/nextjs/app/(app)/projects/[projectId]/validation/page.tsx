@@ -707,7 +707,9 @@ export default function ValidationPage({ params }: { params: { projectId: string
                   const message =
                     i.meta?.cleanMessage ??
                     (isProjectLevel ? i.message.slice(PROJECT_LEVEL_PREFIX.length) : i.message);
-                  const art = isProjectLevel ? undefined : artifactsById[i.artifactId];
+                  // artifactId is the real Artifact FK — non-null only for ARTIFACT-subject
+                  // findings; api-spec/db-model/diagram findings navigate via meta.target.
+                  const art = !isProjectLevel && i.artifactId ? artifactsById[i.artifactId] : undefined;
                   const meta = i.meta;
                   const target = meta?.target ?? null;
                   const isOpen = expanded.has(i.id);

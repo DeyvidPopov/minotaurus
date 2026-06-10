@@ -80,8 +80,8 @@ export function DocumentationEditor({
       setMode("edit");
       toast.success(
         result.mode === "replacement_suggestion"
-          ? "AI draft ready — review your improved draft, then Save to keep it"
-          : "AI draft ready — review it, then Save to keep it",
+          ? "Draft ready — review your improved draft, then Save to keep it"
+          : "Draft ready — review it, then Save to keep it",
       );
       if (result.truncated) {
         toast.warning("The draft was shortened to fit — review for completeness.");
@@ -113,7 +113,7 @@ export function DocumentationEditor({
       onClick={generate}
       disabled={generating}
     >
-      {generating ? "Generating…" : content.trim() ? "Improve with AI" : "Generate with AI"}
+      {generating ? "Drafting…" : content.trim() ? "Improve draft" : "Generate draft"}
     </Button>
   );
 
@@ -123,7 +123,7 @@ export function DocumentationEditor({
         title="Documentation"
         subtitle={updatedAt ? `Last updated ${timeAgo(updatedAt)}` : undefined}
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {aiButton("sm")}
             <Button size="sm" onClick={() => { setDraft(content); setMode("edit"); }}>
               {content.trim() ? "Edit" : "Add documentation"}
@@ -139,9 +139,9 @@ export function DocumentationEditor({
           <Empty
             icon={<BookOpen size={28} />}
             title="No documentation yet"
-            message="Add Markdown notes about this artifact — purpose, runbooks, contracts — or generate a draft with AI to review and edit."
+            message="Add Markdown notes about this artifact — purpose, runbooks, contracts — or generate a starter draft to review and edit."
             action={
-              <div className="grid grid-cols-2 gap-2 w-full max-w-[360px] mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-[360px] mx-auto">
                 {aiButton("md", "w-full")}
                 <Button variant="primary" className="w-full" onClick={() => { setDraft(""); setMode("edit"); }}>
                   Add documentation
@@ -159,7 +159,7 @@ export function DocumentationEditor({
       title="Documentation"
       subtitle="Markdown supports headings, lists, tables, code blocks."
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {aiButton("sm")}
           <Button size="sm" onClick={() => { setDraft(content); setMode("view"); }} disabled={saving || generating}>
             Cancel

@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Edit, Link as LinkIcon, Trash2, X, Plug, Database, GitMerge, Activity } from "lucide-react";
+import { Edit, Link as LinkIcon, Trash2, X, Plug, Database, GitMerge, Activity, AlertTriangle, CheckCircle2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { SeverityBadge } from "@/components/ui/severity-badge";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Empty } from "@/components/ui/empty";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { GraphCanvas } from "@/components/graph/graph-canvas";
 import { useTweaks } from "@/components/providers";
 import { DocumentationEditor } from "@/components/documentation-editor";
@@ -46,7 +47,7 @@ import type {
   RelationType,
   ValidationIssue,
 } from "@/lib/types";
-import { timeAgo } from "@/lib/utils";
+import { timeAgo, formatDate, isPlaceholderDescription, cn } from "@/lib/utils";
 
 interface BackendRelation {
   id: string;
@@ -62,6 +63,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
   const { projectId, artifactId } = params;
   const { graphNodeStyle } = useTweaks();
   const router = useRouter();
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const initialTab = (() => {
     const t = searchParams?.get("tab") ?? "";
@@ -148,7 +150,13 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
   const byId = new Map(siblings.map((s) => [s.id, s]));
 
   const onDelete = async () => {
-    if (!confirm(`Delete artifact "${a.title}"? This cannot be undone.`)) return;
+    if (!(await confirm({
+      title: "Delete artifact",
+      message: `This permanently deletes the artifact "${a.title}" and cannot be undone.`,
+      confirmLabel: "Delete artifact",
+      destructive: true,
+      confirmPhrase: a.title,
+    }))) return;
     try {
       await artifactsApi.remove(a.id);
       toast.success("Artifact deleted");
@@ -158,9 +166,15 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
     }
   };
 
-  const onDeleteRelation = async (relId: string) => {
+  const onDeleteRelation = async (rel: Relation, otherTitle: string) => {
+    if (!(await confirm({
+      title: "Remove relationship",
+      message: `Remove the "${rel.type.toLowerCase().replace(/_/g, " ")}" relationship to "${otherTitle}"? You can re-add it with the Add button.`,
+      confirmLabel: "Remove",
+      destructive: true,
+    }))) return;
     try {
-      await relationsApi.remove(relId);
+      await relationsApi.remove(rel.id);
       toast.success("Relation removed");
       await load();
     } catch (err) {
@@ -169,7 +183,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
   };
 
   return (
-    <div className="px-8 py-6">
+    <div className="px-4 sm:px-6 lg:px-8 py-6">
       <PageHeader
         eyebrow={<>
           <TypeChip type={a.type} />
@@ -177,21 +191,20 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
           {a.tags.map((t) => <Badge key={t} mono>{t}</Badge>)}
         </>}
         title={a.title}
-        subtitle={a.description || "No description"}
+        subtitle={isPlaceholderDescription(a.description, a.title) ? undefined : a.description}
         actions={<>
           <Link href={`/projects/${projectId}/impact/${a.id}`}>
-            <Button icon={<Activity size={13} />}>Analyze impact</Button>
+            <Button variant="primary" icon={<Activity size={13} />}>Analyze impact</Button>
           </Link>
           <Button icon={<Edit size={13} />} onClick={() => setEditing(true)}>Edit</Button>
           <Button icon={<LinkIcon size={13} />} onClick={() => setLinking(true)}>Link</Button>
-          <Button icon={<Trash2 size={13} />} onClick={onDelete}>Delete</Button>
+          <Button variant="danger" icon={<Trash2 size={13} />} onClick={onDelete}>Delete</Button>
         </>}
       >
-        <div className="flex items-center gap-4 text-[12px] text-fg-muted mt-2 flex-wrap">
+        <div className="flex items-center gap-x-4 gap-y-1.5 text-[12px] text-fg-muted mt-2 flex-wrap">
           <span className="flex items-center gap-1.5"><Avatar user={a.author} size={14} /> {a.author.firstName} {a.author.lastName}</span>
-          <span>Created {timeAgo(a.createdAt)}</span>
-          <span>Updated {timeAgo(a.updatedAt)}</span>
-          <span className="font-mono">{a.id}</span>
+          <span title={formatDate(a.updatedAt)}>Updated {timeAgo(a.updatedAt)}</span>
+          <ValidationChip issues={issues} onOpen={() => setTab("validation")} />
         </div>
       </PageHeader>
 
@@ -199,13 +212,13 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
         { id: "overview", label: "Overview" },
         { id: "relations", label: "Relations", count: incoming.length + outgoing.length },
         { id: "documentation", label: "Documentation" },
-        { id: "validation", label: "Validation", count: issues.length },
+        { id: "validation", label: "Validation", count: issues.length, countTone: validationTone(issues) },
       ]} />
 
       {tab === "overview" && (
-        <div className="grid lg:grid-cols-[1.5fr_1fr] gap-5">
-          <div className="flex flex-col gap-5">
-            <Card title="Mini-graph" subtitle="This artifact and its direct neighbors" padded={false}>
+        <div className="grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] gap-5 items-start">
+          <div className="flex flex-col gap-5 min-w-0">
+            <Card title="Mini-graph" subtitle="This artifact and its direct neighbors" padded={false} className="min-w-0">
               <div style={{ height: 300, position: "relative" }}>
                 {subgraph.nodes.length <= 1 ? (
                   <div className="h-full flex items-center justify-center text-fg-muted text-[13px] px-4 text-center">
@@ -216,16 +229,12 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
                 )}
               </div>
             </Card>
-            <Card title="Description"><div className="text-[14px] leading-relaxed">{a.description || <span className="text-fg-muted">No description.</span>}</div></Card>
+            <Card title="Description"><div className="text-[14px] leading-relaxed">{isPlaceholderDescription(a.description, a.title) ? <span className="text-fg-muted">No description provided.</span> : a.description}</div></Card>
           </div>
-          <div className="flex flex-col gap-5">
-            <Card title="Metadata">
-              <Meta k="Type"    v={<TypeChip type={a.type} />} />
-              <Meta k="Status"  v={<StatusBadge status={a.status} />} />
-              <Meta k="Owner"   v={<div className="flex items-center gap-1.5"><Avatar user={a.author} size={18} /><span className="text-[13px]">{a.author.firstName} {a.author.lastName}</span></div>} />
-              <Meta k="Created" v={<span className="text-[13px] text-fg-muted">{new Date(a.createdAt).toLocaleDateString()}</span>} />
-              <Meta k="Updated" v={<span className="text-[13px] text-fg-muted">{timeAgo(a.updatedAt)}</span>} />
-              <Meta k="ID"      v={<span className="font-mono text-[12px] text-fg-muted">{a.id}</span>} last />
+          <div className="flex flex-col gap-5 min-w-0">
+            <Card title="Metadata" className="min-w-0">
+              <Meta k="Created" v={<span className="text-[13px] text-fg-muted" title={timeAgo(a.createdAt)}>{formatDate(a.createdAt)}</span>} />
+              <Meta k="ID"      v={<CopyableId id={a.id} />} last />
             </Card>
             {(linkedSpecs.length > 0 || linkedDbModels.length > 0 || linkedDiagrams.length > 0) && (
               <Card title="Linked resources">
@@ -279,19 +288,19 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
       )}
 
       {tab === "relations" && (
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <Card title={`Outgoing (${outgoing.length})`} action={
             <Button size="sm" icon={<LinkIcon size={12} />} onClick={() => setLinking(true)}>Add</Button>
           }>
             {outgoing.length === 0 ? <div className="text-fg-muted text-[13px]">No outgoing relations.</div> :
               outgoing.map((r) => (
                 <div key={r.id} className="flex items-center gap-2.5 py-2.5 border-b border-border last:border-0">
-                  <span className="font-mono text-[10.5px] px-1.5 py-px rounded" style={{ color: EDGE_COLOR[r.type], border: `1px solid ${EDGE_COLOR[r.type]}33` }}>{r.type}</span>
+                  <span className="font-mono text-[10.5px] px-1.5 py-px rounded shrink-0" style={{ color: EDGE_COLOR[r.type], border: `1px solid ${EDGE_COLOR[r.type]}33` }}>{r.type}</span>
                   <Link href={`/projects/${projectId}/artifacts/${r.target}`} className="flex items-center gap-2 min-w-0 flex-1">
                     <TypeChip type={byId.get(r.target)?.type ?? "SERVICE"} />
                     <span className="text-[13px] font-medium truncate">{byId.get(r.target)?.title ?? r.target}</span>
                   </Link>
-                  <button className="text-fg-muted hover:text-danger" onClick={() => onDeleteRelation(r.id)} title="Remove">
+                  <button className="text-fg-muted hover:text-danger" onClick={() => onDeleteRelation(r, byId.get(r.target)?.title ?? r.target)} title="Remove">
                     <X size={14} />
                   </button>
                 </div>
@@ -302,7 +311,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
             {incoming.length === 0 ? <div className="text-fg-muted text-[13px]">No incoming relations.</div> :
               incoming.map((r) => (
                 <div key={r.id} className="flex items-center gap-2.5 py-2.5 border-b border-border last:border-0">
-                  <span className="font-mono text-[10.5px] px-1.5 py-px rounded" style={{ color: EDGE_COLOR[r.type], border: `1px solid ${EDGE_COLOR[r.type]}33` }}>{r.type}</span>
+                  <span className="font-mono text-[10.5px] px-1.5 py-px rounded shrink-0" style={{ color: EDGE_COLOR[r.type], border: `1px solid ${EDGE_COLOR[r.type]}33` }}>{r.type}</span>
                   <Link href={`/projects/${projectId}/artifacts/${r.source}`} className="flex items-center gap-2 min-w-0 flex-1">
                     <TypeChip type={byId.get(r.source)?.type ?? "SERVICE"} />
                     <span className="text-[13px] font-medium truncate">{byId.get(r.source)?.title ?? r.source}</span>
@@ -364,9 +373,67 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
 function Meta({ k, v, last }: { k: string; v: React.ReactNode; last?: boolean }) {
   return (
     <div className={`flex items-center py-2 ${last ? "" : "border-b border-border"}`}>
-      <span className="w-[84px] text-[12px] text-fg-muted">{k}</span>
-      <span>{v}</span>
+      <span className="w-[84px] text-[12px] text-fg-muted shrink-0">{k}</span>
+      <span className="min-w-0">{v}</span>
     </div>
+  );
+}
+
+// Worst severity present, used to tint the Validation tab count. Undefined ⇒ clean.
+function validationTone(issues: ValidationIssue[]): "danger" | "warning" | "info" | undefined {
+  if (issues.some((i) => i.severity === "ERROR" || i.severity === "CRITICAL")) return "danger";
+  if (issues.some((i) => i.severity === "WARNING")) return "warning";
+  if (issues.length > 0) return "info";
+  return undefined;
+}
+
+// Lightweight, always-visible validation signal in the header. Reads the issue set
+// already loaded for this artifact (no extra request); clicking opens the Validation tab.
+function ValidationChip({ issues, onOpen }: { issues: ValidationIssue[]; onOpen: () => void }) {
+  if (issues.length === 0) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-success" title="No validation findings for this artifact">
+        <CheckCircle2 size={13} /> Validated
+      </span>
+    );
+  }
+  const errors = issues.filter((i) => i.severity === "ERROR" || i.severity === "CRITICAL").length;
+  const warnings = issues.filter((i) => i.severity === "WARNING").length;
+  const infos = issues.filter((i) => i.severity === "INFO").length;
+  const parts: string[] = [];
+  if (errors) parts.push(`${errors} error${errors > 1 ? "s" : ""}`);
+  if (warnings) parts.push(`${warnings} warning${warnings > 1 ? "s" : ""}`);
+  if (infos && !errors && !warnings) parts.push(`${infos} info`);
+  const toneClass = errors ? "text-danger" : warnings ? "text-warning" : "text-info";
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={cn("inline-flex items-center gap-1.5 hover:underline", toneClass)}
+      title="View validation findings"
+    >
+      <AlertTriangle size={13} /> {parts.join(" · ") || `${issues.length} issue${issues.length > 1 ? "s" : ""}`}
+    </button>
+  );
+}
+
+// De-emphasized, copyable artifact ID — kept for support/debugging without competing
+// with real metadata in the header.
+function CopyableId({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => navigator.clipboard.writeText(id).then(
+        () => { setCopied(true); setTimeout(() => setCopied(false), 1200); },
+        () => toast.error("Could not copy ID"),
+      )}
+      className="inline-flex items-center gap-1.5 max-w-full font-mono text-[11.5px] text-fg-muted hover:text-fg"
+      title="Copy ID"
+    >
+      <span className="truncate">{id}</span>
+      {copied ? <Check size={12} className="text-success shrink-0" /> : <Copy size={12} className="shrink-0 opacity-60" />}
+    </button>
   );
 }
 

@@ -108,6 +108,8 @@ export interface Artifact {
   author: User;
   relationCount?: number;
   validationIssueCount?: number;
+  /** Markdown documentation body ("" when undocumented) — returned by the serializer. */
+  documentationContent?: string;
   // optional type-specific:
   method?: string;
   diagramType?: DiagramType;
@@ -237,7 +239,12 @@ export interface ValidationIssue {
   severity: Severity;
   category: Category;
   message: string;
-  artifactId: string;
+  /** What the finding is about: artifact / api-spec / db-model / diagram / project. */
+  subjectType: "ARTIFACT" | "API_SPEC" | "DATABASE_MODEL" | "DIAGRAM" | "PROJECT";
+  /** Polymorphic subject id — drives the display lookup; navigation uses `meta.target`. */
+  subjectId: string;
+  /** Real Artifact FK — non-null only for ARTIFACT-subject findings. */
+  artifactId: string | null;
   status: IssueStatus;
   createdAt: string;
   meta?: IssueMeta;
