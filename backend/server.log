@@ -1,5 +1,0 @@
-
-> minotaurus-backend@0.1.0 dev
-> tsx watch src/server.ts
-
-[minotaurus-backend] listening on http://localhost:4000

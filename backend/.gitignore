@@ -1,3 +1,20 @@
 node_modules
 dist
+
+# Env — ignore every real env file; keep only the committed templates. The
+# backend's real config is copied to `.env` on the server (see
+# .env.production.example), so a stray .env.production here would be secrets.
 .env
+.env.*
+!.env.example
+!.env.production.example
+
+# Prisma generate on Windows can leave stray query-engine temp files (EPERM)
+*.tmp
+
+# Logs
+*.log
+
+# Generated demo credentials (contains plaintext passwords — never commit)
+DEMO_USERS.md
+DEMO_USERS.json

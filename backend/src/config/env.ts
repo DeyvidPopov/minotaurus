@@ -68,6 +68,26 @@ export function getJwtSecret(): string {
  */
 export function validateConfig(): void {
   getJwtSecret();
+  assertProductionCors();
+}
+
+/**
+ * In production, refuse to start without an explicit CORS allow-list. With
+ * `CORS_ORIGIN` unset the cors() middleware falls back to reflecting ANY origin
+ * with credentials — fine for local dev, a misconfiguration in production. We
+ * fail fast rather than silently allow-all. Outside production this is a no-op.
+ */
+function assertProductionCors(): void {
+  const isProd = (process.env.NODE_ENV || "").toLowerCase() === "production";
+  if (!isProd) return;
+  const origin = (process.env.CORS_ORIGIN || "").trim();
+  if (origin === "") {
+    throw new ConfigError(
+      "CORS_ORIGIN is not set. In production it must be the explicit frontend " +
+        "origin(s), e.g. CORS_ORIGIN=https://minotaurus.dev — refusing to start " +
+        "with an allow-all CORS policy.",
+    );
+  }
 }
 
 // ────────────────────────────── Email configuration ──────────────────────────────

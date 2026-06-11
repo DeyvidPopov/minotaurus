@@ -777,7 +777,7 @@ function MarkdownImportWizard({
             </select>
           </label>
           <div className="text-[12px] text-fg-muted">
-            We'll create the artifact with ACTIVE status, tag <span className="font-mono">imported</span>, and attach the Markdown body as its documentation.
+            We&apos;ll create the artifact with ACTIVE status, tag <span className="font-mono">imported</span>, and attach the Markdown body as its documentation.
           </div>
           <div className="flex items-center justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setStep("preview")} disabled={busy}>Cancel</Button>
@@ -1090,7 +1090,7 @@ function OpenApiImportWizard({
             </div>
           </label>
           <div className="text-[12px] text-fg-muted">
-            The API spec is created in this project. If you link it to an artifact, the artifact's detail page will list it under <em>Linked resources</em>.
+            The API spec is created in this project. If you link it to an artifact, the artifact&apos;s detail page will list it under <em>Linked resources</em>.
           </div>
           <div className="flex items-center justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setStep("preview")} disabled={busy}>Cancel</Button>

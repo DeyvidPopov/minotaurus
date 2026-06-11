@@ -63,21 +63,15 @@ apiRouter.get("/health", (_req, res) =>
 apiRouter.get("/health/db", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    const url = process.env.DATABASE_URL ?? "";
-    const portMatch = url.match(/:(\d+)\//);
-    const port = portMatch ? Number(portMatch[1]) : null;
-    return ok(
-      res,
-      {
-        database: "connected",
-        provider: "postgresql",
-        port,
-      },
-      "Database reachable",
-    );
+    // Deliberately generic: this endpoint is unauthenticated, so it must not
+    // disclose the DB host/port/driver. We only report reachability.
+    return ok(res, { database: "connected" }, "Database reachable");
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown database error";
-    return fail(res, 503, "DB_UNREACHABLE", message);
+    // Log the real error server-side only; never return raw Prisma/PG text to
+    // an anonymous caller (matches the errorHandler's no-leak discipline).
+    // eslint-disable-next-line no-console
+    console.error("[health/db] database unreachable:", err);
+    return fail(res, 503, "DB_UNREACHABLE", "Database unreachable");
   }
 });
 

@@ -69,11 +69,14 @@ async function getMermaid() {
       const mermaid = m.default;
       mermaid.initialize({
         startOnLoad: false,
-        // "loose" lets our post-render style overrides actually take effect
-        // (strict scrubs inline styles in some Mermaid versions). We never
-        // execute user-supplied HTML / scripts because the source comes from
-        // our own controlled inputs.
-        securityLevel: "loose",
+        // "antiscript" strips <script>/javascript: from labels (the stored-XSS
+        // vector when one member's diagram renders in another member's browser)
+        // while still allowing the inline styles our post-render dark-theme sweep
+        // relies on — unlike "strict", which scrubs those styles and makes text
+        // invisible on dark backgrounds. Mermaid source is user-supplied (the
+        // diagram editor, .mmd ingestion, AI bootstrap), so it is NOT trusted;
+        // do not weaken this back to "loose".
+        securityLevel: "antiscript",
         theme: "base",
         themeVariables: MERMAID_THEME_VARIABLES,
         fontFamily: MERMAID_FONT,

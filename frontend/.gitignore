@@ -1,0 +1,8 @@
+# The legacy Vite/JSX prototype that used to live here (src/, *.jsx, index.html,
+# uploads/, the FRONTEND_* design docs) is kept ON DISK as a design reference but
+# is no longer version-controlled. Only the shipped app — frontend/nextjs/ — is
+# tracked. This rule ignores everything directly under frontend/ except the real
+# app and this file itself, so the legacy files stay untracked going forward.
+/*
+!/nextjs/
+!/.gitignore

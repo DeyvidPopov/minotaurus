@@ -33,6 +33,27 @@ export function createApp() {
       credentials: true,
     }),
   );
+
+  // Baseline HTTP security headers. Kept dependency-free (the API serves JSON,
+  // not HTML, so a full helmet/CSP setup isn't needed here — the Next frontend
+  // owns the CSP). HSTS is only meaningful over HTTPS and is gated to production
+  // so it never pins a plain-http localhost during development.
+  const isProd = (process.env.NODE_ENV || "").toLowerCase() === "production";
+  app.use((_req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    res.setHeader("X-DNS-Prefetch-Control", "off");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    if (isProd) {
+      res.setHeader(
+        "Strict-Transport-Security",
+        "max-age=63072000; includeSubDomains; preload",
+      );
+    }
+    next();
+  });
+
   app.use(express.json({ limit: "2mb" }));
 
   app.use("/api", apiRouter);

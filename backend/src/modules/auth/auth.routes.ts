@@ -17,6 +17,15 @@ const loginLimiter = rateLimit({
   keyGenerator: (req) => `login:${clientIp(req)}:${bodyEmail(req)}`,
 });
 
+// Deprecated single-step /register: throttle per IP so the legacy unverified
+// path can't be used for unthrottled account creation / email enumeration (the
+// verified /register/* flow already has its own per-route limiters). 10/hour/IP.
+const legacyRegisterLimiter = rateLimit({
+  windowMs: 60 * 60_000,
+  max: 10,
+  keyGenerator: (req) => `register:${clientIp(req)}`,
+});
+
 // Multi-step verified registration: /auth/register/{start,verify,complete,resend}.
 authRouter.use("/register", registrationRouter);
 
@@ -35,7 +44,7 @@ authRouter.use("/account", accountDeletionRouter);
 // the multi-step /auth/register/* flow above. Remove once the UI has migrated.
 // (Mounted AFTER the registrationRouter so /register/start etc. resolve there;
 // this only handles a bare POST /register.)
-authRouter.post("/register", register);
+authRouter.post("/register", legacyRegisterLimiter, register);
 
 authRouter.post("/login", loginLimiter, login);
 authRouter.get("/me", requireAuth, me);

@@ -1,1 +1,42 @@
+# ───────────────── Monorepo-wide ignores ─────────────────
+# There is no root package.json — each tree (backend/, frontend/nextjs/) has its
+# own .gitignore with tree-specific rules. The patterns here are a defensive net
+# that applies at every depth across the whole repo.
+
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+build/
+out/
+
+# Real env files. An exact `.env` at any depth is always a secret file — never
+# commit it. Per-tree .gitignore files cover `.env.local` / `.env.*`. NOTE:
+# frontend/nextjs/.env.production is INTENTIONALLY committed (it holds only the
+# non-secret public NEXT_PUBLIC_API_BASE_URL that is inlined into the client
+# bundle anyway), so it is deliberately NOT ignored.
+.env
+
+# Logs
+*.log
+
+# Prisma generate (Windows EPERM) stray temp artifacts
+*.tmp
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Scratch / generated dumps
+appendix_*.txt
+
+# Generated demo credentials (contains plaintext passwords — never commit)
+DEMO_USERS.md
+DEMO_USERS.json
+
+# Legacy scratch note (distinct from the tracked CLAUDE.md project instructions)
 Claude.md
