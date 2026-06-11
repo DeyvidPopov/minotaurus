@@ -561,7 +561,7 @@ export function MermaidPreview({
                   <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
                   View Mermaid source
                 </summary>
-                <pre className="mt-2 bg-panel-2 border border-border rounded-md p-2.5 text-[12px] overflow-auto font-mono" style={{ maxHeight: 220 }}>
+                <pre className="mt-2 bg-panel-2 border border-border rounded-md p-2.5 text-[12px] overflow-auto font-mono max-h-[220px]">
                   {source}
                 </pre>
               </details>

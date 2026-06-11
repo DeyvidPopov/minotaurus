@@ -119,7 +119,7 @@ export interface IngestionRecord {
   status: IngestionStatus;
   title: string;
   sourceName: string;
-  createdRecords: CreatedRecordRef[] | unknown;
+  createdRecords: CreatedRecordRef[];
   parserResult:
     | MarkdownParserResult
     | OpenApiParserResult

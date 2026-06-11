@@ -412,7 +412,7 @@ function TemplatePickerModal({
         <div className="px-3 py-2 text-[11.5px] text-fg-muted border-b border-border">
           Preview source for <span className="font-mono">{picked}</span>
         </div>
-        <pre className="px-3 py-2 text-[12px] font-mono overflow-auto" style={{ maxHeight: 180 }}>
+        <pre className="px-3 py-2 text-[12px] font-mono overflow-auto max-h-[180px]">
           {MERMAID_TEMPLATES[picked]}
         </pre>
       </div>

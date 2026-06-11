@@ -343,7 +343,7 @@ function NewDiagramModal({
               </Field>
               <details className="text-[12.5px] text-fg-muted">
                 <summary className="cursor-pointer select-none text-fg-muted hover:text-fg">Preview template Mermaid source</summary>
-                <pre className="mt-2 bg-panel-2 border border-border rounded-md p-2.5 text-[12px] font-mono overflow-auto" style={{ maxHeight: 220 }}>
+                <pre className="mt-2 bg-panel-2 border border-border rounded-md p-2.5 text-[12px] font-mono overflow-auto max-h-[220px]">
                   {purpose.mermaidSource}
                 </pre>
               </details>

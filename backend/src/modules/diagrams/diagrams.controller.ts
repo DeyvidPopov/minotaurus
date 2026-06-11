@@ -5,7 +5,7 @@ import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
-import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
+import { getProjectAccess, hasAtLeast, projectAccessStatus } from "../../lib/project-access.js";
 
 const DIAGRAM_TYPES = Object.values(DiagramType) as [DiagramType, ...DiagramType[]];
 
@@ -22,12 +22,6 @@ export function serializeDiagram(d: Diagram) {
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   };
-}
-
-async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
-  const a = await getProjectAccess(projectId, userId);
-  if (a.status !== "ok") return a.status;
-  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
 }
 
 async function findDiagramForUser(diagramId: string, userId: string, minRole: ProjectRole = "VIEWER") {
@@ -57,7 +51,7 @@ const patchSchema = z.object({
 
 export async function listDiagrams(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId);
+  const access = await projectAccessStatus(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -83,7 +77,7 @@ export async function listDiagrams(req: AuthedRequest, res: Response) {
 
 export async function createDiagram(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId, "DEVELOPER");
+  const access = await projectAccessStatus(projectId, req.user!.userId, "DEVELOPER");
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 

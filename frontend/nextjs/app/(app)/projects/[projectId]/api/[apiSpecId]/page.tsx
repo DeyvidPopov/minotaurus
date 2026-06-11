@@ -305,7 +305,7 @@ export default function ApiSpecDetailPage({
 
       {tab === "preview" && (
         <Card title="OpenAPI-like preview" subtitle="Lightweight JSON view of this spec.">
-          <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12px] overflow-auto" style={{ maxHeight: 480 }}>
+          <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12px] overflow-auto max-h-[480px]">
             {JSON.stringify(buildOpenApiPreview(spec, endpoints), null, 2)}
           </pre>
         </Card>
@@ -558,8 +558,7 @@ function SchemaBlock({ label, value, emptyText }: { label: string; value: string
       </div>
       {formatted.text ? (
         <pre
-          className={`bg-panel-2 border border-border rounded-md p-2.5 text-[12px] leading-relaxed overflow-auto font-mono ${formatted.isJson ? "whitespace-pre" : "whitespace-pre-wrap break-words"}`}
-          style={{ maxHeight: 280 }}
+          className={`bg-panel-2 border border-border rounded-md p-2.5 text-[12px] leading-relaxed overflow-auto font-mono max-h-[280px] ${formatted.isJson ? "whitespace-pre" : "whitespace-pre-wrap break-words"}`}
         >
           {formatted.text}
         </pre>

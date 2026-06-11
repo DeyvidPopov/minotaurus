@@ -53,18 +53,6 @@ export const authApi = {
     setAccessToken(data.token);
     return data;
   },
-  // DEPRECATED: single-step, unverified registration. Prefer the multi-step
-  // register.* flow below. Kept until the wizard UI replaces the register page.
-  register: async (body: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-  }) => {
-    const data = await apiClient.post<AuthResponse>("/auth/register", body);
-    setAccessToken(data.token);
-    return data;
-  },
   registerStart: (body: { firstName: string; lastName: string; email: string }) =>
     apiClient.post<RegisterStartResponse>("/auth/register/start", body),
   registerVerify: (body: { email: string; code: string }) =>

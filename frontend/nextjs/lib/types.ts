@@ -41,23 +41,6 @@ export type Category =
   | "VERSIONING"
   | "DIAGRAM";
 
-export type EntityType =
-  | "ARTIFACT"
-  | "RELATION"
-  | "DOCUMENTATION"
-  | "DIAGRAM"
-  | "API_SPEC"
-  | "EXPORT";
-
-export type ChangeType =
-  | "CREATED"
-  | "UPDATED"
-  | "DELETED"
-  | "LINKED"
-  | "UNLINKED"
-  | "VALIDATED"
-  | "EXPORTED";
-
 export type DiagramType =
   | "MERMAID"
   | "UML"
@@ -248,17 +231,6 @@ export interface ValidationIssue {
   status: IssueStatus;
   createdAt: string;
   meta?: IssueMeta;
-}
-
-export interface VersionEntry {
-  id: string;
-  entityType: EntityType;
-  entityId: string;
-  changeType: ChangeType;
-  oldValue: Record<string, unknown> | null;
-  newValue: Record<string, unknown> | null;
-  changedBy: User;
-  createdAt: string;
 }
 
 export interface ApiResponse<T> {

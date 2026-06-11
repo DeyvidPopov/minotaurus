@@ -1,15 +1,8 @@
 import type { Response } from "express";
-import { ProjectRole } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
-import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
-
-async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
-  const a = await getProjectAccess(projectId, userId);
-  if (a.status !== "ok") return a.status;
-  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
-}
+import { projectAccessStatus } from "../../lib/project-access.js";
 
 interface SummarizedArtifact {
   id: string;
@@ -28,7 +21,7 @@ export async function analyzeImpact(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const artifactId = req.params.artifactId;
 
-  const access = await projectAccess(projectId, req.user!.userId);
+  const access = await projectAccessStatus(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 

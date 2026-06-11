@@ -8,7 +8,7 @@
 import { config as loadEnv } from "dotenv";
 
 // Idempotent: dotenv does not override already-set vars, so loading here (in
-// addition to prisma.ts) just makes config robust to import order.
+// addition to prisma.ts) keeps config independent of import order.
 loadEnv();
 
 /** Thrown for invalid/insecure configuration. Surfaced as a fatal startup error. */

@@ -3,7 +3,7 @@
 // actor is known, so per-user buckets are tighter and fairer than per-IP).
 import { Router } from "express";
 import type { Request } from "express";
-import { requireAuth } from "../../../middleware/auth.js";
+import { requireAuth, type AuthedRequest } from "../../../middleware/auth.js";
 import { rateLimit, clientIp } from "../../../middleware/rate-limit.js";
 import { requestChange, resendChange, verifyChange } from "./email-change.controller.js";
 
@@ -15,7 +15,7 @@ const HOUR = 60 * MIN;
 /** Per-user key (falls back to IP if somehow unauthenticated). */
 function userKey(prefix: string) {
   return (req: Request) => {
-    const uid = (req as Request & { user?: { userId: string } }).user?.userId;
+    const uid = (req as AuthedRequest).user?.userId;
     return `${prefix}:${uid ?? clientIp(req)}`;
   };
 }

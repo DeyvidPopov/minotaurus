@@ -17,8 +17,8 @@ export * from "./dashboard";
 
 import { apiClient } from "./client";
 import type {
-  ValidationIssue, VersionEntry, IssueStatus,
-  Severity, Category, EntityType, ChangeType, ExportFormat,
+  ValidationIssue, IssueStatus,
+  Severity, Category, ExportFormat,
   QuickFixPreview, QuickFixApplyResult,
   RemediationPreview, RemediationApplyResult,
 } from "@/lib/types";
@@ -50,16 +50,6 @@ export const validationApi = {
     apiClient.get<RemediationPreview>(`/validation-issues/${issueId}/remediation/preview`),
   remediationApply: (issueId: string, body: { targetId: string; relationType?: string }) =>
     apiClient.post<RemediationApplyResult>(`/validation-issues/${issueId}/remediation/apply`, body),
-};
-
-export const versionsApi = {
-  list: (projectId: string, params?: { entityType?: EntityType; changeType?: ChangeType }) => {
-    const qs = new URLSearchParams();
-    if (params?.entityType) qs.set("entityType", params.entityType);
-    if (params?.changeType) qs.set("changeType", params.changeType);
-    const tail = qs.toString();
-    return apiClient.get<VersionEntry[]>(`/projects/${projectId}/versions${tail ? `?${tail}` : ""}`);
-  },
 };
 
 export const exportApi = {

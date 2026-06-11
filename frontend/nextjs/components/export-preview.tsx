@@ -272,7 +272,7 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
       {isMarkdown ? (
         <Card title="Markdown content">
           {markdownBody.trim() ? (
-            <article className="prose-markdown" style={{ maxHeight: 480, overflow: "auto" }}>
+            <article className="prose-markdown max-h-[480px] overflow-auto">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdownBody}</ReactMarkdown>
             </article>
           ) : (
@@ -307,7 +307,7 @@ export function ExportPreview({ preview }: { preview: ExportPreviewModel }) {
           <ChevronDown size={13} className="transition-transform group-open:rotate-180" />
           Raw {isMarkdown ? "Markdown" : "JSON"}
         </summary>
-        <pre className="bg-panel border-t border-border px-3.5 py-3 text-[12px] overflow-auto" style={{ maxHeight: 360 }}>
+        <pre className="bg-panel border-t border-border px-3.5 py-3 text-[12px] overflow-auto max-h-[360px]">
           {isMarkdown ? markdownBody : JSON.stringify(preview.content ?? {}, null, 2)}
         </pre>
       </details>
@@ -353,7 +353,7 @@ function ArtifactsSection({ artifacts }: { artifacts: ExportedArtifact[] }) {
                   Documentation
                 </summary>
                 <div className="mt-2 bg-panel border border-border rounded-md p-2.5">
-                  <article className="prose-markdown" style={{ fontSize: 12.5, maxHeight: 220, overflow: "auto" }}>
+                  <article className="prose-markdown text-[12.5px] max-h-[220px] overflow-auto">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {a.documentation.markdownContent}
                     </ReactMarkdown>
@@ -772,7 +772,7 @@ function DiagramsSection({ diagrams }: { diagrams: ExportedDiagram[] }) {
                     <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
                     Mermaid source
                   </summary>
-                  <pre className="mt-2 bg-panel border border-border rounded-md p-2.5 text-[12px] overflow-auto" style={{ maxHeight: 220 }}>
+                  <pre className="mt-2 bg-panel border border-border rounded-md p-2.5 text-[12px] overflow-auto max-h-[220px]">
                     {d.mermaidSource}
                   </pre>
                 </details>

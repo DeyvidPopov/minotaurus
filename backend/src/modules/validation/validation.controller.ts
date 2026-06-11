@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { IssueCategory, IssueSeverity, IssueStatus, ProjectRole, type ValidationIssue } from "@prisma/client";
+import { IssueCategory, IssueSeverity, IssueStatus, type ValidationIssue } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { newId } from "../../utils/ids.js";
 import { created, fail, ok } from "../../utils/response.js";
@@ -8,7 +8,7 @@ import type { AuthedRequest } from "../../middleware/auth.js";
 import { runValidationForProject } from "./validation.engine.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { explainIssue, type ResourceIndex } from "./validation.presenter.js";
-import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
+import { projectAccessStatus } from "../../lib/project-access.js";
 import { sendValidationAlerts } from "../notifications/validation-alert.service.js";
 
 const updateSchema = z.object({
@@ -63,15 +63,9 @@ async function buildResourceIndex(projectId: string): Promise<ResourceIndex> {
   };
 }
 
-async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
-  const a = await getProjectAccess(projectId, userId);
-  if (a.status !== "ok") return a.status;
-  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
-}
-
 export async function runValidation(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId, "ARCHITECT");
+  const access = await projectAccessStatus(projectId, req.user!.userId, "ARCHITECT");
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -99,7 +93,7 @@ export async function runValidation(req: AuthedRequest, res: Response) {
 
 export async function listIssues(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId);
+  const access = await projectAccessStatus(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -124,7 +118,7 @@ export async function updateIssue(req: AuthedRequest, res: Response) {
     where: { id: req.params.issueId },
   });
   if (!issue) return fail(res, 404, "NOT_FOUND", "Validation issue not found");
-  const access = await projectAccess(issue.projectId, req.user!.userId, "ARCHITECT");
+  const access = await projectAccessStatus(issue.projectId, req.user!.userId, "ARCHITECT");
   if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
   const nextStatus = parsed.data.status;

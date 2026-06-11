@@ -1,21 +1,18 @@
 // Thin controllers for per-user settings. All routes are behind requireAuth, so
 // the acting userId comes from req.user (set by the middleware), never the body.
 // A user can only read/update their OWN preferences — there is no userId input.
-import type { Request, Response } from "express";
+import type { Response } from "express";
 import { z } from "zod";
 import { prisma } from "../../lib/prisma.js";
 import { fail, ok } from "../../utils/response.js";
+import type { AuthedRequest } from "../../middleware/auth.js";
 import {
   mergeNotificationPreferences,
   toNotificationPreferences,
 } from "./settings.engine.js";
 
-function userId(req: Request): string | undefined {
-  return (req as Request & { user?: { userId: string } }).user?.userId;
-}
-
-export async function getNotificationPreferences(req: Request, res: Response) {
-  const uid = userId(req);
+export async function getNotificationPreferences(req: AuthedRequest, res: Response) {
+  const uid = req.user?.userId;
   if (!uid) return fail(res, 401, "UNAUTHORIZED", "User not found");
   const row = await prisma.userNotificationPreference.findUnique({ where: { userId: uid } });
   return ok(res, { preferences: toNotificationPreferences(row) }, "OK");
@@ -31,8 +28,8 @@ const patchSchema = z
     { message: "At least one field is required" },
   );
 
-export async function updateNotificationPreferences(req: Request, res: Response) {
-  const uid = userId(req);
+export async function updateNotificationPreferences(req: AuthedRequest, res: Response) {
+  const uid = req.user?.userId;
   if (!uid) return fail(res, 401, "UNAUTHORIZED", "User not found");
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);

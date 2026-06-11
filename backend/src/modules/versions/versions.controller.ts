@@ -1,9 +1,9 @@
 import type { Response } from "express";
-import { ProjectRole, VersionAction, VersionEntityType, type VersionEvent } from "@prisma/client";
+import { VersionAction, VersionEntityType, type VersionEvent } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
-import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
+import { projectAccessStatus } from "../../lib/project-access.js";
 
 interface AuthorInfo {
   id: string;
@@ -35,12 +35,6 @@ export function serializeEvent(e: VersionEvent, author?: AuthorInfo | null) {
   };
 }
 
-async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
-  const a = await getProjectAccess(projectId, userId);
-  if (a.status !== "ok") return a.status;
-  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
-}
-
 async function loadAuthorsFor(events: VersionEvent[]): Promise<Map<string, AuthorInfo>> {
   const ids = Array.from(new Set(events.map((e) => e.triggeredById).filter(Boolean)));
   if (ids.length === 0) return new Map();
@@ -58,7 +52,7 @@ async function loadAuthorsFor(events: VersionEvent[]): Promise<Map<string, Autho
 
 export async function listVersionHistory(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId);
+  const access = await projectAccessStatus(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -93,7 +87,7 @@ export async function listVersionHistory(req: AuthedRequest, res: Response) {
 export async function getVersionEvent(req: AuthedRequest, res: Response) {
   const row = await prisma.versionEvent.findUnique({ where: { id: req.params.eventId } });
   if (!row) return fail(res, 404, "NOT_FOUND", "Event not found");
-  const access = await projectAccess(row.projectId, req.user!.userId);
+  const access = await projectAccessStatus(row.projectId, req.user!.userId);
   if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
   const authors = await loadAuthorsFor([row]);
   return ok(res, serializeEvent(row, authors.get(row.triggeredById)), "OK");

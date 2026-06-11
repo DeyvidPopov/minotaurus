@@ -38,18 +38,6 @@ export function actorName(event: VersionEvent): string {
   return event.triggeredByName?.trim() || "Someone";
 }
 
-/** Up-to-2-char avatar initials: prefer server initials, else derive from the
- *  name, else a neutral dot. */
-export function actorInitials(event: VersionEvent): string {
-  if (event.triggeredByInitials?.trim()) return event.triggeredByInitials.trim().slice(0, 2).toUpperCase();
-  const n = event.triggeredByName?.trim();
-  if (n) {
-    const parts = n.split(/\s+/);
-    return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || n.slice(0, 2).toUpperCase();
-  }
-  return "·";
-}
-
 // ── Run collapsing ──────────────────────────────────────────────────────────
 // Validation runs carry the same severity breakdown and, when run repeatedly,
 // would otherwise spam an activity feed with identical "ran validation" rows.

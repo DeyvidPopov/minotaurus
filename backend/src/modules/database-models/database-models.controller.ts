@@ -5,7 +5,7 @@ import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
-import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
+import { getProjectAccess, hasAtLeast, projectAccessStatus } from "../../lib/project-access.js";
 
 const DATABASE_TYPES = Object.values(DatabaseType) as [DatabaseType, ...DatabaseType[]];
 
@@ -103,12 +103,6 @@ function serializeField(f: DatabaseField) {
   };
 }
 
-async function projectAccess(projectId: string, userId: string, minRole: ProjectRole = "VIEWER"): Promise<"ok" | "not_found" | "forbidden"> {
-  const a = await getProjectAccess(projectId, userId);
-  if (a.status !== "ok") return a.status;
-  return hasAtLeast(a.role!, minRole) ? "ok" : "forbidden";
-}
-
 async function findModelForUser(modelId: string, userId: string, minRole: ProjectRole = "VIEWER") {
   const row = await prisma.databaseModel.findUnique({ where: { id: modelId } });
   if (!row) return { error: "not_found" as const };
@@ -195,7 +189,7 @@ const reorderFieldsSchema = z.object({
 
 export async function listModels(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId);
+  const access = await projectAccessStatus(projectId, req.user!.userId);
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 
@@ -222,7 +216,7 @@ export async function listModels(req: AuthedRequest, res: Response) {
 
 export async function createModel(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
-  const access = await projectAccess(projectId, req.user!.userId, "DEVELOPER");
+  const access = await projectAccessStatus(projectId, req.user!.userId, "DEVELOPER");
   if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
 

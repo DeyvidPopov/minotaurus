@@ -469,7 +469,7 @@ export default function DatabaseModelDetailPage({
             </Button>
           }
         >
-          <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono" style={{ maxHeight: 480 }}>
+          <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono max-h-[480px]">
             {generatedErd}
           </pre>
         </Card>
@@ -1026,11 +1026,11 @@ function ErdView({
           </div>
         )}
         {view === "preview" ? (
-          <div className="bg-panel-2 border border-border rounded-md p-4" style={{ minHeight: 280 }}>
+          <div className="bg-panel-2 border border-border rounded-md p-4 min-h-[280px]">
             <MermaidPreview source={generatedErd} />
           </div>
         ) : (
-          <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono" style={{ maxHeight: 420 }}>
+          <pre className="bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono max-h-[420px]">
             {generatedErd}
           </pre>
         )}
@@ -1145,7 +1145,7 @@ function ErdView({
       <div>
         <details className="text-[12.5px]">
           <summary className="cursor-pointer text-fg-muted hover:text-fg">View raw Mermaid source — used to render the preview</summary>
-          <pre className="mt-2 bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono" style={{ maxHeight: 240 }}>
+          <pre className="mt-2 bg-panel-2 border border-border rounded-md p-3 text-[12.5px] overflow-auto font-mono max-h-[240px]">
             {generatedErd}
           </pre>
         </details>

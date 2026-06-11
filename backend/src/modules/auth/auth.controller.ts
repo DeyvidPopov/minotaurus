@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import type { User } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
-import { signToken } from "../../middleware/auth.js";
+import { signToken, type AuthedRequest } from "../../middleware/auth.js";
 import { getProjectAccess } from "../../lib/project-access.js";
 import { created, fail, ok } from "../../utils/response.js";
 
@@ -82,8 +82,8 @@ export async function login(req: Request, res: Response) {
   return ok(res, { token, user: toPublicUser(user) }, "Login successful");
 }
 
-export async function me(req: Request, res: Response) {
-  const userId = (req as Request & { user?: { userId: string } }).user?.userId;
+export async function me(req: AuthedRequest, res: Response) {
+  const userId = req.user?.userId;
   if (!userId) return fail(res, 401, "UNAUTHORIZED", "User not found");
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return fail(res, 401, "UNAUTHORIZED", "User not found");
@@ -107,8 +107,8 @@ const updateMeSchema = z
     { message: "At least one field is required" },
   );
 
-export async function updateMe(req: Request, res: Response) {
-  const userId = (req as Request & { user?: { userId: string } }).user?.userId;
+export async function updateMe(req: AuthedRequest, res: Response) {
+  const userId = req.user?.userId;
   if (!userId) return fail(res, 401, "UNAUTHORIZED", "User not found");
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return fail(res, 401, "UNAUTHORIZED", "User not found");
@@ -156,8 +156,8 @@ const passwordSchema = z.object({
   newPassword: z.string().min(6),
 });
 
-export async function changePassword(req: Request, res: Response) {
-  const userId = (req as Request & { user?: { userId: string } }).user?.userId;
+export async function changePassword(req: AuthedRequest, res: Response) {
+  const userId = req.user?.userId;
   if (!userId) return fail(res, 401, "UNAUTHORIZED", "User not found");
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return fail(res, 401, "UNAUTHORIZED", "User not found");

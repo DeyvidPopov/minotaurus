@@ -43,12 +43,20 @@ export async function getProjectAccess(
   return { status: "forbidden" };
 }
 
-export async function projectAccessLegacy(
+/**
+ * Status-only access check with role gating: returns "ok" once the user meets
+ * `minRole`, otherwise the raw "not_found"/"forbidden" status. For controllers
+ * that branch on the status string directly rather than taking the response
+ * shortcut the `assert*` helpers provide.
+ */
+export async function projectAccessStatus(
   projectId: string,
   userId: string,
+  minRole: ProjectRole = "VIEWER",
 ): Promise<"ok" | "not_found" | "forbidden"> {
   const access = await getProjectAccess(projectId, userId);
-  return access.status;
+  if (access.status !== "ok") return access.status;
+  return hasAtLeast(access.role!, minRole) ? "ok" : "forbidden";
 }
 
 export function requireProjectMembership() {
