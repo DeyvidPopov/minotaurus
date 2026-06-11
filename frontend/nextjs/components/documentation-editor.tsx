@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
 import { documentationApi } from "@/lib/api/documentation";
 import { aiApi } from "@/lib/api/ai";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import { timeAgo } from "@/lib/utils";
 
 type Mode = "view" | "edit";
@@ -46,7 +46,7 @@ export function DocumentationEditor({
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : "Failed to load documentation");
+        setError(errorMessage(err, "Failed to load documentation"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -63,7 +63,7 @@ export function DocumentationEditor({
       toast.success("Documentation saved");
       setMode("view");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not save");
+      toast.error(errorMessage(err, "Could not save"));
     } finally {
       setSaving(false);
     }
@@ -87,7 +87,7 @@ export function DocumentationEditor({
         toast.warning("The draft was shortened to fit — review for completeness.");
       }
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not generate a draft");
+      toast.error(errorMessage(err, "Could not generate a draft"));
     } finally {
       setGenerating(false);
     }

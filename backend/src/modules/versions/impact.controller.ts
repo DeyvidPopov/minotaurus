@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { prisma } from "../../lib/prisma.js";
-import { fail, ok } from "../../utils/response.js";
+import { fail, ok, respondProjectAccessDenied } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { projectAccessStatus } from "../../lib/project-access.js";
 
@@ -22,8 +22,7 @@ export async function analyzeImpact(req: AuthedRequest, res: Response) {
   const artifactId = req.params.artifactId;
 
   const access = await projectAccessStatus(projectId, req.user!.userId);
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const artifact = await prisma.artifact.findUnique({ where: { id: artifactId } });
   if (!artifact || artifact.projectId !== projectId) {

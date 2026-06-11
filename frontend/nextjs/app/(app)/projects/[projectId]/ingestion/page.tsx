@@ -35,6 +35,7 @@ import type { DiagramType as IngestionDiagramType } from "@/lib/api/diagrams";
 import type { DatabaseType as IngestionDatabaseType } from "@/lib/api/database-models";
 import { membersApi, type ProjectMember } from "@/lib/api/members";
 import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import { timeAgo } from "@/lib/utils";
 import type { Artifact, ArtifactType, Project } from "@/lib/types";
 
@@ -120,7 +121,7 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
       setRecords(list);
       setMyMembership(members.find((m) => m.userId === me?.id) ?? null);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Failed to load ingestion records";
+      const message = errorMessage(err, "Failed to load ingestion records");
       setError(message);
     }
   };
@@ -446,7 +447,7 @@ function DraftFormModal({
       toast.success("Ingestion draft created");
       await onCreated();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to create draft");
+      toast.error(errorMessage(err, "Failed to create draft"));
     } finally {
       setBusy(false);
     }
@@ -538,7 +539,7 @@ function MarkdownImportWizard({
       setStep("preview");
       toast.success("Markdown parsed");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Parse failed");
+      toast.error(errorMessage(err, "Parse failed"));
     } finally {
       setBusy(false);
     }
@@ -551,7 +552,7 @@ function MarkdownImportWizard({
       const list = await artifactsApi.list(projectId);
       setArtifacts(list);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load artifacts");
+      toast.error(errorMessage(err, "Failed to load artifacts"));
     }
   };
 
@@ -576,7 +577,7 @@ function MarkdownImportWizard({
       await onCommitted(out.artifact.id);
       onNavigateToArtifact(out.artifact.id);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Confirm failed");
+      toast.error(errorMessage(err, "Confirm failed"));
     } finally {
       setBusy(false);
     }
@@ -600,7 +601,7 @@ function MarkdownImportWizard({
       onNavigateToArtifact(out.artifact.id);
     } catch (err) {
       const code = err instanceof ApiError ? (err.body as { error?: { code?: string } } | undefined)?.error?.code : null;
-      const msg = err instanceof ApiError ? err.message : "Confirm failed";
+      const msg = errorMessage(err, "Confirm failed");
       if (code === "ARTIFACT_TITLE_TAKEN") setArtifactTitleError(msg);
       toast.error(msg);
     } finally {
@@ -859,7 +860,7 @@ function OpenApiImportWizard({
       setStep("preview");
       toast.success("OpenAPI JSON parsed");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Parse failed");
+      toast.error(errorMessage(err, "Parse failed"));
     } finally {
       setBusy(false);
     }
@@ -872,7 +873,7 @@ function OpenApiImportWizard({
       const list = await artifactsApi.list(projectId);
       setArtifacts(list);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load artifacts");
+      toast.error(errorMessage(err, "Failed to load artifacts"));
     }
   };
 
@@ -898,7 +899,7 @@ function OpenApiImportWizard({
       await onCommitted();
       onNavigateToApiSpec(out.apiSpec.id);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Confirm failed");
+      toast.error(errorMessage(err, "Confirm failed"));
     } finally {
       setBusy(false);
     }
@@ -1167,7 +1168,7 @@ function MermaidImportWizard({
       setStep("preview");
       toast.success("Mermaid parsed");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Parse failed");
+      toast.error(errorMessage(err, "Parse failed"));
     } finally {
       setBusy(false);
     }
@@ -1180,7 +1181,7 @@ function MermaidImportWizard({
       const list = await artifactsApi.list(projectId);
       setArtifacts(list);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load artifacts");
+      toast.error(errorMessage(err, "Failed to load artifacts"));
     }
   };
 
@@ -1205,7 +1206,7 @@ function MermaidImportWizard({
       await onCommitted();
       onNavigateToDiagram(out.diagram.id);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Confirm failed");
+      toast.error(errorMessage(err, "Confirm failed"));
     } finally {
       setBusy(false);
     }
@@ -1384,7 +1385,7 @@ function SqlSchemaImportWizard({
       setStep("preview");
       toast.success(`Parsed ${result.preview.entityCount} entities`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Parse failed");
+      toast.error(errorMessage(err, "Parse failed"));
     } finally {
       setBusy(false);
     }
@@ -1397,7 +1398,7 @@ function SqlSchemaImportWizard({
       const list = await artifactsApi.list(projectId);
       setArtifacts(list);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load artifacts");
+      toast.error(errorMessage(err, "Failed to load artifacts"));
     }
   };
 
@@ -1422,7 +1423,7 @@ function SqlSchemaImportWizard({
       await onCommitted();
       onNavigateToDatabaseModel(out.databaseModel.id);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Confirm failed");
+      toast.error(errorMessage(err, "Confirm failed"));
     } finally {
       setBusy(false);
     }

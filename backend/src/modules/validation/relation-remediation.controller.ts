@@ -13,9 +13,10 @@
 
 import type { Response } from "express";
 import { z } from "zod";
-import { Prisma, RelationType } from "@prisma/client";
+import { RelationType } from "@prisma/client";
+import { isUniqueViolation } from "../../utils/prisma-errors.js";
 import { prisma } from "../../lib/prisma.js";
-import { fail, ok } from "../../utils/response.js";
+import { fail, ok, respondProjectAccessDenied } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { projectAccessStatus } from "../../lib/project-access.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
@@ -166,8 +167,7 @@ export async function previewRemediation(req: AuthedRequest, res: Response) {
   const issue = await prisma.validationIssue.findUnique({ where: { id: req.params.issueId } });
   if (!issue) return fail(res, 404, "NOT_FOUND", "Validation issue not found");
   const access = await projectAccessStatus(issue.projectId, req.user!.userId, "VIEWER");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const code = classifyFindingFromIssue(issue);
   const remediationId = getRelationRemediationIdForCode(code);
@@ -191,8 +191,7 @@ export async function applyRemediation(req: AuthedRequest, res: Response) {
   const issue = await prisma.validationIssue.findUnique({ where: { id: req.params.issueId } });
   if (!issue) return fail(res, 404, "NOT_FOUND", "Validation issue not found");
   const access = await projectAccessStatus(issue.projectId, req.user!.userId, "ARCHITECT");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const code = classifyFindingFromIssue(issue);
   const remediationId = getRelationRemediationIdForCode(code);
@@ -272,7 +271,7 @@ export async function applyRemediation(req: AuthedRequest, res: Response) {
       });
       relationId = rel.id;
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      if (isUniqueViolation(err)) {
         return fail(res, 409, "RELATION_EXISTS", "Relation already exists");
       }
       // eslint-disable-next-line no-console

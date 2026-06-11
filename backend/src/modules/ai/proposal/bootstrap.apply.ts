@@ -11,6 +11,7 @@
 
 import { ArtifactStatus, AiSessionStatus, Prisma } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
+import { isUniqueViolation } from "../../../utils/prisma-errors.js";
 import { normalizeArtifactTitle } from "../../artifacts/artifact-title.js";
 import { resolvePreciseFkFieldId } from "../../database-models/fk-resolve.js";
 import { parseMermaid } from "../../ingestion/mermaid.engine.js";
@@ -404,7 +405,7 @@ export async function applyBootstrap(params: ApplyParams): Promise<ApplyResult> 
       return { artifacts, relations, diagrams, databaseModels, databaseEntities, databaseFields, apiSpecs, apiEndpoints };
     });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueViolation(err)) {
       throw new BootstrapConflictError(
         "A title collided while applying (the project changed since the proposal). Reload and try again.",
       );

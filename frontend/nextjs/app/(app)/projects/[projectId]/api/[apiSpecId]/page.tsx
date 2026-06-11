@@ -5,7 +5,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { ChevronRight, Edit, Trash2, X, Lock, LockOpen, Save } from "lucide-react";
+import { ChevronRight, Edit, Trash2, Lock, LockOpen, Save } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
 import { Empty } from "@/components/ui/empty";
 import { Tabs } from "@/components/ui/tabs";
+import { Modal } from "@/components/ui/modal";
+import { Field } from "@/components/ui/field";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   apiEndpointsApi,
@@ -23,7 +25,7 @@ import {
   type HttpMethod,
 } from "@/lib/api/api-specs";
 import { apiIntelApi, type EndpointIntel } from "@/lib/api/api-intel";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import { ArchitectureLinks } from "@/components/api/architecture-links";
@@ -81,7 +83,7 @@ export default function ApiSpecDetailPage({
       setEndpoints(eps);
       setArtifacts(arts);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load API spec");
+      toast.error(errorMessage(err, "Failed to load API spec"));
     }
     // Architecture Intelligence is additive + read-only — load it separately so a
     // failure never blocks the core spec view.
@@ -122,7 +124,7 @@ export default function ApiSpecDetailPage({
       toast.success("API spec deleted");
       router.push(`/projects/${projectId}/api`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete");
+      toast.error(errorMessage(err, "Could not delete"));
     }
   };
 
@@ -140,7 +142,7 @@ export default function ApiSpecDetailPage({
       toast.success("Endpoint deleted");
       await load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete endpoint");
+      toast.error(errorMessage(err, "Could not delete endpoint"));
     }
   };
 
@@ -376,7 +378,7 @@ function EditSpecModal({
       toast.success("Spec updated");
       onSaved(updated);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not update");
+      toast.error(errorMessage(err, "Could not update"));
     } finally {
       setBusy(false);
     }
@@ -460,7 +462,7 @@ function EndpointModal({
       toast.success(endpoint ? "Endpoint updated" : "Endpoint created");
       onSaved();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not save endpoint");
+      toast.error(errorMessage(err, "Could not save endpoint"));
     } finally {
       setBusy(false);
     }
@@ -503,29 +505,6 @@ function EndpointModal({
         </div>
       </div>
     </Modal>
-  );
-}
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-[110] flex items-center justify-center" onClick={onClose}>
-      <div className="w-[560px] max-w-[92vw] bg-panel border border-border rounded-lg shadow-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-4 py-3 border-b border-border flex items-center sticky top-0 bg-panel">
-          <div className="font-semibold">{title}</div>
-          <button className="ml-auto text-fg-muted hover:text-fg" onClick={onClose} aria-label="Close"><X size={16} /></button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
-      {children}
-    </div>
   );
 }
 

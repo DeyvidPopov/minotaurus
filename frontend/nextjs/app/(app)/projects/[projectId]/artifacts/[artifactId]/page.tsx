@@ -26,6 +26,7 @@ import { databaseModelsApi, type DatabaseModel } from "@/lib/api/database-models
 import { diagramsApi, type Diagram } from "@/lib/api/diagrams";
 import { validationApi } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import { EDGE_COLOR } from "@/lib/mock-data";
 
 // Backend-supported relation types only (omits GENERATES, DEPLOYED_TO).
@@ -109,7 +110,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
       setLinkedDbModels(models);
       setLinkedDiagrams(diagrams);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load artifact");
+      toast.error(errorMessage(err, "Failed to load artifact"));
     }
   };
 
@@ -162,7 +163,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
       toast.success("Artifact deleted");
       router.push(`/projects/${projectId}/artifacts`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete");
+      toast.error(errorMessage(err, "Could not delete"));
     }
   };
 
@@ -178,7 +179,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
       toast.success("Relation removed");
       await load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not remove relation");
+      toast.error(errorMessage(err, "Could not remove relation"));
     }
   };
 
@@ -453,7 +454,7 @@ function EditArtifactDialog({ artifact, onClose, onSaved }: { artifact: Artifact
       onSaved();
     } catch (err) {
       const code = err instanceof ApiError ? (err.body as { error?: { code?: string } } | undefined)?.error?.code : null;
-      const msg = err instanceof ApiError ? err.message : "Could not update";
+      const msg = errorMessage(err, "Could not update");
       if (code === "ARTIFACT_TITLE_TAKEN") setTitleError(msg);
       toast.error(msg);
     } finally {
@@ -513,7 +514,7 @@ function LinkArtifactDialog({ artifact, siblings, onClose, onCreated }: {
       toast.success("Relation created");
       onCreated();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not create relation");
+      toast.error(errorMessage(err, "Could not create relation"));
     } finally {
       setBusy(false);
     }

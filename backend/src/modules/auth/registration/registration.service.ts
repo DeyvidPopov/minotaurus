@@ -9,7 +9,6 @@
 //  - Plaintext codes/tokens are NEVER persisted (only bcrypt/sha256 hashes).
 //  - `start`/`resend` are enumeration-neutral for already-verified accounts.
 //  - No User is created — and no JWT issued — until verify + complete succeed.
-import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { User } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
@@ -18,11 +17,19 @@ import { signToken } from "../../../middleware/auth.js";
 import { getEmailService, type EmailService } from "../../email/email.service.js";
 import { toPublicUser } from "../auth.controller.js";
 import {
+  BCRYPT_COST,
+  DUMMY_BCRYPT_HASH,
+  generateCode,
+  generateSecureToken,
+  hashCode,
+  hashToken,
+  verifyCode,
+} from "../auth-crypto.js";
+import {
   CODE_TTL_MINUTES,
   MAX_VERIFY_ATTEMPTS,
   codeExpiryFrom,
   evaluatePasswordStrength,
-  generateNumericCode,
   isExpired,
   isResendAllowed,
   isValidCodeFormat,
@@ -32,14 +39,6 @@ import {
   resendAvailableFrom,
   resendRetryAfterSeconds,
 } from "./registration.engine.js";
-
-const BCRYPT_COST = 10;
-
-// Precomputed bcrypt hash used purely to equalize response timing on the paths
-// that would otherwise skip the (deliberately slow) bcrypt work — so an attacker
-// can't distinguish "account/record exists" from "doesn't" by measuring latency.
-// The value it hashes is irrelevant; only the work factor matters.
-const DUMMY_BCRYPT_HASH = bcrypt.hashSync("timing-equalizer", BCRYPT_COST);
 
 // ───────────────────────── injectable dependencies (for tests) ─────────────────────────
 //
@@ -61,31 +60,6 @@ export function __setRegistrationDeps(deps: RegistrationDeps | null): void {
 
 function deps(): RegistrationDeps {
   return testDeps ?? { db: prisma, email: getEmailService() };
-}
-
-// ───────────────────────── crypto helpers (impure, kept out of the engine) ─────────────────────────
-
-/** CSPRNG-backed 6-digit code. */
-function generateCode(): string {
-  return generateNumericCode((maxExclusive) => crypto.randomInt(maxExclusive));
-}
-
-function hashCode(code: string): Promise<string> {
-  return bcrypt.hash(code, BCRYPT_COST);
-}
-
-function verifyCode(code: string, codeHash: string): Promise<boolean> {
-  return bcrypt.compare(code, codeHash);
-}
-
-/** High-entropy handoff token (returned once to the client). */
-function generateRegistrationToken(): string {
-  return crypto.randomBytes(32).toString("base64url");
-}
-
-/** Fast hash is fine: the token is not brute-forceable. */
-function hashRegistrationToken(token: string): string {
-  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 /** Mask an email for logs (keeps shape, hides the local part). */
@@ -243,14 +217,14 @@ export async function verifyEmail(input: VerifyInput, now = new Date()): Promise
   }
 
   // Success → mint the short-lived registration token (store only its hash).
-  const registrationToken = generateRegistrationToken();
+  const registrationToken = generateSecureToken();
   const registrationTokenExpiresAt = registrationTokenExpiryFrom(now);
   await db.emailVerification.update({
     where: { id: record.id },
     data: {
       verifiedAt: record.verifiedAt ?? now,
       attempts: 0,
-      registrationTokenHash: hashRegistrationToken(registrationToken),
+      registrationTokenHash: hashToken(registrationToken),
       registrationTokenExpiresAt,
     },
   });
@@ -287,7 +261,7 @@ export async function completeRegistration(
     });
   }
 
-  const tokenHash = hashRegistrationToken(input.registrationToken.trim());
+  const tokenHash = hashToken(input.registrationToken.trim());
   const record = await db.emailVerification.findFirst({
     where: { registrationTokenHash: tokenHash },
   });

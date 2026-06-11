@@ -13,7 +13,6 @@
 //  - Email delivery is best-effort: a provider failure is logged but never
 //    propagated, so a misconfigured mailer can't make a known account observable.
 //  - The reset token is single-use: the pending row is deleted on success.
-import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "../../../lib/prisma.js";
 import { HttpError } from "../../../utils/response.js";
@@ -23,11 +22,19 @@ import {
   type SendPasswordResetCodeInput,
 } from "../../email/email.service.js";
 import {
+  BCRYPT_COST,
+  DUMMY_BCRYPT_HASH,
+  generateCode,
+  generateSecureToken,
+  hashCode,
+  hashToken,
+  verifyCode,
+} from "../auth-crypto.js";
+import {
   CODE_TTL_MINUTES,
   MAX_VERIFY_ATTEMPTS,
   codeExpiryFrom,
   evaluatePasswordStrength,
-  generateNumericCode,
   isExpired,
   isResendAllowed,
   isValidCodeFormat,
@@ -36,12 +43,6 @@ import {
   resendAvailableFrom,
   resendRetryAfterSeconds,
 } from "../registration/registration.engine.js";
-
-const BCRYPT_COST = 10;
-
-// Equalizes response timing on the no-account path (which skips the real bcrypt
-// hash of a code) so latency can't distinguish "account exists" from "doesn't".
-const DUMMY_BCRYPT_HASH = bcrypt.hashSync("timing-equalizer", BCRYPT_COST);
 
 // ───────────────────────── injectable dependencies (for tests) ─────────────────────────
 
@@ -59,31 +60,6 @@ export function __setPasswordResetDeps(deps: PasswordResetDeps | null): void {
 
 function deps(): PasswordResetDeps {
   return testDeps ?? { db: prisma, email: getEmailService() };
-}
-
-// ───────────────────────── crypto helpers (impure, kept out of the engine) ─────────────────────────
-
-/** CSPRNG-backed 6-digit code. */
-function generateCode(): string {
-  return generateNumericCode((maxExclusive) => crypto.randomInt(maxExclusive));
-}
-
-function hashCode(code: string): Promise<string> {
-  return bcrypt.hash(code, BCRYPT_COST);
-}
-
-function verifyCode(code: string, codeHash: string): Promise<boolean> {
-  return bcrypt.compare(code, codeHash);
-}
-
-/** High-entropy handoff token (returned once to the client). */
-function generateResetToken(): string {
-  return crypto.randomBytes(32).toString("base64url");
-}
-
-/** Fast hash is fine: the token is not brute-forceable. */
-function hashResetToken(token: string): string {
-  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 /** Scalar, secret-free audit log line. */
@@ -239,14 +215,14 @@ export async function verifyResetCode(
   }
 
   // Success → mint the short-lived reset token (store only its hash).
-  const resetToken = generateResetToken();
+  const resetToken = generateSecureToken();
   const resetTokenExpiresAt = resetTokenExpiryFrom(now);
   await db.passwordReset.update({
     where: { id: record.id },
     data: {
       verifiedAt: record.verifiedAt ?? now,
       attempts: 0,
-      resetTokenHash: hashResetToken(resetToken),
+      resetTokenHash: hashToken(resetToken),
       resetTokenExpiresAt,
     },
   });
@@ -288,7 +264,7 @@ export async function resetPassword(
     });
   }
 
-  const tokenHash = hashResetToken(input.resetToken.trim());
+  const tokenHash = hashToken(input.resetToken.trim());
   const record = await db.passwordReset.findFirst({ where: { resetTokenHash: tokenHash } });
   if (!record || !record.verifiedAt) {
     throw new HttpError(401, "INVALID_RESET_TOKEN", "Invalid reset token");

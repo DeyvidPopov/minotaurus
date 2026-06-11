@@ -23,7 +23,8 @@ import { validationApi } from "@/lib/api";
 import { versionsApi, type VersionEvent } from "@/lib/api/versions";
 import { ActivityRow } from "@/components/activity/activity-row";
 import { groupActivityRuns } from "@/lib/activity";
-import { apiClient, ApiError } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact, Project, Relation, Severity, ValidationIssue } from "@/lib/types";
 
 type ProjectRelation = {
@@ -64,7 +65,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
       setIssues(vi);
       setRecentEvents(events);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Failed to load project";
+      const message = errorMessage(err, "Failed to load project");
       setError(message);
     }
   };
@@ -106,7 +107,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
       toast.success("Validation complete");
       await refresh();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Validation failed");
+      toast.error(errorMessage(err, "Validation failed"));
     } finally {
       setRunning(false);
     }

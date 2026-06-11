@@ -51,6 +51,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.body.setAttribute("data-mobile-nav", mobileNav ? "open" : "closed");
   }, [mobileNav]);
 
+  // Mark the authenticated shell on <body> so globally-mounted chrome (the sonner
+  // toaster lives in Providers, outside this tree) can offset itself past the
+  // sidebar. Removed on unmount so public/auth pages keep full-viewport defaults.
+  useEffect(() => {
+    document.body.setAttribute("data-app-shell", "");
+    return () => document.body.removeAttribute("data-app-shell");
+  }, []);
+
   // ⌘K (macOS) / Ctrl+K (Windows/Linux) — toggle the command palette
   useEffect(() => {
     const on = (e: KeyboardEvent) => {

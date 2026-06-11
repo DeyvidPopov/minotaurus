@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CodeInput } from "@/components/ui/code-input";
+import { Field } from "@/components/ui/field";
 import { useAuth } from "@/lib/auth-context";
 import { useTweaks } from "@/components/providers";
 import { authApi } from "@/lib/api/auth";
@@ -17,6 +18,8 @@ import { projectsApi } from "@/lib/api/projects";
 import { settingsApi, type NotificationPreferences } from "@/lib/api/settings";
 import { DeleteAccountModal } from "@/components/settings/delete-account-modal";
 import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
+import { useResource } from "@/lib/use-resource";
 import { cn } from "@/lib/utils";
 import type { Project, User } from "@/lib/types";
 
@@ -89,7 +92,7 @@ function ProfileTab() {
       setUser(res.user);
       toast.success("Profile updated");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not update profile");
+      toast.error(errorMessage(err, "Could not update profile"));
     } finally {
       setSaving(false);
     }
@@ -100,8 +103,9 @@ function ProfileTab() {
       toast.error("New password and confirmation do not match");
       return;
     }
-    if (newPw.length < 6) {
-      toast.error("New password must be at least 6 characters");
+    // Same rule as sign-up: 8+ characters with a letter and a number.
+    if (newPw.length < 8 || !/[A-Za-z]/.test(newPw) || !/\d/.test(newPw)) {
+      toast.error("New password must be at least 8 characters and include a letter and a number");
       return;
     }
     setPwBusy(true);
@@ -112,7 +116,7 @@ function ProfileTab() {
       setNewPw("");
       setConfirmPw("");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not change password");
+      toast.error(errorMessage(err, "Could not change password"));
     } finally {
       setPwBusy(false);
     }
@@ -158,7 +162,7 @@ function ProfileTab() {
         </div>
       </Card>
 
-      <Card title="Change password" subtitle="Use at least 6 characters.">
+      <Card title="Change password" subtitle="At least 8 characters, with a letter and a number.">
         <div className="grid sm:grid-cols-3 gap-3">
           <Field label="Current password">
             <input type="password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} autoComplete="current-password"
@@ -508,17 +512,9 @@ function WorkspaceTab() {
 
 function DefaultWorkspaceCard() {
   const { user, setUser } = useAuth();
-  const [projects, setProjects] = useState<Project[] | null>(null);
+  const { data, error } = useResource(() => projectsApi.list(), []);
+  const projects: Project[] | null = error ? [] : data;
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    projectsApi
-      .list()
-      .then((list) => { if (!cancelled) setProjects(list); })
-      .catch(() => { if (!cancelled) setProjects([]); });
-    return () => { cancelled = true; };
-  }, []);
 
   const change = async (value: string) => {
     const defaultProjectId = value === "" ? null : value;
@@ -528,7 +524,7 @@ function DefaultWorkspaceCard() {
       setUser(res.user);
       toast.success(defaultProjectId ? "Default workspace updated" : "Default workspace cleared");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not update default workspace");
+      toast.error(errorMessage(err, "Could not update default workspace"));
     } finally {
       setSaving(false);
     }
@@ -608,7 +604,7 @@ function NotificationsTab() {
       toast.success("Notification preferences saved");
     } catch (err) {
       setPrefs(previous); // revert on failure
-      toast.error(err instanceof ApiError ? err.message : "Could not save notification preferences");
+      toast.error(errorMessage(err, "Could not save notification preferences"));
     } finally {
       setSavingKey(null);
     }
@@ -729,17 +725,6 @@ function DangerTab() {
       </Card>
 
       <DeleteAccountModal open={deleteOpen} onClose={() => setDeleteOpen(false)} onScheduled={onScheduled} />
-    </div>
-  );
-}
-
-// ────────────────────────── shared ──────────────────────────
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
-      {children}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import type { Response } from "express";
 import { VersionAction, VersionEntityType, type VersionEvent } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
-import { fail, ok } from "../../utils/response.js";
+import { fail, ok, respondProjectAccessDenied } from "../../utils/response.js";
+import { normalizeSearchTerm } from "../../utils/list-filter.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { projectAccessStatus } from "../../lib/project-access.js";
 
@@ -53,8 +54,7 @@ async function loadAuthorsFor(events: VersionEvent[]): Promise<Map<string, Autho
 export async function listVersionHistory(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId);
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const { entityType, action, search, q, limit } = req.query as Record<string, string | undefined>;
   const items = await prisma.versionEvent.findMany({
@@ -65,7 +65,7 @@ export async function listVersionHistory(req: AuthedRequest, res: Response) {
     },
     orderBy: { createdAt: "desc" },
   });
-  const term = (search || q || "").toLowerCase().trim();
+  const term = normalizeSearchTerm(search, q);
   let filtered = term
     ? items.filter(
         (e) =>

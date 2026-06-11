@@ -10,8 +10,7 @@ import type { Response } from "express";
 import { ok, fail } from "../../../utils/response.js";
 import type { AuthedRequest } from "../../../middleware/auth.js";
 import { assertProjectRole } from "../../../lib/project-access.js";
-import { AiOutputTruncatedError, AiSchemaError } from "../ai.service.js";
-import { AiNotConfiguredError, AiProviderError } from "../providers/ai.provider.js";
+import { respondAiError } from "../ai.error-map.js";
 import { generateAiArchitectureAnalysis } from "../architecture/generate.js";
 import { getLatestAdvisor, getAdvisorById, listAdvisors } from "./advisor.service.js";
 
@@ -26,16 +25,7 @@ export async function advisorEndpoint(req: AuthedRequest, res: Response) {
     const result = await generateAiArchitectureAnalysis({ mode: "ADVISOR", projectId, userId: req.user!.userId });
     return ok(res, result, "Architecture advisory generated");
   } catch (err) {
-    if (err instanceof AiNotConfiguredError) return fail(res, 503, "AI_NOT_CONFIGURED", err.message);
-    if (err instanceof AiOutputTruncatedError) {
-      return fail(res, 422, "AI_OUTPUT_TRUNCATED", err.message, {
-        maxTokens: err.details.maxTokens,
-        outputTokens: err.details.outputTokens,
-        suggestion: "The project is large; increase AI_ADVISOR_MAX_TOKENS or narrow the project scope.",
-      });
-    }
-    if (err instanceof AiProviderError) return fail(res, 502, "AI_PROVIDER_ERROR", err.message);
-    if (err instanceof AiSchemaError) return fail(res, 502, "AI_SCHEMA_ERROR", err.message);
+    if (respondAiError(res, err, "The project is large; increase AI_ADVISOR_MAX_TOKENS or narrow the project scope.")) return;
     throw err;
   }
 }

@@ -34,7 +34,7 @@ import {
 } from "@/lib/api/versions";
 import { ACTION_COLOR } from "@/lib/activity";
 import { ActivityRow } from "@/components/activity/activity-row";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 
 const ENTITY_ICON: Record<VersionEntityType, React.ReactNode> = {
   PROJECT: <Box size={14} />,
@@ -73,7 +73,7 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
       const list = await versionsApi.list(projectId, { limit: 500 });
       setEvents(list);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load version history");
+      toast.error(errorMessage(err, "Failed to load version history"));
       setEvents([]);
     }
   };

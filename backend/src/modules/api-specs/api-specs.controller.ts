@@ -1,8 +1,10 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { HttpMethod, Prisma, ProjectRole, type ApiEndpoint, type ApiSpec } from "@prisma/client";
+import { HttpMethod, ProjectRole, type ApiEndpoint, type ApiSpec } from "@prisma/client";
+import { isUniqueViolation } from "../../utils/prisma-errors.js";
 import { prisma } from "../../lib/prisma.js";
-import { created, fail, ok } from "../../utils/response.js";
+import { created, fail, ok, respondAccessError, respondProjectAccessDenied } from "../../utils/response.js";
+import { normalizeSearchTerm } from "../../utils/list-filter.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { getProjectAccess, hasAtLeast, projectAccessStatus } from "../../lib/project-access.js";
@@ -98,8 +100,7 @@ const patchEndpointSchema = z.object({
 export async function listSpecs(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId);
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const { search, q, artifactId } = req.query as Record<string, string | undefined>;
   const specs = await prisma.apiSpec.findMany({
@@ -109,7 +110,7 @@ export async function listSpecs(req: AuthedRequest, res: Response) {
     },
     orderBy: { createdAt: "asc" },
   });
-  const term = (search || q || "").toLowerCase().trim();
+  const term = normalizeSearchTerm(search, q);
   const filtered = term
     ? specs.filter(
         (s) =>
@@ -125,8 +126,7 @@ export async function listSpecs(req: AuthedRequest, res: Response) {
 export async function createSpec(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId, "DEVELOPER");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const parsed = createSpecSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
@@ -166,11 +166,7 @@ export async function createSpec(req: AuthedRequest, res: Response) {
 
 export async function getSpec(req: AuthedRequest, res: Response) {
   const result = await findSpecForUser(req.params.apiSpecId, req.user!.userId);
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "API spec not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "API spec not found");
   return ok(res, await serializeSpec(result.row), "OK");
 }
 
@@ -179,11 +175,7 @@ export async function patchSpec(req: AuthedRequest, res: Response) {
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
   const result = await findSpecForUser(req.params.apiSpecId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "API spec not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "API spec not found");
   const row = result.row;
 
   if (parsed.data.artifactId !== undefined && parsed.data.artifactId !== null) {
@@ -220,11 +212,7 @@ export async function patchSpec(req: AuthedRequest, res: Response) {
 
 export async function deleteSpec(req: AuthedRequest, res: Response) {
   const result = await findSpecForUser(req.params.apiSpecId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "API spec not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "API spec not found");
   const row = result.row;
   await prisma.apiSpec.delete({ where: { id: row.id } });
   await recordVersionEvent({
@@ -241,11 +229,7 @@ export async function deleteSpec(req: AuthedRequest, res: Response) {
 
 export async function listEndpoints(req: AuthedRequest, res: Response) {
   const specResult = await findSpecForUser(req.params.apiSpecId, req.user!.userId);
-  if ("error" in specResult) {
-    return specResult.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "API spec not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in specResult) return respondAccessError(res, specResult.error, "API spec not found");
   const items = await prisma.apiEndpoint.findMany({
     where: { apiSpecId: specResult.row.id },
     orderBy: { createdAt: "asc" },
@@ -255,11 +239,7 @@ export async function listEndpoints(req: AuthedRequest, res: Response) {
 
 export async function createEndpoint(req: AuthedRequest, res: Response) {
   const specResult = await findSpecForUser(req.params.apiSpecId, req.user!.userId, "DEVELOPER");
-  if ("error" in specResult) {
-    return specResult.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "API spec not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in specResult) return respondAccessError(res, specResult.error, "API spec not found");
 
   const parsed = createEndpointSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
@@ -279,7 +259,7 @@ export async function createEndpoint(req: AuthedRequest, res: Response) {
     });
   } catch (err) {
     // DB-enforced @@unique([apiSpecId, method, path]) — clean 409, race-safe.
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueViolation(err)) {
       return fail(res, 409, "ENDPOINT_EXISTS", `An endpoint ${parsed.data.method} ${parsed.data.path} already exists in this spec.`);
     }
     throw err;
@@ -306,11 +286,7 @@ export async function patchEndpoint(req: AuthedRequest, res: Response) {
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
   const result = await findEndpointForUser(req.params.endpointId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Endpoint not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Endpoint not found");
   let updated: ApiEndpoint;
   try {
     updated = await prisma.apiEndpoint.update({
@@ -332,7 +308,7 @@ export async function patchEndpoint(req: AuthedRequest, res: Response) {
     });
   } catch (err) {
     // A method/path change can collide with a sibling endpoint (DB @@unique).
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueViolation(err)) {
       return fail(res, 409, "ENDPOINT_EXISTS", "An endpoint with this method and path already exists in this spec.");
     }
     throw err;
@@ -356,11 +332,7 @@ export async function patchEndpoint(req: AuthedRequest, res: Response) {
 
 export async function deleteEndpoint(req: AuthedRequest, res: Response) {
   const result = await findEndpointForUser(req.params.endpointId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Endpoint not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Endpoint not found");
   await prisma.apiEndpoint.delete({ where: { id: result.row.id } });
   await prisma.apiSpec.update({
     where: { id: result.spec.id },

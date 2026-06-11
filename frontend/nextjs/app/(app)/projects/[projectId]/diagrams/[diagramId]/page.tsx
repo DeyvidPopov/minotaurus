@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
-  Edit, Trash2, Save, X, Copy, Maximize2, Minimize2, Wand2,
+  Edit, Trash2, Save, Copy, Maximize2, Minimize2, Wand2,
   CheckCircle2, AlertTriangle, Loader2, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
+import { Modal } from "@/components/ui/modal";
+import { Field } from "@/components/ui/field";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   DIAGRAM_TYPES,
@@ -24,7 +26,7 @@ import {
   type Diagram,
   type DiagramType,
 } from "@/lib/api/diagrams";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import { MermaidPreview, type MermaidStatus } from "@/components/mermaid-preview";
@@ -64,7 +66,7 @@ export default function DiagramDetailPage({
       setSavedSource(d.mermaidSource);
       setArtifacts(arts);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load diagram");
+      toast.error(errorMessage(err, "Failed to load diagram"));
     }
   };
 
@@ -97,7 +99,7 @@ export default function DiagramDetailPage({
       setSavedSource(updated.mermaidSource);
       toast.success("Diagram saved");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not save");
+      toast.error(errorMessage(err, "Could not save"));
     } finally {
       setSaving(false);
     }
@@ -126,7 +128,7 @@ export default function DiagramDetailPage({
       toast.success("Diagram deleted");
       router.push(`/projects/${projectId}/diagrams`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete");
+      toast.error(errorMessage(err, "Could not delete"));
     }
   };
 
@@ -482,7 +484,7 @@ function EditMetaModal({
       toast.success("Diagram updated");
       onSaved(updated);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not update");
+      toast.error(errorMessage(err, "Could not update"));
     } finally {
       setBusy(false);
     }
@@ -520,30 +522,5 @@ function EditMetaModal({
         </div>
       </div>
     </Modal>
-  );
-}
-
-// ─────────────────────── shared ───────────────────────
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-[110] flex items-center justify-center" onClick={onClose}>
-      <div className="w-[560px] max-w-[92vw] bg-panel border border-border rounded-lg shadow-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-4 py-3 border-b border-border flex items-center sticky top-0 bg-panel">
-          <div className="font-semibold">{title}</div>
-          <button className="ml-auto text-fg-muted hover:text-fg" onClick={onClose} aria-label="Close"><X size={16} /></button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
-      {children}
-    </div>
   );
 }

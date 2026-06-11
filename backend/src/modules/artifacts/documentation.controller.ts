@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { z } from "zod";
 import { ProjectRole } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
-import { fail, ok } from "../../utils/response.js";
+import { fail, ok, respondAccessError } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { getProjectAccess, hasAtLeast } from "../../lib/project-access.js";
@@ -99,11 +99,7 @@ export async function getProjectDocumentationOverview(req: AuthedRequest, res: R
 
 export async function getDocumentation(req: AuthedRequest, res: Response) {
   const result = await findArtifactForUser(req.params.artifactId, req.user!.userId);
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Artifact not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Artifact not found");
   return ok(
     res,
     {
@@ -123,11 +119,7 @@ export async function putDocumentation(req: AuthedRequest, res: Response) {
   const content = parsed.data.markdownContent ?? parsed.data.content ?? "";
 
   const result = await findArtifactForUser(req.params.artifactId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Artifact not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Artifact not found");
   const artifact = result.artifact;
   const hadContent = !!artifact.documentationContent?.trim();
   const willHaveContent = !!content.trim();

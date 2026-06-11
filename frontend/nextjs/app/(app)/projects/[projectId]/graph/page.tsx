@@ -21,7 +21,8 @@ import { OpenLink } from "@/components/ui/open-link";
 import { useTweaks } from "@/components/providers";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
-import { apiClient, ApiError } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 
 interface GraphEdge {
   id: string;
@@ -64,7 +65,7 @@ export default function GraphPage({ params }: { params: { projectId: string } })
       setArtifacts(arts);
       setRelations(graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target, type: e.type })));
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load graph");
+      toast.error(errorMessage(err, "Failed to load graph"));
     }
     // API Payload Intelligence overlay — read-only, best-effort, never blocks the graph.
     try {

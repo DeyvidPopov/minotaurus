@@ -23,11 +23,11 @@ import {
   type SendEmailChangeNoticeInput,
 } from "../../email/email.service.js";
 import { toPublicUser } from "../auth.controller.js";
+import { DUMMY_BCRYPT_HASH, generateCode, hashCode, verifyCode } from "../auth-crypto.js";
 import {
   CODE_TTL_MINUTES,
   MAX_VERIFY_ATTEMPTS,
   codeExpiryFrom,
-  generateNumericCode,
   isExpired,
   isResendAllowed,
   isValidCodeFormat,
@@ -35,13 +35,6 @@ import {
   resendAvailableFrom,
   resendRetryAfterSeconds,
 } from "../registration/registration.engine.js";
-import crypto from "node:crypto";
-
-const BCRYPT_COST = 10;
-
-// Equalizes timing on the no-pending-change verify path (which skips the real
-// bcrypt compare) so it can't be distinguished by latency.
-const DUMMY_BCRYPT_HASH = bcrypt.hashSync("timing-equalizer", BCRYPT_COST);
 
 // ───────────────────────── injectable dependencies (for tests) ─────────────────────────
 
@@ -59,20 +52,6 @@ export function __setEmailChangeDeps(deps: EmailChangeDeps | null): void {
 
 function deps(): EmailChangeDeps {
   return testDeps ?? { db: prisma, email: getEmailService() };
-}
-
-// ───────────────────────── crypto helpers ─────────────────────────
-
-function generateCode(): string {
-  return generateNumericCode((maxExclusive) => crypto.randomInt(maxExclusive));
-}
-
-function hashCode(code: string): Promise<string> {
-  return bcrypt.hash(code, BCRYPT_COST);
-}
-
-function verifyCode(code: string, codeHash: string): Promise<boolean> {
-  return bcrypt.compare(code, codeHash);
 }
 
 function logChange(event: string, fields: Record<string, unknown>): void {

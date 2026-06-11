@@ -17,7 +17,7 @@
 import type { Response } from "express";
 import type { ValidationIssue } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
-import { fail, ok } from "../../utils/response.js";
+import { fail, ok, respondProjectAccessDenied } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { projectAccessStatus } from "../../lib/project-access.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
@@ -169,8 +169,7 @@ export async function previewQuickFix(req: AuthedRequest, res: Response) {
   if (!issue) return fail(res, 404, "NOT_FOUND", "Validation issue not found");
 
   const access = await projectAccessStatus(issue.projectId, req.user!.userId, "VIEWER");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const resolution = await resolveQuickFix(issue);
   if (!resolution.ok) return fail(res, resolution.status, resolution.code, resolution.message);
@@ -199,8 +198,7 @@ export async function applyQuickFix(req: AuthedRequest, res: Response) {
   if (!issue) return fail(res, 404, "NOT_FOUND", "Validation issue not found");
 
   const access = await projectAccessStatus(issue.projectId, req.user!.userId, "ARCHITECT");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const resolution = await resolveQuickFix(issue);
   if (!resolution.ok) return fail(res, resolution.status, resolution.code, resolution.message);

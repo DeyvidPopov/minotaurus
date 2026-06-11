@@ -5,11 +5,12 @@
 // deleted until the purge job runs (see account-deletion.purge.ts). That makes
 // undo trivial — clear the flag, drop the row. Mirrors the password-reset /
 // email-change shape: a sha256-hashed single-use token backs the undo email link.
-import { randomBytes, createHash } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../../lib/prisma.js";
 import { HttpError } from "../../../utils/response.js";
+import { hashToken } from "../auth-crypto.js";
 import {
   classifyProjects,
   validateDeletionPlan,
@@ -20,10 +21,6 @@ import {
 
 /** Grace window between request and permanent purge. */
 export const DELETION_GRACE_DAYS = 30;
-
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 function memberName(u: { firstName: string; lastName: string; email: string }): string {
   return [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email;

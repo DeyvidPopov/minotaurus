@@ -1,7 +1,7 @@
 // app/(app)/projects/[projectId]/team/page.tsx — project team management
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { UserPlus, Trash2, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -13,6 +13,8 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { membersApi, type ProjectMember, type ProjectRole } from "@/lib/api/members";
 import { projectsApi } from "@/lib/api/projects";
 import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
+import { useResource } from "@/lib/use-resource";
 import { useAuth } from "@/lib/auth-context";
 import type { Project } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
@@ -35,31 +37,15 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
   const { projectId } = params;
   const { user: me } = useAuth();
   const confirm = useConfirm();
-  const [project, setProject] = useState<Project | null>(null);
-  const [members, setMembers] = useState<ProjectMember[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, reload } = useResource(
+    () => Promise.all([projectsApi.get(projectId), membersApi.list(projectId)]),
+    [projectId],
+  );
+  const project: Project | null = data?.[0] ?? null;
+  const members: ProjectMember[] | null = data?.[1] ?? null;
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<ProjectRole>("DEVELOPER");
   const [busy, setBusy] = useState(false);
-
-  const refresh = async () => {
-    try {
-      const [p, list] = await Promise.all([
-        projectsApi.get(projectId),
-        membersApi.list(projectId),
-      ]);
-      setProject(p);
-      setMembers(list);
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Failed to load team";
-      setError(message);
-    }
-  };
-
-  useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
 
   const myMembership = useMemo(
     () => members?.find((m) => m.userId === me?.id) ?? null,
@@ -70,7 +56,7 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
   if (error) {
     return (
       <div className="px-8 py-6">
-        <Empty title="Team unavailable" message={error} />
+        <Empty title="Team unavailable" message={errorMessage(error, "Failed to load team")} />
       </div>
     );
   }
@@ -87,7 +73,7 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
       toast.success(`Added ${email.trim()} as ${role}`);
       setEmail("");
       setRole("DEVELOPER");
-      await refresh();
+      await reload();
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
       const code = (apiErr?.body as { error?: { code?: string } } | undefined)?.error?.code ?? "";
@@ -108,9 +94,9 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
     try {
       await membersApi.updateRole(projectId, member.id, newRole);
       toast.success(`${member.user.name || member.user.email} → ${newRole}`);
-      await refresh();
+      await reload();
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Failed to change role";
+      const msg = errorMessage(err, "Failed to change role");
       toast.error(msg);
     }
   };
@@ -127,9 +113,9 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
     try {
       await membersApi.remove(projectId, member.id);
       toast.success(`Removed ${label}`);
-      await refresh();
+      await reload();
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Failed to remove member";
+      const msg = errorMessage(err, "Failed to remove member");
       toast.error(msg);
     }
   };

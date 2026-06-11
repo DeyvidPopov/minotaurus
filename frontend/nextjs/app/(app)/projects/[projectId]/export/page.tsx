@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Empty } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
-import { apiClient, ApiError } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import { diagramsApi } from "@/lib/api/diagrams";
 import { renderMermaidToSvg } from "@/components/mermaid-preview";
 import { ExportPreview, type ExportPreviewModel } from "@/components/export-preview";
@@ -60,7 +61,7 @@ export default function ExportPage({ params }: { params: { projectId: string } }
       const list = await apiClient.get<ExportSummary[]>(`/projects/${projectId}/exports`);
       setExports(list);
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Failed to load exports";
+      const msg = errorMessage(err, "Failed to load exports");
       setExportsError(msg);
       toast.error(msg);
       setExports([]);
@@ -120,7 +121,7 @@ export default function ExportPage({ params }: { params: { projectId: string } }
       // Auto-open the freshly-created export so the user sees what they made
       if (created?.id) await open(created.id);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not create export");
+      toast.error(errorMessage(err, "Could not create export"));
     } finally {
       setBusy(false);
     }
@@ -135,7 +136,7 @@ export default function ExportPage({ params }: { params: { projectId: string } }
       setPreview(detail);
       setPreviewState("idle");
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Could not load export";
+      const msg = errorMessage(err, "Could not load export");
       setPreviewError(msg);
       setPreviewState("error");
       toast.error(msg);

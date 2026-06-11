@@ -1,7 +1,7 @@
 // app/(app)/projects/[projectId]/docs/page.tsx — Documentation Hub
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Plus, FileText, Info } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { OpenLink } from "@/components/ui/open-link";
 import { projectsApi } from "@/lib/api/projects";
 import { documentationApi, type DocumentationOverview } from "@/lib/api/documentation";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
+import { useResource } from "@/lib/use-resource";
 import { timeAgo } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
@@ -24,31 +25,14 @@ type Filter = "all" | "documented" | "missing";
 
 export default function DocumentationHubPage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
-  const [project, setProject] = useState<Project | null>(null);
-  const [overview, setOverview] = useState<DocumentationOverview | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error } = useResource(
+    () => Promise.all([projectsApi.get(projectId), documentationApi.overview(projectId)]),
+    [projectId],
+  );
+  const project: Project | null = data?.[0] ?? null;
+  const overview: DocumentationOverview | null = data?.[1] ?? null;
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [p, o] = await Promise.all([
-          projectsApi.get(projectId),
-          documentationApi.overview(projectId),
-        ]);
-        if (cancelled) return;
-        setProject(p);
-        setOverview(o);
-      } catch (err) {
-        if (cancelled) return;
-        const message = err instanceof ApiError ? err.message : "Failed to load documentation";
-        setError(message);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [projectId]);
 
   const matchedDocuments = useMemo(() => {
     if (!overview) return [];
@@ -67,7 +51,7 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
   if (error) {
     return (
       <div className="px-8 py-6">
-        <Empty title="Documentation unavailable" message={error} />
+        <Empty title="Documentation unavailable" message={errorMessage(error, "Failed to load documentation")} />
       </div>
     );
   }

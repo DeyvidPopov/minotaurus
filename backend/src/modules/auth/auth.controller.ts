@@ -6,10 +6,11 @@ import { prisma } from "../../lib/prisma.js";
 import { signToken, type AuthedRequest } from "../../middleware/auth.js";
 import { getProjectAccess } from "../../lib/project-access.js";
 import { created, fail, ok } from "../../utils/response.js";
+import { evaluatePasswordStrength } from "./registration/registration.engine.js";
 
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(1),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
 });
@@ -38,6 +39,13 @@ export async function register(req: Request, res: Response) {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
     return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
+  }
+  // Same password bar as the verified flow and change-password.
+  const strength = evaluatePasswordStrength(parsed.data.password);
+  if (!strength.ok) {
+    return fail(res, 400, "WEAK_PASSWORD", "Password does not meet the requirements", {
+      failures: strength.failures,
+    });
   }
   const { password, firstName, lastName } = parsed.data;
   // Normalize on write so duplicate detection (and the verified flow's lookups)
@@ -153,7 +161,7 @@ export async function updateMe(req: AuthedRequest, res: Response) {
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1),
-  newPassword: z.string().min(6),
+  newPassword: z.string().min(1),
 });
 
 export async function changePassword(req: AuthedRequest, res: Response) {
@@ -165,6 +173,13 @@ export async function changePassword(req: AuthedRequest, res: Response) {
   const parsed = passwordSchema.safeParse(req.body);
   if (!parsed.success) {
     return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
+  }
+  // Hold the new password to the same bar as sign-up and reset.
+  const strength = evaluatePasswordStrength(parsed.data.newPassword);
+  if (!strength.ok) {
+    return fail(res, 400, "WEAK_PASSWORD", "Password does not meet the requirements", {
+      failures: strength.failures,
+    });
   }
   const okPw = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
   if (!okPw) return fail(res, 401, "INVALID_CREDENTIALS", "Current password is incorrect");

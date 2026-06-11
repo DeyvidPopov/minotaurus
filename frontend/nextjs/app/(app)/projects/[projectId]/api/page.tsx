@@ -13,9 +13,10 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Empty } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
+import { Field } from "@/components/ui/field";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { apiSpecsApi, type ApiSpec } from "@/lib/api/api-specs";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 
@@ -36,7 +37,7 @@ export default function ApiSpecsListPage({ params }: { params: { projectId: stri
       setSpecs(specsRes);
       setArtifacts(artsRes);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load API specs");
+      toast.error(errorMessage(err, "Failed to load API specs"));
       setSpecs([]);
     }
   };
@@ -229,7 +230,7 @@ function CreateSpecModal({
       toast.success(`API spec "${spec.title}" created`);
       onCreated(spec);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not create API spec");
+      toast.error(errorMessage(err, "Could not create API spec"));
     } finally {
       setBusy(false);
     }
@@ -280,15 +281,6 @@ function CreateSpecModal({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
-      {children}
     </div>
   );
 }

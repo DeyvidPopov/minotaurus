@@ -11,7 +11,7 @@ import { Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -35,7 +35,7 @@ export default function LoginPage() {
       toast.success("Signed in");
       router.push(user.defaultProjectId ? `/projects/${user.defaultProjectId}` : "/dashboard");
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Could not sign in";
+      const message = errorMessage(err, "Could not sign in");
       // Keep the sign-in error on screen long enough to read (sonner's default is short).
       toast.error(message, { duration: 6000 });
     } finally {

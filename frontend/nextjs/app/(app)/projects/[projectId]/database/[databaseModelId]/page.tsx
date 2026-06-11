@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { Edit, Trash2, X, Key, Link2, Save, Database, ArrowRight, GitMerge, Copy, RefreshCw, ExternalLink, AlertTriangle, GitBranch } from "lucide-react";
+import { Edit, Trash2, Key, Link2, Save, Database, ArrowRight, GitMerge, Copy, RefreshCw, ExternalLink, AlertTriangle, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, FILL_ACTIONS_MOBILE } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { TypeChip } from "@/components/ui/type-chip";
 import { Empty } from "@/components/ui/empty";
 import { Tabs } from "@/components/ui/tabs";
 import { Segmented } from "@/components/ui/segmented";
+import { Modal } from "@/components/ui/modal";
+import { Field } from "@/components/ui/field";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   DATABASE_TYPES,
@@ -27,7 +29,7 @@ import {
   type DatabaseType,
 } from "@/lib/api/database-models";
 import { diagramsApi, type Diagram } from "@/lib/api/diagrams";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { MermaidPreview } from "@/components/mermaid-preview";
@@ -164,7 +166,7 @@ export default function DatabaseModelDetailPage({
       setArtifacts(arts);
       setDiagrams(dgs);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load database model");
+      toast.error(errorMessage(err, "Failed to load database model"));
     }
   };
 
@@ -267,7 +269,7 @@ export default function DatabaseModelDetailPage({
       toast.success("Database model deleted");
       router.push(`/projects/${projectId}/database`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete");
+      toast.error(errorMessage(err, "Could not delete"));
     }
   };
 
@@ -285,7 +287,7 @@ export default function DatabaseModelDetailPage({
       toast.success("Entity deleted");
       await load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete entity");
+      toast.error(errorMessage(err, "Could not delete entity"));
     }
   };
 
@@ -303,7 +305,7 @@ export default function DatabaseModelDetailPage({
       toast.success("Field deleted");
       await load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not delete field");
+      toast.error(errorMessage(err, "Could not delete field"));
     }
   };
 
@@ -312,7 +314,7 @@ export default function DatabaseModelDetailPage({
       await databaseFieldsApi.reorder(entityId, fieldIds);
       await load(); // confirm the persisted order (and refresh ERD/Mermaid staleness)
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not reorder fields");
+      toast.error(errorMessage(err, "Could not reorder fields"));
       await load(); // revert the optimistic order on failure
     }
   };
@@ -329,7 +331,7 @@ export default function DatabaseModelDetailPage({
       toast.success(`Diagram "${d.title}" created`);
       router.push(`/projects/${projectId}/diagrams/${d.id}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not generate diagram");
+      toast.error(errorMessage(err, "Could not generate diagram"));
     }
   };
 
@@ -348,7 +350,7 @@ export default function DatabaseModelDetailPage({
       toast.success("Diagram updated");
       await load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not update diagram");
+      toast.error(errorMessage(err, "Could not update diagram"));
     }
   };
 
@@ -370,7 +372,7 @@ export default function DatabaseModelDetailPage({
       toast.success(`Variant "${d.title}" created`);
       router.push(`/projects/${projectId}/diagrams/${d.id}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not create variant");
+      toast.error(errorMessage(err, "Could not create variant"));
     }
   };
 
@@ -1189,7 +1191,7 @@ function EditModelModal({
       toast.success("Model updated");
       onSaved(updated);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not update");
+      toast.error(errorMessage(err, "Could not update"));
     } finally {
       setBusy(false);
     }
@@ -1260,7 +1262,7 @@ function EntityModal({
       toast.success(entity ? "Entity updated" : "Entity created");
       onSaved();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not save entity");
+      toast.error(errorMessage(err, "Could not save entity"));
     } finally {
       setBusy(false);
     }
@@ -1334,7 +1336,7 @@ function FieldModal({
       toast.success(field ? "Field updated" : "Field created");
       onSaved();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not save field");
+      toast.error(errorMessage(err, "Could not save field"));
     } finally {
       setBusy(false);
     }
@@ -1521,28 +1523,5 @@ function SaveVariantModal({
         </div>
       </div>
     </Modal>
-  );
-}
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-[110] flex items-center justify-center" onClick={onClose}>
-      <div className="w-[560px] max-w-[92vw] bg-panel border border-border rounded-lg shadow-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-4 py-3 border-b border-border flex items-center sticky top-0 bg-panel">
-          <div className="font-semibold">{title}</div>
-          <button className="ml-auto text-fg-muted hover:text-fg" onClick={onClose} aria-label="Close"><X size={16} /></button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
-      {children}
-    </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { Prisma, ProjectRole, type ProjectMember, type User } from "@prisma/client";
+import { ProjectRole, type ProjectMember, type User } from "@prisma/client";
+import { isUniqueViolation } from "../../utils/prisma-errors.js";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
@@ -95,7 +96,7 @@ export async function addMember(req: AuthedRequest, res: Response) {
   } catch (err) {
     // Race backstop: the @@unique([projectId, userId]) catches a concurrent add
     // that slipped past the pre-check above (TOCTOU) — return the same clean 409.
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueViolation(err)) {
       return fail(res, 409, "ALREADY_MEMBER", "User is already a member of this project");
     }
     throw err;

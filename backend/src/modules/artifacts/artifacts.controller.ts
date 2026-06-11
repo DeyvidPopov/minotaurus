@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ArtifactStatus, ArtifactType, ProjectRole, type Artifact, type User } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
+import { normalizeSearchTerm } from "../../utils/list-filter.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { toPublicUser } from "../auth/auth.controller.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
@@ -106,7 +107,7 @@ export async function listArtifacts(req: AuthedRequest, res: Response) {
     orderBy: { createdAt: "asc" },
   });
 
-  const term = (search || q || "").toLowerCase().trim();
+  const term = normalizeSearchTerm(search, q);
   const filtered = term
     ? items.filter(
         (a) =>

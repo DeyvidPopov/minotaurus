@@ -8,9 +8,11 @@ import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
 import { ARTIFACT_TYPES, TYPE_INFO } from "@/lib/mock-data";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { ArtifactStatus, ArtifactType } from "@/lib/types";
 
 export default function NewArtifactPage({ params }: { params: { projectId: string } }) {
@@ -43,7 +45,7 @@ export default function NewArtifactPage({ params }: { params: { projectId: strin
       router.push(`/projects/${projectId}/artifacts/${created.id}`);
     } catch (err) {
       const code = err instanceof ApiError ? (err.body as { error?: { code?: string } } | undefined)?.error?.code : null;
-      const msg = err instanceof ApiError ? err.message : "Could not create artifact";
+      const msg = errorMessage(err, "Could not create artifact");
       if (code === "ARTIFACT_TITLE_TAKEN") setTitleError(msg);
       toast.error(msg);
     } finally {
@@ -94,15 +96,6 @@ export default function NewArtifactPage({ params }: { params: { projectId: strin
           </div>
         </div>
       </Card>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
-      {children}
     </div>
   );
 }

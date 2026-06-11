@@ -6,14 +6,14 @@ import { z } from "zod";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { assertCanMutate } from "../../lib/project-access.js";
-import { AiOutputTruncatedError, AiSchemaError, proposeBootstrap } from "./ai.service.js";
+import { proposeBootstrap } from "./ai.service.js";
+import { respondAiError } from "./ai.error-map.js";
 import {
   applyBootstrap,
   BootstrapConflictError,
   BootstrapValidationError,
 } from "./proposal/bootstrap.apply.js";
 import { bootstrapProposalSchema } from "./proposal/bootstrap.schema.js";
-import { AiNotConfiguredError, AiProviderError } from "./providers/ai.provider.js";
 import type { BootstrapProposal } from "./ai.types.js";
 
 const proposeSchema = z.object({
@@ -40,16 +40,7 @@ export async function proposeBootstrapEndpoint(req: AuthedRequest, res: Response
     });
     return ok(res, result, "Architecture proposed");
   } catch (err) {
-    if (err instanceof AiNotConfiguredError) return fail(res, 503, "AI_NOT_CONFIGURED", err.message);
-    if (err instanceof AiOutputTruncatedError) {
-      return fail(res, 422, "AI_OUTPUT_TRUNCATED", err.message, {
-        maxTokens: err.details.maxTokens,
-        outputTokens: err.details.outputTokens,
-        suggestion: "Try a narrower idea or increase AI_MAX_TOKENS.",
-      });
-    }
-    if (err instanceof AiProviderError) return fail(res, 502, "AI_PROVIDER_ERROR", err.message);
-    if (err instanceof AiSchemaError) return fail(res, 502, "AI_SCHEMA_ERROR", err.message);
+    if (respondAiError(res, err, "Try a narrower idea or increase AI_MAX_TOKENS.")) return;
     throw err;
   }
 }

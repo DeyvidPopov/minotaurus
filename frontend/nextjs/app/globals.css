@@ -86,6 +86,24 @@
   zoom: 1.1;
 }
 
+/* Hide the scrollbars on the main scroll surfaces. A classic (non-overlay)
+   scrollbar reserves a track on the right edge, which narrows the content box and
+   shifts otherwise-centred content left of the viewport-fixed toast — the off-centre
+   "illusion". Hiding it lets content use the full width so the page and the toast
+   line up. Scrolling still works (wheel / touch / keyboard); only the visual bar is
+   removed. Inner scroll areas (modals, tables, code blocks) keep their own bars. */
+html,
+body,
+.mino-app-content {
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;   /* legacy Edge/IE */
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.mino-app-content::-webkit-scrollbar {
+  display: none;              /* Chromium / WebKit */
+}
+
 /* Mobile shell (< md / 768px — matches the topbar hamburger's `md:hidden`).
    The sidebar becomes an off-canvas drawer instead of a permanent grid column,
    so workspace content uses the full viewport width (no squeeze, no horizontal
@@ -114,6 +132,40 @@
   body[data-mobile-nav="open"] .sidebar {
     transform: translateX(0);
     box-shadow: var(--shadow-lg);
+  }
+}
+
+/* Toast positioning. On desktop sonner centres a fixed-width toast on the
+   viewport via `left: 50%; transform: translate(-50%)`. On the authenticated
+   shell (>= md) the 232px sidebar is a permanent grid column, so that viewport
+   centre sits left of the main view. Shift only the centre point right by half the
+   sidebar (232 / 2 = 116px) so the toast lands over the content area — sonner's
+   width and transform are left exactly as it sets them. Below md the sidebar is an
+   off-canvas drawer (content is full-width) and public/auth pages have no
+   [data-app-shell] marker, so both keep the default viewport centre.
+   (Sonner's own rule is a zero-specificity :where() selector, so this wins without
+   !important.) */
+@media (min-width: 768px) {
+  body[data-app-shell] [data-sonner-toaster][data-x-position="center"] {
+    left: calc(50% + 116px);
+  }
+}
+
+/* Mobile toast: cap the (otherwise near-full-width) toast and keep it centred on
+   the VIEWPORT — the sidebar is an off-canvas drawer on mobile, so viewport centre
+   is correct on authenticated pages too. Sonner's mobile container is
+   over-constrained (left:16; right:16; width:100%) and overflows 16px to the right,
+   which margin-auto centring would inherit; dropping the width makes the container
+   span symmetric gutters [16, vw-16] so the auto-margined toast lands dead centre.
+   356px == sonner's default desktop toast width, so mobile matches desktop. */
+@media (max-width: 600px) {
+  [data-sonner-toaster][data-x-position="center"] {
+    width: auto;
+  }
+  [data-sonner-toaster][data-x-position="center"] [data-sonner-toast] {
+    width: min(var(--width, 356px), calc(100vw - 56px));
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 

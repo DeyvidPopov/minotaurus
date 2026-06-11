@@ -2,7 +2,8 @@ import type { Response } from "express";
 import { z } from "zod";
 import { DiagramType, ProjectRole, type Diagram } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
-import { created, fail, ok } from "../../utils/response.js";
+import { created, fail, ok, respondAccessError, respondProjectAccessDenied } from "../../utils/response.js";
+import { normalizeSearchTerm } from "../../utils/list-filter.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
 import { getProjectAccess, hasAtLeast, projectAccessStatus } from "../../lib/project-access.js";
@@ -52,8 +53,7 @@ const patchSchema = z.object({
 export async function listDiagrams(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId);
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const { search, q, artifactId, type } = req.query as Record<string, string | undefined>;
   const items = await prisma.diagram.findMany({
@@ -64,7 +64,7 @@ export async function listDiagrams(req: AuthedRequest, res: Response) {
     },
     orderBy: { createdAt: "asc" },
   });
-  const term = (search || q || "").toLowerCase().trim();
+  const term = normalizeSearchTerm(search, q);
   const filtered = term
     ? items.filter(
         (d) =>
@@ -78,8 +78,7 @@ export async function listDiagrams(req: AuthedRequest, res: Response) {
 export async function createDiagram(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId, "DEVELOPER");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
@@ -119,11 +118,7 @@ export async function createDiagram(req: AuthedRequest, res: Response) {
 
 export async function getDiagram(req: AuthedRequest, res: Response) {
   const result = await findDiagramForUser(req.params.diagramId, req.user!.userId);
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Diagram not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Diagram not found");
   return ok(res, serializeDiagram(result.row), "OK");
 }
 
@@ -132,11 +127,7 @@ export async function patchDiagram(req: AuthedRequest, res: Response) {
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
   const result = await findDiagramForUser(req.params.diagramId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Diagram not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Diagram not found");
   const row = result.row;
 
   if (parsed.data.artifactId !== undefined && parsed.data.artifactId !== null) {
@@ -175,11 +166,7 @@ export async function patchDiagram(req: AuthedRequest, res: Response) {
 
 export async function deleteDiagram(req: AuthedRequest, res: Response) {
   const result = await findDiagramForUser(req.params.diagramId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Diagram not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Diagram not found");
   const row = result.row;
   await prisma.diagram.delete({ where: { id: row.id } });
   await recordVersionEvent({

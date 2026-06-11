@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { Prisma, ProjectRole, RelationType, type ArtifactRelation } from "@prisma/client";
+import { ProjectRole, RelationType, type ArtifactRelation } from "@prisma/client";
+import { isUniqueViolation } from "../../utils/prisma-errors.js";
 import { prisma } from "../../lib/prisma.js";
 import { created, fail, ok } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
@@ -93,7 +94,7 @@ export async function createRelation(req: AuthedRequest, res: Response) {
   } catch (err) {
     // The DB enforces edge uniqueness (source, target, type). Map the unique
     // violation to a clean 409 instead of a 500 — race-safe vs. a pre-check.
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (isUniqueViolation(err)) {
       return fail(res, 409, "RELATION_EXISTS", "Relation already exists");
     }
     // eslint-disable-next-line no-console

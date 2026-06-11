@@ -13,6 +13,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Empty } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
+import { Field } from "@/components/ui/field";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   DATABASE_TYPES,
@@ -20,7 +21,7 @@ import {
   type DatabaseModel,
   type DatabaseType,
 } from "@/lib/api/database-models";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 
@@ -43,7 +44,7 @@ export default function DatabaseModelsListPage({ params }: { params: { projectId
       setModels(list);
       setArtifacts(arts);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load database models");
+      toast.error(errorMessage(err, "Failed to load database models"));
       setModels([]);
     }
   };
@@ -240,7 +241,7 @@ function CreateModelModal({
       toast.success(`Database model "${m.title}" created`);
       onCreated(m);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not create database model");
+      toast.error(errorMessage(err, "Could not create database model"));
     } finally {
       setBusy(false);
     }
@@ -287,15 +288,6 @@ function CreateModelModal({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
-      {children}
     </div>
   );
 }

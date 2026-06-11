@@ -1,140 +1,18 @@
 import type { Response } from "express";
 import { z } from "zod";
-import { DatabaseType, Prisma, ProjectRole, type DatabaseEntity, type DatabaseField, type DatabaseModel } from "@prisma/client";
+import { DatabaseType, Prisma, type DatabaseEntity, type DatabaseField } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
-import { created, fail, ok } from "../../utils/response.js";
+import { created, fail, ok, respondAccessError, respondProjectAccessDenied } from "../../utils/response.js";
+import { normalizeSearchTerm } from "../../utils/list-filter.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
-import { getProjectAccess, hasAtLeast, projectAccessStatus } from "../../lib/project-access.js";
+import { projectAccessStatus } from "../../lib/project-access.js";
+import { serializeEntity, serializeField, serializeModel } from "./database-models.serializers.js";
+import { findEntityForUser, findFieldForUser, findModelForUser } from "./database-models.access.js";
+import { resolveFieldFkTargets } from "./database-models.fk-validate.js";
+import { isUniqueViolation } from "../../utils/prisma-errors.js";
 
 const DATABASE_TYPES = Object.values(DatabaseType) as [DatabaseType, ...DatabaseType[]];
-
-/** True for a Prisma unique-constraint (P2002) violation — mapped to a clean 409. */
-function isUniqueViolation(err: unknown): boolean {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
-}
-
-/**
- * Validate + normalize a field's FK target against the DB-enforced model scope.
- * `referencesEntityId` is the coarse (entity) target kept for UI/ERD; the new
- * `referencesFieldId` is the precise target column (normally the referenced
- * entity's PK / a unique column). BOTH must resolve inside the SAME database model;
- * a column target must sit in the referenced entity. When only the column is given
- * the entity pointer is derived from it so the two never drift. Returns the resolved
- * pair, or an error string the caller maps to 400 INVALID_FK.
- */
-async function resolveFieldFkTargets(
-  databaseModelId: string,
-  refEntityId: string | null | undefined,
-  refFieldId: string | null | undefined,
-): Promise<{ referencesEntityId: string | null; referencesFieldId: string | null } | { error: string }> {
-  let entityId = refEntityId ?? null;
-  const fieldId = refFieldId ?? null;
-
-  if (entityId) {
-    const target = await prisma.databaseEntity.findUnique({ where: { id: entityId } });
-    if (!target || target.databaseModelId !== databaseModelId) {
-      return { error: "Foreign key target must belong to the same database model" };
-    }
-  }
-  if (fieldId) {
-    const targetField = await prisma.databaseField.findUnique({
-      where: { id: fieldId },
-      include: { entity: { select: { id: true, databaseModelId: true } } },
-    });
-    if (!targetField || targetField.entity.databaseModelId !== databaseModelId) {
-      return { error: "Foreign key target column must belong to the same database model" };
-    }
-    if (entityId && targetField.entityId !== entityId) {
-      return { error: "Foreign key target column must belong to the referenced entity" };
-    }
-    // Keep the coarse entity pointer consistent with the precise column.
-    if (!entityId) entityId = targetField.entityId;
-  }
-  return { referencesEntityId: entityId, referencesFieldId: fieldId };
-}
-
-async function serializeModel(m: DatabaseModel) {
-  const entityCount = await prisma.databaseEntity.count({ where: { databaseModelId: m.id } });
-  return {
-    id: m.id,
-    projectId: m.projectId,
-    artifactId: m.artifactId,
-    title: m.title,
-    databaseType: m.databaseType,
-    description: m.description,
-    createdBy: m.createdById,
-    createdAt: m.createdAt,
-    updatedAt: m.updatedAt,
-    entityCount,
-  };
-}
-
-async function serializeEntity(e: DatabaseEntity) {
-  // Fields are user-orderable (see `position`); secondary `name` keeps ties
-  // deterministic (e.g. bulk-created rows that share the default position 0).
-  const fields = await prisma.databaseField.findMany({
-    where: { entityId: e.id },
-    orderBy: [{ position: "asc" }, { name: "asc" }],
-  });
-  return {
-    id: e.id,
-    databaseModelId: e.databaseModelId,
-    name: e.name,
-    description: e.description,
-    createdAt: e.createdAt,
-    updatedAt: e.updatedAt,
-    fields: fields.map(serializeField),
-  };
-}
-
-function serializeField(f: DatabaseField) {
-  return {
-    id: f.id,
-    entityId: f.entityId,
-    name: f.name,
-    type: f.type,
-    required: f.required,
-    isPrimaryKey: f.isPrimaryKey,
-    isForeignKey: f.isForeignKey,
-    referencesEntityId: f.referencesEntityId,
-    referencesFieldId: f.referencesFieldId,
-    description: f.description,
-  };
-}
-
-async function findModelForUser(modelId: string, userId: string, minRole: ProjectRole = "VIEWER") {
-  const row = await prisma.databaseModel.findUnique({ where: { id: modelId } });
-  if (!row) return { error: "not_found" as const };
-  const a = await getProjectAccess(row.projectId, userId);
-  if (a.status === "not_found") return { error: "not_found" as const };
-  if (a.status !== "ok" || !hasAtLeast(a.role!, minRole)) return { error: "forbidden" as const };
-  return { row };
-}
-
-async function findEntityForUser(entityId: string, userId: string, minRole: ProjectRole = "VIEWER") {
-  const row = await prisma.databaseEntity.findUnique({ where: { id: entityId } });
-  if (!row) return { error: "not_found" as const };
-  const model = await prisma.databaseModel.findUnique({ where: { id: row.databaseModelId } });
-  if (!model) return { error: "not_found" as const };
-  const a = await getProjectAccess(model.projectId, userId);
-  if (a.status === "not_found") return { error: "not_found" as const };
-  if (a.status !== "ok" || !hasAtLeast(a.role!, minRole)) return { error: "forbidden" as const };
-  return { row, model };
-}
-
-async function findFieldForUser(fieldId: string, userId: string, minRole: ProjectRole = "VIEWER") {
-  const row = await prisma.databaseField.findUnique({ where: { id: fieldId } });
-  if (!row) return { error: "not_found" as const };
-  const entity = await prisma.databaseEntity.findUnique({ where: { id: row.entityId } });
-  if (!entity) return { error: "not_found" as const };
-  const model = await prisma.databaseModel.findUnique({ where: { id: entity.databaseModelId } });
-  if (!model) return { error: "not_found" as const };
-  const a = await getProjectAccess(model.projectId, userId);
-  if (a.status === "not_found") return { error: "not_found" as const };
-  if (a.status !== "ok" || !hasAtLeast(a.role!, minRole)) return { error: "forbidden" as const };
-  return { row, entity, model };
-}
 
 const createModelSchema = z.object({
   title: z.string().min(1),
@@ -190,8 +68,7 @@ const reorderFieldsSchema = z.object({
 export async function listModels(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId);
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const { search, q, artifactId, databaseType } = req.query as Record<string, string | undefined>;
   const items = await prisma.databaseModel.findMany({
@@ -202,7 +79,7 @@ export async function listModels(req: AuthedRequest, res: Response) {
     },
     orderBy: { createdAt: "asc" },
   });
-  const term = (search || q || "").toLowerCase().trim();
+  const term = normalizeSearchTerm(search, q);
   const filtered = term
     ? items.filter(
         (m) =>
@@ -217,8 +94,7 @@ export async function listModels(req: AuthedRequest, res: Response) {
 export async function createModel(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId, "DEVELOPER");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const parsed = createModelSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
@@ -257,11 +133,7 @@ export async function createModel(req: AuthedRequest, res: Response) {
 
 export async function getModel(req: AuthedRequest, res: Response) {
   const result = await findModelForUser(req.params.databaseModelId, req.user!.userId);
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Database model not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Database model not found");
   return ok(res, await serializeModel(result.row), "OK");
 }
 
@@ -270,11 +142,7 @@ export async function patchModel(req: AuthedRequest, res: Response) {
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
   const result = await findModelForUser(req.params.databaseModelId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Database model not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Database model not found");
   const row = result.row;
 
   if (parsed.data.artifactId !== undefined && parsed.data.artifactId !== null) {
@@ -310,11 +178,7 @@ export async function patchModel(req: AuthedRequest, res: Response) {
 
 export async function deleteModel(req: AuthedRequest, res: Response) {
   const result = await findModelForUser(req.params.databaseModelId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Database model not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Database model not found");
   const row = result.row;
   await prisma.databaseModel.delete({ where: { id: row.id } });
   await recordVersionEvent({
@@ -331,11 +195,7 @@ export async function deleteModel(req: AuthedRequest, res: Response) {
 
 export async function listEntities(req: AuthedRequest, res: Response) {
   const result = await findModelForUser(req.params.databaseModelId, req.user!.userId);
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Database model not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Database model not found");
   const entities = await prisma.databaseEntity.findMany({
     where: { databaseModelId: result.row.id },
     orderBy: { createdAt: "asc" },
@@ -346,11 +206,7 @@ export async function listEntities(req: AuthedRequest, res: Response) {
 
 export async function createEntity(req: AuthedRequest, res: Response) {
   const modelResult = await findModelForUser(req.params.databaseModelId, req.user!.userId, "DEVELOPER");
-  if ("error" in modelResult) {
-    return modelResult.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Database model not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in modelResult) return respondAccessError(res, modelResult.error, "Database model not found");
   const parsed = createEntitySchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
@@ -390,11 +246,7 @@ export async function patchEntity(req: AuthedRequest, res: Response) {
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
   const result = await findEntityForUser(req.params.entityId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Entity not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Entity not found");
   let updated: DatabaseEntity;
   try {
     updated = await prisma.databaseEntity.update({
@@ -427,11 +279,7 @@ export async function patchEntity(req: AuthedRequest, res: Response) {
 
 export async function deleteEntity(req: AuthedRequest, res: Response) {
   const result = await findEntityForUser(req.params.entityId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Entity not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Entity not found");
   await prisma.databaseEntity.delete({ where: { id: result.row.id } });
   await prisma.databaseModel.update({
     where: { id: result.model.id },
@@ -452,11 +300,7 @@ export async function deleteEntity(req: AuthedRequest, res: Response) {
 
 export async function createField(req: AuthedRequest, res: Response) {
   const entityResult = await findEntityForUser(req.params.entityId, req.user!.userId, "DEVELOPER");
-  if ("error" in entityResult) {
-    return entityResult.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Entity not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in entityResult) return respondAccessError(res, entityResult.error, "Entity not found");
   const parsed = createFieldSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
@@ -521,11 +365,7 @@ export async function patchField(req: AuthedRequest, res: Response) {
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 
   const result = await findFieldForUser(req.params.fieldId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Field not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Field not found");
 
   // Resolve + validate the FK target (entity + precise column) only when the patch
   // touches either pointer. An absent value falls back to the existing row so the
@@ -591,11 +431,7 @@ export async function patchField(req: AuthedRequest, res: Response) {
 
 export async function deleteField(req: AuthedRequest, res: Response) {
   const result = await findFieldForUser(req.params.fieldId, req.user!.userId, "DEVELOPER");
-  if ("error" in result) {
-    return result.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Field not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in result) return respondAccessError(res, result.error, "Field not found");
   await prisma.databaseField.delete({ where: { id: result.row.id } });
   await prisma.databaseEntity.update({
     where: { id: result.entity.id },
@@ -620,11 +456,7 @@ export async function deleteField(req: AuthedRequest, res: Response) {
 
 export async function reorderFields(req: AuthedRequest, res: Response) {
   const entityResult = await findEntityForUser(req.params.entityId, req.user!.userId, "DEVELOPER");
-  if ("error" in entityResult) {
-    return entityResult.error === "not_found"
-      ? fail(res, 404, "NOT_FOUND", "Entity not found")
-      : fail(res, 403, "FORBIDDEN", "Forbidden");
-  }
+  if ("error" in entityResult) return respondAccessError(res, entityResult.error, "Entity not found");
   const parsed = reorderFieldsSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
 

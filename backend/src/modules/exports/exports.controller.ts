@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
-import { created, fail, ok } from "../../utils/response.js";
+import { created, fail, ok, respondProjectAccessDenied } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { EXPORT_FORMATS, buildExportContent } from "./exports.engine.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
@@ -37,8 +37,7 @@ function attachDiagramSvgs(content: unknown, svgs?: Record<string, string>): unk
 export async function createExport(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId, "ARCHITECT");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, "VALIDATION_ERROR", parsed.error.message);
@@ -89,8 +88,7 @@ export async function createExport(req: AuthedRequest, res: Response) {
 export async function listExports(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId);
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const items = await prisma.exportPackage.findMany({
     where: { projectId },

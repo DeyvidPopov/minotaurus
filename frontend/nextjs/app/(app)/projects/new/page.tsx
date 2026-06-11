@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { projectsApi } from "@/lib/api/projects";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function NewProjectPage() {
       toast.success(`Project "${project.name}" created`);
       router.push(`/projects/${project.id}`);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Could not create project";
+      const message = errorMessage(err, "Could not create project");
       toast.error(message);
     } finally {
       setBusy(false);

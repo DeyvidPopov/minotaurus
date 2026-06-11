@@ -21,7 +21,8 @@ import { validationApi } from "@/lib/api";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { diagramsApi, type Diagram } from "@/lib/api/diagrams";
 import { apiIntelApi, type InferredEdgeKind } from "@/lib/api/api-intel";
-import { apiClient, ApiError } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact, ArtifactType, ArtifactStatus, Relation, RelationType, User, ValidationIssue, Severity } from "@/lib/types";
 import { ACTION_COLOR, ACTION_VERB, entityTypeLabel } from "@/lib/activity";
 import { assessImpact, type RiskBand, type DeletionVerdict, type ImpactAssessment } from "@/lib/impact-risk";
@@ -130,7 +131,7 @@ export default function ImpactPage({ params }: { params: { projectId: string; ar
       if (cancelled) return;
       if (impactRes.status === "rejected") {
         const err = impactRes.reason;
-        const msg = err instanceof ApiError ? err.message : "Could not load impact analysis";
+        const msg = errorMessage(err, "Could not load impact analysis");
         setError(msg);
         toast.error(msg);
         return;

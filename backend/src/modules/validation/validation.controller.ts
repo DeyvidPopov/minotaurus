@@ -3,7 +3,7 @@ import { z } from "zod";
 import { IssueCategory, IssueSeverity, IssueStatus, type ValidationIssue } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { newId } from "../../utils/ids.js";
-import { created, fail, ok } from "../../utils/response.js";
+import { created, fail, ok, respondProjectAccessDenied } from "../../utils/response.js";
 import type { AuthedRequest } from "../../middleware/auth.js";
 import { runValidationForProject } from "./validation.engine.js";
 import { recordVersionEvent } from "../versions/versions.engine.js";
@@ -66,8 +66,7 @@ async function buildResourceIndex(projectId: string): Promise<ResourceIndex> {
 export async function runValidation(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId, "ARCHITECT");
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const { issues, newErrorIssues } = await runValidationForProject(projectId, req.user!.userId);
 
@@ -94,8 +93,7 @@ export async function runValidation(req: AuthedRequest, res: Response) {
 export async function listIssues(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId);
-  if (access === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
-  if (access === "forbidden") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  if (respondProjectAccessDenied(res, access)) return;
 
   const { severity, category, status } = req.query as Record<string, string | undefined>;
   const items = await prisma.validationIssue.findMany({

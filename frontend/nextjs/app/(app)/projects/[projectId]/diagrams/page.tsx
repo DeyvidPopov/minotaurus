@@ -12,6 +12,7 @@ import { Empty } from "@/components/ui/empty";
 import { Badge } from "@/components/ui/badge";
 import { TypeChip } from "@/components/ui/type-chip";
 import { OpenLink } from "@/components/ui/open-link";
+import { Field } from "@/components/ui/field";
 import { MermaidPreview } from "@/components/mermaid-preview";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
@@ -23,7 +24,7 @@ import {
   type DiagramPurpose,
   type DiagramType,
 } from "@/lib/api/diagrams";
-import { ApiError } from "@/lib/api/client";
+import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 
@@ -46,7 +47,7 @@ export default function DiagramsListPage({ params }: { params: { projectId: stri
       setDiagrams(list);
       setArtifacts(arts);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to load diagrams");
+      toast.error(errorMessage(err, "Failed to load diagrams"));
       setDiagrams([]);
     }
   };
@@ -272,7 +273,7 @@ function NewDiagramModal({
       toast.success(`Created "${d.title}"`);
       onCreated(d);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Could not create diagram");
+      toast.error(errorMessage(err, "Could not create diagram"));
     } finally {
       setBusy(false);
     }
@@ -357,15 +358,6 @@ function NewDiagramModal({
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[12.5px] text-fg-muted font-medium">{label}</label>
-      {children}
     </div>
   );
 }
