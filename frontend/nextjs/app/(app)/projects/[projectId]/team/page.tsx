@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { UserPlus, Trash2, Shield } from "lucide-react";
+import { Trash2, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { useResource } from "@/lib/use-resource";
 import { useAuth } from "@/lib/auth-context";
 import type { Project } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import TeamSkeleton from "./skeleton";
 
 const ROLE_OPTIONS: { value: ProjectRole; label: string; hint: string }[] = [
   { value: "OWNER",     label: "Owner",     hint: "Full access · manage members · delete project" },
@@ -55,13 +56,13 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
 
   if (error) {
     return (
-      <div className="px-8 py-6">
+      <div className="page-shell">
         <Empty title="Team unavailable" message={errorMessage(error, "Failed to load team")} />
       </div>
     );
   }
   if (!project || members === null) {
-    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+    return <TeamSkeleton />;
   }
 
   const addMember = async (e: React.FormEvent) => {
@@ -121,7 +122,7 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
   };
 
   return (
-    <div className="px-8 py-6">
+    <div className="page-shell">
       <PageHeader
         title="Team"
         subtitle={
@@ -160,7 +161,7 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
                 ))}
               </select>
             </label>
-            <Button type="submit" variant="primary" icon={<UserPlus size={14} />} disabled={busy || !email.trim()}>
+            <Button type="submit" variant="primary" disabled={busy || !email.trim()}>
               {busy ? "Adding…" : "Add member"}
             </Button>
           </form>

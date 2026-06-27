@@ -35,6 +35,7 @@ import {
 import { ACTION_COLOR } from "@/lib/activity";
 import { ActivityRow } from "@/components/activity/activity-row";
 import { errorMessage } from "@/lib/api/error-message";
+import VersionsSkeleton from "./skeleton";
 
 const ENTITY_ICON: Record<VersionEntityType, React.ReactNode> = {
   PROJECT: <Box size={14} />,
@@ -101,8 +102,10 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
 
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
 
+  if (events === null) return <VersionsSkeleton />;
+
   return (
-    <div className="px-4 py-6 md:px-8">
+    <div className="page-shell">
       <PageHeader
         title="Version history"
         subtitle={

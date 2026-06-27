@@ -2,8 +2,9 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { RefreshCw, Upload, Sparkles, Plus, Star, Box, Network, Shield, BookOpen } from "lucide-react";
+import { RefreshCw, Upload, Sparkles, Star, Box, Network, Shield, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FILL_ACTIONS_MOBILE } from "@/components/ui/page-header";
@@ -13,19 +14,30 @@ import { SeverityBadge } from "@/components/ui/severity-badge";
 import { ProjectMark } from "@/components/ui/project-mark";
 import { Empty } from "@/components/ui/empty";
 import { OpenLink } from "@/components/ui/open-link";
-import { GraphCanvas } from "@/components/graph/graph-canvas";
 import { ClampedText } from "@/components/ui/clamped-text";
 import { useTweaks } from "@/components/providers";
-import { BootstrapWizard } from "@/components/ai/bootstrap-wizard";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
-import { validationApi } from "@/lib/api";
+import { graphApi, validationApi } from "@/lib/api";
 import { versionsApi, type VersionEvent } from "@/lib/api/versions";
 import { ActivityRow } from "@/components/activity/activity-row";
 import { groupActivityRuns } from "@/lib/activity";
-import { apiClient } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
+import OverviewSkeleton from "./skeleton";
 import type { Artifact, Project, Relation, Severity, ValidationIssue } from "@/lib/types";
+
+// Code-split the heavy graph engine (reactflow + dagre + smart-edge) and the
+// AI wizard out of the overview's first-load bundle: the mini-graph is
+// below-the-fold and the wizard is interaction-gated. Both are client-only
+// (localStorage / interactivity), so ssr:false is correct.
+const GraphCanvas = dynamic(
+  () => import("@/components/graph/graph-canvas").then((m) => m.GraphCanvas),
+  { ssr: false, loading: () => <div className="h-full w-full" /> },
+);
+const BootstrapWizard = dynamic(
+  () => import("@/components/ai/bootstrap-wizard").then((m) => m.BootstrapWizard),
+  { ssr: false },
+);
 
 type ProjectRelation = {
   id: string;
@@ -53,7 +65,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
       const [p, arts, graph, vi, events] = await Promise.all([
         projectsApi.get(projectId),
         artifactsApi.list(projectId),
-        apiClient.get<{ nodes: unknown[]; edges: ProjectRelation[] | { id: string; source: string; target: string; type: Relation["type"] }[] }>(`/projects/${projectId}/graph`),
+        graphApi.get<{ id: string; source: string; target: string; type: Relation["type"] }>(projectId),
         validationApi.list(projectId),
         versionsApi.list(projectId, { limit: 12 }),
       ]);
@@ -77,14 +89,14 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
 
   if (error) {
     return (
-      <div className="px-8 py-6">
+      <div className="page-shell">
         <Empty title="Project unavailable" message={error} />
       </div>
     );
   }
 
   if (!project) {
-    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+    return <OverviewSkeleton />;
   }
 
   const openIssues = issues.filter((i) => i.status === "OPEN");
@@ -114,7 +126,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6">
+    <div className="page-shell">
       <div className="mb-6">
         {/* Header: title + actions. Stacks on mobile, single row from sm up. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -164,7 +176,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
               </p>
               <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-center gap-2.5">
                 <Link href={`/projects/${project.id}/artifacts/new`} className="w-full sm:w-auto">
-                  <Button icon={<Plus size={14} />} className="w-full sm:w-auto">Start Building Manually</Button>
+                  <Button className="w-full sm:w-auto">Start Building Manually</Button>
                 </Link>
                 <Button variant="primary" icon={<Sparkles size={14} />} onClick={() => setWizardOpen(true)} className="w-full sm:w-auto">
                   Generate Initial Architecture with AI

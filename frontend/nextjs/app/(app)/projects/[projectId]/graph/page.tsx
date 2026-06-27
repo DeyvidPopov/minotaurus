@@ -21,8 +21,9 @@ import { OpenLink } from "@/components/ui/open-link";
 import { useTweaks } from "@/components/providers";
 import { projectsApi } from "@/lib/api/projects";
 import { artifactsApi } from "@/lib/api/artifacts";
-import { apiClient } from "@/lib/api/client";
+import { graphApi } from "@/lib/api";
 import { errorMessage } from "@/lib/api/error-message";
+import GraphSkeleton from "./skeleton";
 
 interface GraphEdge {
   id: string;
@@ -59,7 +60,7 @@ export default function GraphPage({ params }: { params: { projectId: string } })
       const [p, arts, graph] = await Promise.all([
         projectsApi.get(projectId),
         artifactsApi.list(projectId),
-        apiClient.get<{ nodes: unknown[]; edges: GraphEdge[] }>(`/projects/${projectId}/graph`),
+        graphApi.get<GraphEdge>(projectId),
       ]);
       setProject(p);
       setArtifacts(arts);
@@ -129,8 +130,14 @@ export default function GraphPage({ params }: { params: { projectId: string } })
     return artifacts.filter((a) => a.title.toLowerCase().includes(q));
   }, [artifacts, search]);
 
-  const incoming = selected ? relations.filter((r) => r.target === selected.id) : [];
-  const outgoing = selected ? relations.filter((r) => r.source === selected.id) : [];
+  const incoming = useMemo(
+    () => (selected ? relations.filter((r) => r.target === selected.id) : []),
+    [relations, selected],
+  );
+  const outgoing = useMemo(
+    () => (selected ? relations.filter((r) => r.source === selected.id) : []),
+    [relations, selected],
+  );
 
   // Native browser fullscreen on the whole graph view (toolbar + canvas), so the
   // view controls stay reachable. Kept in sync with the OS via `fullscreenchange`
@@ -150,6 +157,8 @@ export default function GraphPage({ params }: { params: { projectId: string } })
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  if (project === null) return <GraphSkeleton />;
 
   return (
     <div ref={rootRef} className="grid h-full overflow-hidden bg-bg" style={{ gridTemplateRows: "auto 1fr" }}>
@@ -397,7 +406,7 @@ function RelList({ title, rels, artifacts, project, side }: {
   project: string;
   side: "in" | "out";
 }) {
-  const byId = new Map(artifacts.map((a) => [a.id, a]));
+  const byId = useMemo(() => new Map(artifacts.map((a) => [a.id, a])), [artifacts]);
   return (
     <div className="mb-4">
       <div className="text-[10.5px] font-semibold uppercase tracking-wider text-fg-subtle mb-2">{title}</div>

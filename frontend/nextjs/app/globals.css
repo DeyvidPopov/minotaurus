@@ -7,8 +7,8 @@
    Vercel/Geist-inspired, light + dark
    ============================================================ */
 :root {
-  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Density is no longer user-configurable — the app is standardized on the
      former "comfy" preset (these were the comfy values). */
@@ -84,6 +84,26 @@
    (AppShell only) so the sidebar/topbar chrome and public pages are unaffected. */
 .mino-app-content {
   zoom: 1.1;
+}
+
+/* Shared page container — the single source of truth for every workspace page's
+   outer wrapper AND its loading skeleton, so side padding + max-width stay
+   consistent across pages instead of each one hand-rolling its own (which had
+   drifted to caps of 1100/1200/1280/1320/none and flat-vs-responsive padding).
+   The generous 1600 cap reads as full-width on normal screens and only centres
+   on very wide monitors. Retune width/padding here and every page follows.
+   The graph (full-height canvas) and the narrow create-forms opt out on purpose. */
+.page-shell {
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  padding: 1.5rem 1rem; /* py-6 px-4 */
+}
+@media (min-width: 640px) {
+  .page-shell { padding-inline: 1.5rem; } /* sm:px-6 */
+}
+@media (min-width: 1024px) {
+  .page-shell { padding-inline: 2rem; } /* lg:px-8 */
 }
 
 /* Hide the scrollbars on the main scroll surfaces. A classic (non-overlay)

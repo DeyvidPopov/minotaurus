@@ -57,29 +57,36 @@ export async function listVersionHistory(req: AuthedRequest, res: Response) {
   if (respondProjectAccessDenied(res, access)) return;
 
   const { entityType, action, search, q, limit } = req.query as Record<string, string | undefined>;
+  // Push the limit + search filter into the query: `VersionEvent` grows
+  // unbounded per project (one row per CUD platform-wide) and this endpoint is
+  // fanned out per-project on the dashboard. `take` turns the `(projectId,
+  // createdAt desc)` index into a bounded range scan; the search OR replaces the
+  // former scan-everything-then-JS-filter. `description` is non-null (@default
+  // "")), so the contains match is semantically identical to the old filter.
+  const term = normalizeSearchTerm(search, q);
+  const n = limit ? Number(limit) : NaN;
+  const take = Number.isFinite(n) && n > 0 ? n : undefined;
   const items = await prisma.versionEvent.findMany({
     where: {
       projectId,
       ...(entityType ? { entityType: entityType as VersionEntityType } : {}),
       ...(action ? { action: action as VersionAction } : {}),
+      ...(term
+        ? {
+            OR: [
+              { title: { contains: term, mode: "insensitive" } },
+              { description: { contains: term, mode: "insensitive" } },
+            ],
+          }
+        : {}),
     },
     orderBy: { createdAt: "desc" },
+    take,
   });
-  const term = normalizeSearchTerm(search, q);
-  let filtered = term
-    ? items.filter(
-        (e) =>
-          e.title.toLowerCase().includes(term) || e.description.toLowerCase().includes(term),
-      )
-    : items;
-  if (limit) {
-    const n = Number(limit);
-    if (Number.isFinite(n) && n > 0) filtered = filtered.slice(0, n);
-  }
-  const authors = await loadAuthorsFor(filtered);
+  const authors = await loadAuthorsFor(items);
   return ok(
     res,
-    filtered.map((e) => serializeEvent(e, authors.get(e.triggeredById))),
+    items.map((e) => serializeEvent(e, authors.get(e.triggeredById))),
     "OK",
   );
 }

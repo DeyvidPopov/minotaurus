@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowLeft, ArrowRight, Box, Network, BookOpen, Plug, Database, GitMerge, Info, History, ListChecks, ShieldCheck, Check, Download } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,14 +15,13 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Empty } from "@/components/ui/empty";
 import { OpenLink } from "@/components/ui/open-link";
 import { Segmented } from "@/components/ui/segmented";
-import { GraphCanvas, type InferredGraphEdge } from "@/components/graph/graph-canvas";
+import type { InferredGraphEdge } from "@/components/graph/graph-canvas";
 import { useTweaks } from "@/components/providers";
 import { versionsApi, type ImpactResponse, type ImpactArtifactRef, type ImpactRelation, type VersionEvent } from "@/lib/api/versions";
-import { validationApi } from "@/lib/api";
+import { graphApi, validationApi } from "@/lib/api";
 import { artifactsApi } from "@/lib/api/artifacts";
 import { diagramsApi, type Diagram } from "@/lib/api/diagrams";
 import { apiIntelApi, type InferredEdgeKind } from "@/lib/api/api-intel";
-import { apiClient } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact, ArtifactType, ArtifactStatus, Relation, RelationType, User, ValidationIssue, Severity } from "@/lib/types";
 import { ACTION_COLOR, ACTION_VERB, entityTypeLabel } from "@/lib/activity";
@@ -30,6 +30,15 @@ import { computeTransitiveReach } from "@/lib/impact-graph";
 import { findRenameReferences } from "@/lib/impact-rename";
 import { buildImpactReportMarkdown } from "@/lib/impact-report";
 import { timeAgo } from "@/lib/utils";
+import ImpactSkeleton from "./skeleton";
+
+// Code-split the graph engine (reactflow + dagre + smart-edge) out of the impact
+// page's first-load bundle — the Blast Radius graph is one of several panels and
+// is client-only (localStorage positions), so ssr:false is correct.
+const GraphCanvas = dynamic(
+  () => import("@/components/graph/graph-canvas").then((m) => m.GraphCanvas),
+  { ssr: false, loading: () => <div className="h-full w-full" /> },
+);
 
 // The blast-radius graph reuses GraphCanvas, which expects full Artifact objects
 // but only reads type/title/status/position. When the full project artifact list
@@ -124,7 +133,7 @@ export default function ImpactPage({ params }: { params: { projectId: string; ar
       versionsApi.impact(projectId, artifactId),
       validationApi.list(projectId, { status: "OPEN" }),
       artifactsApi.list(projectId),
-      apiClient.get<{ nodes: unknown[]; edges: GraphEdge[] }>(`/projects/${projectId}/graph`),
+      graphApi.get<GraphEdge>(projectId),
       apiIntelApi.get(projectId),
       diagramsApi.list(projectId),
     ]).then(([impactRes, valRes, artsRes, graphRes, intelRes, diagRes]) => {
@@ -246,12 +255,12 @@ export default function ImpactPage({ params }: { params: { projectId: string; ar
 
   if (error) {
     return (
-      <div className="px-4 sm:px-6 lg:px-8 py-6">
+      <div className="page-shell">
         <Empty title="Impact unavailable" message={error} />
       </div>
     );
   }
-  if (!data || !assessment) return <div className="px-4 sm:px-6 lg:px-8 py-6 text-fg-muted">Loading…</div>;
+  if (!data || !assessment) return <ImpactSkeleton />;
 
   const dependents = data.dependentArtifacts;
   const dependencies = data.directDependencies;
@@ -288,7 +297,7 @@ export default function ImpactPage({ params }: { params: { projectId: string; ar
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6">
+    <div className="page-shell">
       <PageHeader
         eyebrow={
           <>

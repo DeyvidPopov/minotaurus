@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FileText, Plug, GitMerge, Database, ExternalLink, X, Info,
-  Upload as UploadIcon, Search, ArrowLeft, ArrowRight, Link as LinkIcon, Plus, ChevronDown, ChevronUp,
+  Upload as UploadIcon, Search, ArrowLeft, ArrowRight, Link as LinkIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -38,6 +38,7 @@ import { ApiError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
 import { timeAgo } from "@/lib/utils";
 import type { Artifact, ArtifactType, Project } from "@/lib/types";
+import IngestionSkeleton from "./skeleton";
 
 interface SourceTypeMeta {
   type: IngestionSourceType;
@@ -138,13 +139,13 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
 
   if (error) {
     return (
-      <div className="px-8 py-6">
+      <div className="page-shell">
         <Empty title="Ingestion unavailable" message={error} />
       </div>
     );
   }
   if (!project || records === null) {
-    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+    return <IngestionSkeleton />;
   }
 
   const handleStart = (s: SourceTypeMeta) => {
@@ -164,7 +165,7 @@ export default function IngestionHubPage({ params }: { params: { projectId: stri
   // history is shown as a permanent audit trail in the UI.
 
   return (
-    <div className="px-8 py-6">
+    <div className="page-shell">
       <PageHeader
         title="Ingestion"
         subtitle="Bring existing documentation, API specs, diagrams and database schemas into Minotaurus."
@@ -685,7 +686,7 @@ function MarkdownImportWizard({
             <Button type="button" variant="ghost" icon={<ArrowLeft size={13} />} onClick={() => setStep("input")} disabled={busy}>Back</Button>
             <div className="flex items-center gap-2">
               <Button type="button" icon={<LinkIcon size={13} />} onClick={openLinkPicker} disabled={busy}>Attach to existing</Button>
-              <Button type="button" variant="primary" icon={<Plus size={13} />} onClick={() => setStep("createNew")} disabled={busy}>Create new artifact</Button>
+              <Button type="button" variant="primary" onClick={() => setStep("createNew")} disabled={busy}>Create new artifact</Button>
             </div>
           </div>
         </div>

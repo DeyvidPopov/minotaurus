@@ -29,6 +29,7 @@ import {
   type AdvisorListItem,
   type EvidenceRef,
 } from "@/lib/api/ai";
+import { ReviewBodySkeleton } from "./skeleton";
 
 type Mode = "REVIEW" | "ADVISOR";
 
@@ -222,7 +223,7 @@ export default function ReviewPage({ params }: { params: { projectId: string } }
   const health = activeResult?.analysis.health;
 
   return (
-    <div className="px-8 py-6 max-w-[1200px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         title="AI Architecture Review"
         subtitle={
@@ -294,13 +295,7 @@ export default function ReviewPage({ params }: { params: { projectId: string } }
         </div>
       )}
 
-      {initialLoading && !activeResult && (
-        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-          <Loader2 size={28} className="animate-spin text-accent" />
-          <div className="text-[14px] font-medium">Loading saved {noun}…</div>
-          <div className="text-[12.5px] text-fg-muted">Reusing the last {noun} — no AI call.</div>
-        </div>
-      )}
+      {initialLoading && !activeResult && <ReviewBodySkeleton />}
 
       {loading && !activeResult && (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">

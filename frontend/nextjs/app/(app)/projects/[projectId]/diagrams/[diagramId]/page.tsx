@@ -30,6 +30,7 @@ import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import { MermaidPreview, type MermaidStatus } from "@/components/mermaid-preview";
+import DiagramDetailSkeleton from "./skeleton";
 
 export default function DiagramDetailPage({
   params,
@@ -86,7 +87,7 @@ export default function DiagramDetailPage({
   }, []);
 
   if (!diagram) {
-    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+    return <DiagramDetailSkeleton />;
   }
 
   const dirty = source !== savedSource;
@@ -186,7 +187,7 @@ export default function DiagramDetailPage({
   }
 
   return (
-    <div className="px-8 py-6 max-w-[1280px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         eyebrow={
           <>

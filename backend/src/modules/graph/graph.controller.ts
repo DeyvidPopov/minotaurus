@@ -9,10 +9,16 @@ export async function getGraph(req: AuthedRequest, res: Response) {
   const access = await getProjectAccess(projectId, req.user!.userId);
   if (access.status === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access.status !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
+  // Select only the columns the graph projects — skips the wide
+  // documentationContent / description / tags / normalizedTitle on every node.
   const [artifacts, relations] = await Promise.all([
-    prisma.artifact.findMany({ where: { projectId } }),
+    prisma.artifact.findMany({
+      where: { projectId },
+      select: { id: true, title: true, type: true, status: true, gx: true, gy: true },
+    }),
     prisma.artifactRelation.findMany({
       where: { sourceArtifact: { projectId } },
+      select: { id: true, sourceArtifactId: true, targetArtifactId: true, relationType: true },
     }),
   ]);
   const ids = new Set(artifacts.map((a) => a.id));

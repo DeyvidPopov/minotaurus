@@ -89,7 +89,7 @@ export default function DashboardPage() {
   const hasProjects = projects !== null && projects.length > 0;
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1320px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         title={`${greeting}${user ? `, ${user.firstName}` : ""}`}
         subtitle={

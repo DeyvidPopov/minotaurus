@@ -22,6 +22,7 @@ import { errorMessage } from "@/lib/api/error-message";
 import { useResource } from "@/lib/use-resource";
 import { cn } from "@/lib/utils";
 import type { Project, User } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type TabId = "profile" | "workspace" | "notifications" | "danger";
 
@@ -29,7 +30,7 @@ export default function SettingsPage() {
   const [tab, setTab] = useState<TabId>("profile");
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1320px] mx-auto">
+    <div className="page-shell">
       <PageHeader title="Settings" subtitle="Manage your account and workspace preferences." />
 
       <Tabs
@@ -74,7 +75,14 @@ function ProfileTab() {
   }, [user]);
 
   if (!user) {
-    return <div className="text-fg-muted text-[13px]">Loading profile…</div>;
+    return (
+      <div className="flex flex-col gap-4 max-w-md">
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-2/3" />
+        <Skeleton className="h-9 w-32" />
+      </div>
+    );
   }
 
   // Email is intentionally not editable here, so it never contributes to "dirty".
@@ -618,9 +626,9 @@ function NotificationsTab() {
           <Button size="sm" onClick={load}>Retry</Button>
         </div>
       ) : prefs === null ? (
-        <div className="flex items-center gap-2 p-3 text-[13px] text-fg-muted">
-          <Loader2 size={14} className="motion-safe:animate-spin" />
-          Loading preferences…
+        <div className="flex flex-col gap-2.5">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">

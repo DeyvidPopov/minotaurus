@@ -17,20 +17,14 @@ import {
 const ARTIFACT_TYPES = Object.values(ArtifactType) as [ArtifactType, ...ArtifactType[]];
 const ARTIFACT_STATUSES = Object.values(ArtifactStatus) as [ArtifactStatus, ...ArtifactStatus[]];
 
-async function serializeArtifact(a: Artifact, authorOverride?: User | null) {
-  const [author, relationCount, validationIssueCount] = await Promise.all([
-    authorOverride
-      ? Promise.resolve(authorOverride)
-      : prisma.user.findUnique({ where: { id: a.createdById } }),
-    prisma.artifactRelation.count({
-      where: {
-        OR: [{ sourceArtifactId: a.id }, { targetArtifactId: a.id }],
-      },
-    }),
-    prisma.validationIssue.count({
-      where: { artifactId: a.id, status: "OPEN" },
-    }),
-  ]);
+// Pure DTO shaping — no queries. Both the per-row serializer (create/get/update)
+// and the batched list path build the identical wire shape through this.
+function buildArtifactDto(
+  a: Artifact,
+  author: User | null,
+  relationCount: number,
+  validationIssueCount: number,
+) {
   return {
     id: a.id,
     projectId: a.projectId,
@@ -57,6 +51,74 @@ async function serializeArtifact(a: Artifact, authorOverride?: User | null) {
     validationIssueCount,
     documentationContent: a.documentationContent,
   };
+}
+
+// Per-row serializer for the O(1) single-artifact endpoints (create/get/update).
+// The list endpoint must NOT use this in a loop — see `loadArtifactAggregates`.
+async function serializeArtifact(a: Artifact, authorOverride?: User | null) {
+  const [author, relationCount, validationIssueCount] = await Promise.all([
+    authorOverride
+      ? Promise.resolve(authorOverride)
+      : prisma.user.findUnique({ where: { id: a.createdById } }),
+    prisma.artifactRelation.count({
+      where: {
+        OR: [{ sourceArtifactId: a.id }, { targetArtifactId: a.id }],
+      },
+    }),
+    prisma.validationIssue.count({
+      where: { artifactId: a.id, status: "OPEN" },
+    }),
+  ]);
+  return buildArtifactDto(a, author, relationCount, validationIssueCount);
+}
+
+// Batched aggregates for the list path: resolves authors + relation counts +
+// open-issue counts for a whole page of artifacts in a FIXED number of queries
+// (1 user findMany + 2 relation groupBys + 1 issue groupBy) instead of 3 per
+// row. Relation count = incident edges (incoming + outgoing); self-loops are
+// DB-CHECK-blocked so source/target sums never double-count an edge. All three
+// queries are index-backed (relation source/target idx, ValidationIssue
+// (projectId,status) + (artifactId)).
+async function loadArtifactAggregates(projectId: string, artifacts: Artifact[]) {
+  const empty = {
+    authors: new Map<string, User>(),
+    relationCounts: new Map<string, number>(),
+    issueCounts: new Map<string, number>(),
+  };
+  if (artifacts.length === 0) return empty;
+  const ids = artifacts.map((a) => a.id);
+  const authorIds = Array.from(new Set(artifacts.map((a) => a.createdById)));
+  const [users, outgoing, incoming, issues] = await Promise.all([
+    prisma.user.findMany({ where: { id: { in: authorIds } } }),
+    prisma.artifactRelation.groupBy({
+      by: ["sourceArtifactId"],
+      where: { sourceArtifactId: { in: ids } },
+      _count: true,
+    }),
+    prisma.artifactRelation.groupBy({
+      by: ["targetArtifactId"],
+      where: { targetArtifactId: { in: ids } },
+      _count: true,
+    }),
+    prisma.validationIssue.groupBy({
+      by: ["artifactId"],
+      where: { projectId, artifactId: { in: ids }, status: "OPEN" },
+      _count: true,
+    }),
+  ]);
+  const authors = new Map(users.map((u) => [u.id, u]));
+  const relationCounts = new Map<string, number>();
+  for (const g of outgoing) {
+    relationCounts.set(g.sourceArtifactId, (relationCounts.get(g.sourceArtifactId) ?? 0) + g._count);
+  }
+  for (const g of incoming) {
+    relationCounts.set(g.targetArtifactId, (relationCounts.get(g.targetArtifactId) ?? 0) + g._count);
+  }
+  const issueCounts = new Map<string, number>();
+  for (const g of issues) {
+    if (g.artifactId) issueCounts.set(g.artifactId, g._count);
+  }
+  return { authors, relationCounts, issueCounts };
 }
 
 const createSchema = z.object({
@@ -116,7 +178,15 @@ export async function listArtifacts(req: AuthedRequest, res: Response) {
       )
     : items;
 
-  const serialized = await Promise.all(filtered.map((a) => serializeArtifact(a)));
+  const { authors, relationCounts, issueCounts } = await loadArtifactAggregates(projectId, filtered);
+  const serialized = filtered.map((a) =>
+    buildArtifactDto(
+      a,
+      authors.get(a.createdById) ?? null,
+      relationCounts.get(a.id) ?? 0,
+      issueCounts.get(a.id) ?? 0,
+    ),
+  );
   return ok(res, serialized, "OK");
 }
 

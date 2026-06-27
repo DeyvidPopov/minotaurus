@@ -33,6 +33,7 @@ import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo, cn } from "@/lib/utils";
 import { MermaidPreview } from "@/components/mermaid-preview";
+import DatabaseDetailSkeleton from "./skeleton";
 
 // ───────────────────────── Mermaid generator ─────────────────────────
 
@@ -253,7 +254,7 @@ export default function DatabaseModelDetailPage({
   }, [model, modelVariants]);
 
   if (!model) {
-    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+    return <DatabaseDetailSkeleton />;
   }
 
   const onDeleteModel = async () => {
@@ -377,7 +378,7 @@ export default function DatabaseModelDetailPage({
   };
 
   return (
-    <div className="px-8 py-6 max-w-[1200px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         eyebrow={
           <>

@@ -24,6 +24,7 @@ import {
 import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import DatabaseSkeleton from "./skeleton";
 
 export default function DatabaseModelsListPage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
@@ -65,8 +66,10 @@ export default function DatabaseModelsListPage({ params }: { params: { projectId
 
   const artifactsById = new Map(artifacts.map((a) => [a.id, a]));
 
+  if (models === null) return <DatabaseSkeleton />;
+
   return (
-    <div className="px-4 py-6 md:px-8 max-w-[1200px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         title="Database models"
         subtitle={

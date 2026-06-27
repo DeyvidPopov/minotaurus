@@ -33,6 +33,7 @@ import { WorkflowImpact } from "@/components/api/workflow-impact";
 import { ImpactAnalysis } from "@/components/api/impact-analysis";
 import { IntelWarnings } from "@/components/api/intel-bits";
 import { Segmented } from "@/components/ui/segmented";
+import ApiDetailSkeleton from "./skeleton";
 
 const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -108,7 +109,7 @@ export default function ApiSpecDetailPage({
   );
 
   if (!spec) {
-    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+    return <ApiDetailSkeleton />;
   }
 
   const onDeleteSpec = async () => {
@@ -147,7 +148,7 @@ export default function ApiSpecDetailPage({
   };
 
   return (
-    <div className="px-8 py-6 max-w-[1200px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         eyebrow={
           <>

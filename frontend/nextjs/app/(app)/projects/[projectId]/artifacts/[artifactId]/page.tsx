@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Edit, Link as LinkIcon, Trash2, X, Plug, Database, GitMerge, Activity, AlertTriangle, CheckCircle2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -17,9 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Empty } from "@/components/ui/empty";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { GraphCanvas } from "@/components/graph/graph-canvas";
 import { useTweaks } from "@/components/providers";
-import { DocumentationEditor } from "@/components/documentation-editor";
 import { artifactsApi, relationsApi } from "@/lib/api/artifacts";
 import { apiSpecsApi, type ApiSpec } from "@/lib/api/api-specs";
 import { databaseModelsApi, type DatabaseModel } from "@/lib/api/database-models";
@@ -28,6 +27,21 @@ import { validationApi } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
 import { EDGE_COLOR } from "@/lib/mock-data";
+import ArtifactDetailSkeleton from "./skeleton";
+
+// Heavy, tab-gated widgets are code-split out of the detail page's first-load
+// bundle: the relations subgraph (reactflow + dagre) only renders on the
+// Relations tab when there's more than one node, and the Markdown editor
+// (react-markdown + remark-gfm) only on the Documentation tab. Both are
+// client-only, so ssr:false.
+const GraphCanvas = dynamic(
+  () => import("@/components/graph/graph-canvas").then((m) => m.GraphCanvas),
+  { ssr: false, loading: () => <div className="h-full w-full" /> },
+);
+const DocumentationEditor = dynamic(
+  () => import("@/components/documentation-editor").then((m) => m.DocumentationEditor),
+  { ssr: false },
+);
 
 // Backend-supported relation types only (omits GENERATES, DEPLOYED_TO).
 const SUPPORTED_RELATION_TYPES: RelationType[] = [
@@ -95,7 +109,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
       const [art, rels, vi, sibs, specs, models, diagrams] = await Promise.all([
         artifactsApi.get(artifactId),
         relationsApi.list(artifactId) as Promise<{ incoming: BackendRelation[]; outgoing: BackendRelation[] }>,
-        validationApi.list(projectId),
+        validationApi.list(projectId, { artifactId }),
         artifactsApi.list(projectId),
         apiSpecsApi.list(projectId, { artifactId }),
         databaseModelsApi.list(projectId, { artifactId }),
@@ -145,7 +159,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
   }, [a, siblings, incoming, outgoing]);
 
   if (!a) {
-    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+    return <ArtifactDetailSkeleton />;
   }
 
   const byId = new Map(siblings.map((s) => [s.id, s]));
@@ -184,7 +198,7 @@ export default function ArtifactDetailPage({ params }: { params: { projectId: st
   };
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6">
+    <div className="page-shell">
       <PageHeader
         eyebrow={<>
           <TypeChip type={a.type} />

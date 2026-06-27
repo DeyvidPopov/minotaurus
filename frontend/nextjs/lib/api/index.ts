@@ -24,17 +24,21 @@ import type {
 } from "@/lib/types";
 
 export const graphApi = {
-  get: (projectId: string) =>
-    apiClient.get<{ nodes: unknown[]; edges: unknown[] }>(`/projects/${projectId}/graph`),
+  // Generic on the edge shape so callers keep their typed edges without a raw
+  // apiClient call (the no-raw-fetch-in-pages convention). Nodes stay `unknown`
+  // — every consumer maps them from the typed artifacts list, not this payload.
+  get: <E = unknown>(projectId: string) =>
+    apiClient.get<{ nodes: unknown[]; edges: E[] }>(`/projects/${projectId}/graph`),
 };
 
 export const validationApi = {
   run:    (projectId: string) => apiClient.post<{ runId: string }>(`/projects/${projectId}/validate`),
-  list:   (projectId: string, params?: { severity?: Severity; category?: Category; status?: IssueStatus }) => {
+  list:   (projectId: string, params?: { severity?: Severity; category?: Category; status?: IssueStatus; artifactId?: string }) => {
     const qs = new URLSearchParams();
     if (params?.severity) qs.set("severity", params.severity);
     if (params?.category) qs.set("category", params.category);
     if (params?.status) qs.set("status", params.status);
+    if (params?.artifactId) qs.set("artifactId", params.artifactId);
     const tail = qs.toString();
     return apiClient.get<ValidationIssue[]>(`/projects/${projectId}/validation-issues${tail ? `?${tail}` : ""}`);
   },

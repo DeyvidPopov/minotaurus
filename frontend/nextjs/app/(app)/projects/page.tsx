@@ -12,6 +12,7 @@ import { Empty } from "@/components/ui/empty";
 import { projectsApi } from "@/lib/api/projects";
 import { timeAgo } from "@/lib/utils";
 import type { Project } from "@/lib/types";
+import ProjectsSkeleton from "./skeleton";
 
 const SORTS: SelectOption[] = [
   { value: "updated", label: "Recently updated" },
@@ -28,6 +29,8 @@ export default function ProjectsPage() {
   useEffect(() => {
     projectsApi.list().then(setProjects).catch(() => setProjects([]));
   }, []);
+
+  if (projects === null) return <ProjectsSkeleton />;
 
   const items = projects ?? [];
   const ql = q.trim().toLowerCase();
@@ -56,7 +59,7 @@ export default function ProjectsPage() {
   const hasProjects = projects !== null && projects.length > 0;
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-[1320px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         title="Projects"
         subtitle={

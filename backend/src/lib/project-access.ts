@@ -5,7 +5,7 @@
 // row exists in ProjectMember yet (covers projects from before Phase 7 / any
 // future code path that forgets to create the owner row).
 
-import type { ProjectRole } from "@prisma/client";
+import type { Project, ProjectRole } from "@prisma/client";
 import type { NextFunction, Response } from "express";
 import { prisma } from "./prisma.js";
 import { fail } from "../utils/response.js";
@@ -14,6 +14,9 @@ import type { AuthedRequest } from "../middleware/auth.js";
 export interface ProjectAccess {
   status: "ok" | "not_found" | "forbidden";
   role?: ProjectRole;
+  // The loaded project row (present whenever the project exists), so callers
+  // that already ran the access check don't re-`findUnique` the same row.
+  project?: Project;
 }
 
 const ROLE_ORDER: Record<ProjectRole, number> = {
@@ -31,15 +34,19 @@ export async function getProjectAccess(
   projectId: string,
   userId: string,
 ): Promise<ProjectAccess> {
-  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  // The project load and membership lookup are independent — run them
+  // concurrently instead of serially (this check is on every project-scoped
+  // request). not_found still takes priority; a membership row for a
+  // nonexistent project simply comes back null.
+  const [project, membership] = await Promise.all([
+    prisma.project.findUnique({ where: { id: projectId } }),
+    prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId } },
+    }),
+  ]);
   if (!project) return { status: "not_found" };
-
-  const membership = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId } },
-  });
-  if (membership) return { status: "ok", role: membership.role };
-
-  if (project.ownerId === userId) return { status: "ok", role: "OWNER" };
+  if (membership) return { status: "ok", role: membership.role, project };
+  if (project.ownerId === userId) return { status: "ok", role: "OWNER", project };
   return { status: "forbidden" };
 }
 

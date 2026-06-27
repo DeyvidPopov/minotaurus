@@ -4,7 +4,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -53,7 +52,7 @@ export default function NewProjectPage() {
           </div>
           <div className="flex gap-2 justify-end">
             <Button onClick={() => router.push("/projects")} disabled={busy}>Cancel</Button>
-            <Button variant="primary" icon={<Plus size={14} />} onClick={onSubmit} disabled={busy}>
+            <Button variant="primary" onClick={onSubmit} disabled={busy}>
               {busy ? "Creating…" : "Create project"}
             </Button>
           </div>

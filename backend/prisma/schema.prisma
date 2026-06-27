@@ -596,6 +596,9 @@ model ValidationIssue {
 
   @@index([projectId, status])
   @@index([artifactId])
+  // Serves the default issue list (WHERE projectId ORDER BY createdAt DESC) as an
+  // index range scan, eliminating the Sort the (projectId,status) index can't.
+  @@index([projectId, createdAt(sort: Desc)])
 }
 
 // ────────────────────────────── Export ──────────────────────────────
@@ -619,6 +622,8 @@ model ExportPackage {
   createdBy User    @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([projectId])
+  // Serves listExports (WHERE projectId ORDER BY createdAt DESC).
+  @@index([projectId, createdAt(sort: Desc)])
 }
 
 // ────────────────────────────── Version events ──────────────────────────────
@@ -664,7 +669,10 @@ model VersionEvent {
   triggeredBy User    @relation(fields: [triggeredById], references: [id], onDelete: Restrict)
 
   @@index([projectId])
-  @@index([entityId])
+  // (entityId, createdAt desc) serves the impact page's per-artifact recent-events
+  // query (WHERE projectId AND entityId ORDER BY createdAt DESC LIMIT 10) and
+  // supersedes the bare (entityId) index, which is dropped.
+  @@index([entityId, createdAt(sort: Desc)])
   @@index([projectId, createdAt(sort: Desc)])
 }
 

@@ -90,21 +90,14 @@ export async function listExports(req: AuthedRequest, res: Response) {
   const access = await projectAccessStatus(projectId, req.user!.userId);
   if (respondProjectAccessDenied(res, access)) return;
 
+  // Select only the metadata columns — the `content` JSONB embeds rendered
+  // diagram SVGs (up to ~1.5MB each) and is never needed for the list.
   const items = await prisma.exportPackage.findMany({
     where: { projectId },
     orderBy: { createdAt: "desc" },
+    select: { id: true, projectId: true, format: true, sections: true, createdAt: true },
   });
-  return ok(
-    res,
-    items.map((e) => ({
-      id: e.id,
-      projectId: e.projectId,
-      format: e.format,
-      sections: e.sections,
-      createdAt: e.createdAt,
-    })),
-    "OK",
-  );
+  return ok(res, items, "OK");
 }
 
 export async function getExport(req: AuthedRequest, res: Response) {
@@ -127,6 +120,18 @@ export async function downloadExport(req: AuthedRequest, res: Response) {
   if (!exp) return fail(res, 404, "NOT_FOUND", "Export not found");
   const access = await projectAccessStatus(exp.projectId, req.user!.userId);
   if (access !== "ok") return fail(res, 403, "FORBIDDEN", "Forbidden");
+
+  // ExportPackage.content is immutable (no update path) and every renderer is a
+  // deterministic pure function of it, so the rendered bytes are stable for an
+  // (id, format) pair. A strong ETag lets the browser revalidate with a bodyless
+  // 304 — and short-circuiting BEFORE the format branches skips the (CPU-bound,
+  // event-loop-blocking) PDF render entirely on a cache hit. `private` because
+  // access is per-user; this route doesn't use the {success,data} envelope, so a
+  // bodyless 304 is contract-safe.
+  const etag = `"${exp.id}-${exp.format}"`;
+  res.setHeader("ETag", etag);
+  res.setHeader("Cache-Control", "private, max-age=3600");
+  if (req.headers["if-none-match"] === etag) return res.status(304).end();
 
   const base = safeFilename(`export-${exp.id}`);
 

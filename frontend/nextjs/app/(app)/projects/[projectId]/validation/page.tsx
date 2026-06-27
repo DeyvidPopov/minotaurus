@@ -22,6 +22,7 @@ import type { Artifact, IssueStatus, IssueTarget, Project, QuickFixPreview, Reme
 import { IssueRow } from "./issue-row";
 import { ValidationStats } from "./validation-stats";
 import { targetHref } from "./issue-target";
+import ValidationSkeleton from "./skeleton";
 
 // REVIEW-required candidate picker. Shows deterministic suggestions; the user must
 // explicitly select one before Apply is enabled. Nothing is created until Apply.
@@ -467,8 +468,10 @@ export default function ValidationPage({ params }: { params: { projectId: string
     }
   };
 
+  if (issues === null) return <ValidationSkeleton />;
+
   return (
-    <div className="px-8 py-6">
+    <div className="page-shell">
       <PageHeader
         title="Validation"
         subtitle={

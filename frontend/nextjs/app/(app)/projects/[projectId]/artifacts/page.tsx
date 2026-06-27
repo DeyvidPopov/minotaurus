@@ -19,6 +19,7 @@ import { artifactsApi } from "@/lib/api/artifacts";
 import { projectsApi } from "@/lib/api/projects";
 import { timeAgo } from "@/lib/utils";
 import type { Artifact, Project } from "@/lib/types";
+import ArtifactsSkeleton from "./skeleton";
 
 // A relation count is interpreted with two conservative architecture signals:
 // 0 → "Orphan" (nothing links to it), >= HUB_THRESHOLD → "Hub" (highly
@@ -160,18 +161,26 @@ export default function ArtifactsListPage({ params }: { params: { projectId: str
   );
 
   const term = q.trim().toLowerCase();
-  const filtered = items.filter((a) => {
-    if (type !== "ALL" && a.type !== type) return false;
-    if (status !== "ALL" && a.status !== status) return false;
-    if (!term) return true;
-    return (
-      a.title.toLowerCase().includes(term) ||
-      a.description.toLowerCase().includes(term) ||
-      a.type.toLowerCase().includes(term) ||
-      TYPE_INFO[a.type].label.toLowerCase().includes(term)
-    );
-  });
-  const list = sortArtifacts(filtered, sort);
+  // Memoize the filter + sort so they only recompute when their inputs change,
+  // instead of on every render (e.g. a row hover / unrelated state update).
+  const filtered = useMemo(
+    () =>
+      (artifacts ?? []).filter((a) => {
+        if (type !== "ALL" && a.type !== type) return false;
+        if (status !== "ALL" && a.status !== status) return false;
+        if (!term) return true;
+        return (
+          a.title.toLowerCase().includes(term) ||
+          a.description.toLowerCase().includes(term) ||
+          a.type.toLowerCase().includes(term) ||
+          TYPE_INFO[a.type].label.toLowerCase().includes(term)
+        );
+      }),
+    [artifacts, type, status, term],
+  );
+  const list = useMemo(() => sortArtifacts(filtered, sort), [filtered, sort]);
+
+  if (artifacts === null) return <ArtifactsSkeleton />;
 
   const hasActiveFilters = type !== "ALL" || status !== "ALL" || term !== "";
   const clearAll = () => {
@@ -181,7 +190,7 @@ export default function ArtifactsListPage({ params }: { params: { projectId: str
   };
 
   return (
-    <div className="px-4 py-6 md:px-8">
+    <div className="page-shell">
       <PageHeader
         title="Artifacts"
         subtitle={

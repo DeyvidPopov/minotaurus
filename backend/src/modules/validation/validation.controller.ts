@@ -95,13 +95,17 @@ export async function listIssues(req: AuthedRequest, res: Response) {
   const access = await projectAccessStatus(projectId, req.user!.userId);
   if (respondProjectAccessDenied(res, access)) return;
 
-  const { severity, category, status } = req.query as Record<string, string | undefined>;
+  const { severity, category, status, artifactId } = req.query as Record<string, string | undefined>;
   const items = await prisma.validationIssue.findMany({
     where: {
       projectId,
       ...(severity ? { severity: severity as IssueSeverity } : {}),
       ...(category ? { category: category as IssueCategory } : {}),
       ...(status ? { status: status as IssueStatus } : {}),
+      // Optional artifact scope (index-backed via ValidationIssue(artifactId)) so
+      // the artifact-detail page fetches just one artifact's findings instead of
+      // the whole project set. Non-null only for ARTIFACT-subject findings.
+      ...(artifactId ? { artifactId } : {}),
     },
     orderBy: { createdAt: "desc" },
   });

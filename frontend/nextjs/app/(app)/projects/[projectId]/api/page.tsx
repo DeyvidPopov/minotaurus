@@ -19,6 +19,7 @@ import { apiSpecsApi, type ApiSpec } from "@/lib/api/api-specs";
 import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import ApiSkeleton from "./skeleton";
 
 export default function ApiSpecsListPage({ params }: { params: { projectId: string } }) {
   const { projectId } = params;
@@ -58,8 +59,10 @@ export default function ApiSpecsListPage({ params }: { params: { projectId: stri
 
   const artifactsById = new Map(artifacts.map((a) => [a.id, a]));
 
+  if (specs === null) return <ApiSkeleton />;
+
   return (
-    <div className="px-4 py-6 md:px-8 max-w-[1200px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         title="API specifications"
         subtitle={

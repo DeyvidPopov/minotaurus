@@ -14,6 +14,7 @@ import { TypeChip } from "@/components/ui/type-chip";
 import { OpenLink } from "@/components/ui/open-link";
 import { Field } from "@/components/ui/field";
 import { MermaidPreview } from "@/components/mermaid-preview";
+import DiagramsSkeleton from "./skeleton";
 import { artifactsApi } from "@/lib/api/artifacts";
 import {
   DIAGRAM_TYPES,
@@ -70,8 +71,10 @@ export default function DiagramsListPage({ params }: { params: { projectId: stri
 
   const artifactsById = useMemo(() => new Map(artifacts.map((a) => [a.id, a])), [artifacts]);
 
+  if (diagrams === null) return <DiagramsSkeleton />;
+
   return (
-    <div className="px-4 py-6 md:px-8 max-w-[1280px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         title="Diagrams"
         subtitle={diagrams === null ? "Loading…" : `${diagrams.length} diagram${diagrams.length === 1 ? "" : "s"} · architecture visualisations`}

@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Plus, FileText, Info } from "lucide-react";
+import { BookOpen, FileText, Info } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Stat } from "@/components/ui/stat";
@@ -20,6 +20,7 @@ import { errorMessage } from "@/lib/api/error-message";
 import { useResource } from "@/lib/use-resource";
 import { timeAgo } from "@/lib/utils";
 import type { Project } from "@/lib/types";
+import DocsSkeleton from "./skeleton";
 
 type Filter = "all" | "documented" | "missing";
 
@@ -50,13 +51,13 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
 
   if (error) {
     return (
-      <div className="px-8 py-6">
+      <div className="page-shell">
         <Empty title="Documentation unavailable" message={errorMessage(error, "Failed to load documentation")} />
       </div>
     );
   }
   if (!project || !overview) {
-    return <div className="px-8 py-6 text-fg-muted">Loading…</div>;
+    return <DocsSkeleton />;
   }
 
   const { summary } = overview;
@@ -64,7 +65,7 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
   const showMissing = filter !== "documented";
 
   return (
-    <div className="px-4 py-6 md:px-8">
+    <div className="page-shell">
       <PageHeader
         title="Documentation"
         subtitle={`${summary.coveragePercent}% coverage · ${summary.documentedArtifacts} of ${summary.totalArtifacts} artifacts documented`}
@@ -200,7 +201,7 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
                       </div>
                     </div>
                     <Link href={`/projects/${projectId}/artifacts/${m.artifactId}?tab=documentation`} className="shrink-0 self-start sm:self-auto">
-                      <Button size="sm" icon={<Plus size={13} />}>Add documentation</Button>
+                      <Button size="sm">Add documentation</Button>
                     </Link>
                   </li>
                 ))}

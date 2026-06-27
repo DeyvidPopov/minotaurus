@@ -23,12 +23,14 @@ function colorFromId(id: string): string {
   return COLORS[sum % COLORS.length];
 }
 
-export async function serializeProject(p: Project) {
-  const [artifactCount, validationIssueCount, memberCount] = await Promise.all([
-    prisma.artifact.count({ where: { projectId: p.id } }),
-    prisma.validationIssue.count({ where: { projectId: p.id, status: "OPEN" } }),
-    prisma.projectMember.count({ where: { projectId: p.id } }),
-  ]);
+// Pure DTO shaping — no queries. The single source of the project wire shape,
+// used by both the per-row serializer and the batched list path.
+function buildProjectDto(
+  p: Project,
+  artifactCount: number,
+  validationIssueCount: number,
+  memberCount: number,
+) {
   return {
     id: p.id,
     name: p.name,
@@ -43,6 +45,45 @@ export async function serializeProject(p: Project) {
     starred: false,
     color: colorFromId(p.id),
   };
+}
+
+// Per-project serializer for the single-project endpoints (get/update). Runs 3
+// concurrent counts. The list endpoint must NOT loop this — see serializeProjects.
+export async function serializeProject(p: Project) {
+  const [artifactCount, validationIssueCount, memberCount] = await Promise.all([
+    prisma.artifact.count({ where: { projectId: p.id } }),
+    prisma.validationIssue.count({ where: { projectId: p.id, status: "OPEN" } }),
+    prisma.projectMember.count({ where: { projectId: p.id } }),
+  ]);
+  return buildProjectDto(p, artifactCount, validationIssueCount, memberCount);
+}
+
+// Batched serializer for the list/dashboard path: 3 `groupBy` queries for the
+// whole set instead of 3 counts per project. Missing ids default to 0 (the
+// `members || 1` implicit-owner fallback is preserved in buildProjectDto).
+async function serializeProjects(projects: Project[]) {
+  if (projects.length === 0) return [];
+  const ids = projects.map((p) => p.id);
+  const [artifactGroups, issueGroups, memberGroups] = await Promise.all([
+    prisma.artifact.groupBy({ by: ["projectId"], where: { projectId: { in: ids } }, _count: true }),
+    prisma.validationIssue.groupBy({
+      by: ["projectId"],
+      where: { projectId: { in: ids }, status: "OPEN" },
+      _count: true,
+    }),
+    prisma.projectMember.groupBy({ by: ["projectId"], where: { projectId: { in: ids } }, _count: true }),
+  ]);
+  const artifactCounts = new Map(artifactGroups.map((g) => [g.projectId, g._count]));
+  const issueCounts = new Map(issueGroups.map((g) => [g.projectId, g._count]));
+  const memberCounts = new Map(memberGroups.map((g) => [g.projectId, g._count]));
+  return projects.map((p) =>
+    buildProjectDto(
+      p,
+      artifactCounts.get(p.id) ?? 0,
+      issueCounts.get(p.id) ?? 0,
+      memberCounts.get(p.id) ?? 0,
+    ),
+  );
 }
 
 const createSchema = z.object({
@@ -66,8 +107,7 @@ export async function listProjects(req: AuthedRequest, res: Response) {
     },
     orderBy: { updatedAt: "desc" },
   });
-  const serialized = await Promise.all(projects.map((p) => serializeProject(p)));
-  return ok(res, serialized, "OK");
+  return ok(res, await serializeProjects(projects), "OK");
 }
 
 export async function createProject(req: AuthedRequest, res: Response) {
@@ -86,15 +126,17 @@ export async function createProject(req: AuthedRequest, res: Response) {
     });
     return p;
   });
-  return created(res, await serializeProject(project), "Project created");
+  // A freshly created project has exactly 0 artifacts, 0 open issues, and 1
+  // member (the OWNER row created in the same transaction) — no need to query.
+  return created(res, buildProjectDto(project, 0, 0, 1), "Project created");
 }
 
 export async function getProject(req: AuthedRequest, res: Response) {
   const access = await getProjectAccess(req.params.projectId, req.user!.userId);
   if (access.status === "not_found") return fail(res, 404, "NOT_FOUND", "Project not found");
   if (access.status !== "ok") return fail(res, 403, "FORBIDDEN", "Not a member of this project");
-  const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
-  return ok(res, await serializeProject(project!), "OK");
+  // Reuse the project row already loaded by the access check (don't re-findUnique).
+  return ok(res, await serializeProject(access.project!), "OK");
 }
 
 export async function updateProject(req: AuthedRequest, res: Response) {

@@ -15,6 +15,7 @@ import { diagramsApi } from "@/lib/api/diagrams";
 import { renderMermaidToSvg } from "@/components/mermaid-preview";
 import { ExportPreview, type ExportPreviewModel } from "@/components/export-preview";
 import type { ExportFormat } from "@/lib/types";
+import { Skeleton, SkeletonTable } from "@/components/ui/skeleton";
 
 interface ExportSummary {
   id: string;
@@ -194,7 +195,7 @@ export default function ExportPage({ params }: { params: { projectId: string } }
   };
 
   return (
-    <div className="px-8 py-6 max-w-[1100px] mx-auto">
+    <div className="page-shell">
       <PageHeader
         title="Export SSOT"
         subtitle="Bundle the project's artifacts, relations and validation issues into a single document."
@@ -244,7 +245,7 @@ export default function ExportPage({ params }: { params: { projectId: string } }
       <div className="mt-5">
         <Card padded={false} title="Recent exports">
           {exports === null ? (
-            <div className="p-6 text-fg-muted text-[13px]">Loading…</div>
+            <div className="p-4"><SkeletonTable cols={4} rows={3} /></div>
           ) : exportsError ? (
             <div className="p-6 text-danger text-[13px]">{exportsError}</div>
           ) : exports.length === 0 ? (
@@ -283,7 +284,7 @@ export default function ExportPage({ params }: { params: { projectId: string } }
       <div className="mt-5">
         {previewState === "loading" ? (
           <Card>
-            <div className="text-fg-muted text-[13px]">Loading export…</div>
+            <Skeleton className="h-[280px] w-full" />
           </Card>
         ) : previewState === "error" ? (
           <Card>

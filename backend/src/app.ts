@@ -5,6 +5,7 @@
 import "express-async-errors";
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import { apiRouter } from "./routes.js";
 import { errorHandler, notFound } from "./middleware/error.js";
 
@@ -33,6 +34,13 @@ export function createApp() {
       credentials: true,
     }),
   );
+
+  // gzip/deflate JSON responses. The API ships large, highly-compressible JSON
+  // (artifact/issue lists with doc bodies, the export-JSON download), and prod is
+  // same-origin so this is a real transport win. `compression`'s default
+  // content-type filter skips already-binary payloads (the PDF `res.end(buffer)`
+  // download), and its 1KB threshold leaves tiny responses untouched.
+  app.use(compression());
 
   // Baseline HTTP security headers. Kept dependency-free (the API serves JSON,
   // not HTML, so a full helmet/CSP setup isn't needed here — the Next frontend
