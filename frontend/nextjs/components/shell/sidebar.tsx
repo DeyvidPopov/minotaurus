@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  Home, Folder, Compass, Box, Network,
+  Home, Folder, Compass, Box, Network, Gauge,
   Plug, Database, GitMerge, Shield, History, Package, Settings, LogOut, Users, BookOpen, Download, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ export function Sidebar({ projectId }: { projectId: string | null }) {
 
   const inProj: Item[] = project ? [
     { id: "overview",   label: "Overview",        href: `/projects/${project.id}`,             icon: <Compass size={16} />, exact: true },
+    { id: "decision",   label: "Decision",        href: `/projects/${project.id}/decision`,    icon: <Gauge size={16} /> },
     { id: "artifacts",  label: "Artifacts",       href: `/projects/${project.id}/artifacts`,   icon: <Box size={16} />,    badge: project.artifactCount },
     { id: "api",        label: "API Specs",       href: `/projects/${project.id}/api`,         icon: <Plug size={16} /> },
     { id: "database",   label: "Database Model",  href: `/projects/${project.id}/database`,    icon: <Database size={16} /> },

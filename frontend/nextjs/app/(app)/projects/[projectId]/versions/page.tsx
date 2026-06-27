@@ -18,7 +18,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/ui/page-header";
+import { PageHeader, FILL_ACTIONS_MOBILE } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/search-input";
@@ -113,22 +113,26 @@ export default function VersionHistoryPage({ params }: { params: { projectId: st
             ? "Loading…"
             : `${events.length} event${events.length === 1 ? "" : "s"} · newest first`
         }
-        actions={
-          <>
-            <SearchInput value={search} onChange={setSearch} placeholder="Search by title…" className="w-full sm:w-[220px]" />
-            <select value={entityType} onChange={(e) => setEntityType(e.target.value as typeof entityType)}
-              className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
-              <option value="ALL">All entities</option>
-              {VERSION_ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <select value={action} onChange={(e) => setAction(e.target.value as typeof action)}
-              className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
-              <option value="ALL">All actions</option>
-              {VERSION_ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </>
-        }
       />
+
+      {/* Toolbar — full-width row below the header (not in PageHeader's actions),
+          so search + the two filters never crush the title/subtitle at medium widths
+          (the Projects/Artifacts pattern). */}
+      {events !== null && events.length > 0 && (
+        <div className={`flex flex-wrap items-center gap-2.5 mb-4 ${FILL_ACTIONS_MOBILE}`}>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search by title…" className="w-full lg:flex-1 lg:min-w-[200px]" />
+          <select value={entityType} onChange={(e) => setEntityType(e.target.value as typeof entityType)}
+            className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
+            <option value="ALL">All entities</option>
+            {VERSION_ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select value={action} onChange={(e) => setAction(e.target.value as typeof action)}
+            className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
+            <option value="ALL">All actions</option>
+            {VERSION_ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+      )}
 
       {events !== null && events.length === 0 ? (
         <Empty title="No version events yet" message="Edits to artifacts, relations, API specs, documentation, diagrams, validations and exports will appear here." />

@@ -72,7 +72,7 @@ export default function ApiSpecsListPage({ params }: { params: { projectId: stri
         }
         actions={
           <>
-            <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full sm:w-[220px]" />
+            <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full lg:w-[220px]" />
             <Button variant="primary" onClick={() => setCreating(true)}>
               New API spec
             </Button>

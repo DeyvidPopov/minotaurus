@@ -81,20 +81,20 @@ export default function ProjectsPage() {
         <>
           {/* Toolbar — mobile: search full-width on its own row, then [ sort ] [ new ].
               Desktop: search grows, sort + new stay compact on one row. */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 mb-5">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-2.5 mb-5">
             <SearchInput
               value={q}
               onChange={setQ}
               placeholder="Search by name, slug, or description…"
-              className="w-full sm:flex-1 sm:max-w-md"
+              className="w-full lg:flex-1 lg:max-w-md"
             />
-            <div className="flex items-center gap-2.5 sm:ml-auto">
+            <div className="flex items-center gap-2.5 lg:ml-auto">
               <Select
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
                 options={SORTS}
                 aria-label="Sort projects"
-                className="flex-1 sm:flex-none sm:w-[180px]"
+                className="flex-1 lg:flex-none lg:w-[180px]"
               />
               <Link href="/projects/new" className="shrink-0">
                 <Button variant="primary" className="h-9">New project</Button>

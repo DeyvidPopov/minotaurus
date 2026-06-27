@@ -86,6 +86,19 @@
   zoom: 1.1;
 }
 
+/* Form-control focus convention (app-wide):
+   • <select> → muted focus (border-strong, no accent, no native OS outline) so
+     every native select matches the design-system <Select> component.
+   • <input>/<textarea> keep their accent focus (focus:border-accent) — selects
+     are deliberately the only control without accent on focus.
+   The shared <Select>'s own focus utility (.focus:border-border-strong:focus) wins
+   on specificity, so this rule only governs raw native selects. A class-based
+   focus colour (e.g. focus:border-danger) on a select still overrides this. */
+select:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+
 /* Shared page container — the single source of truth for every workspace page's
    outer wrapper AND its loading skeleton, so side padding + max-width stay
    consistent across pages instead of each one hand-rolling its own (which had

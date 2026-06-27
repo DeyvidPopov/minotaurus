@@ -85,6 +85,25 @@ export async function createExport(req: AuthedRequest, res: Response) {
   );
 }
 
+// GET /projects/:projectId/analysis — the deterministic AnalysisResult for the
+// project (health score + the five sub-scores + coverage/connectivity/etc.),
+// surfaced for the Decision Support page. READ-ONLY and PURE: it assembles the
+// SSOT snapshot and runs the deterministic analysis engine, persisting NOTHING
+// (no ExportPackage row) and invoking NO AI. The score it returns is identical to
+// the one AI Review's score cards show — both run `analyzeExportSnapshot` over the
+// project snapshot, which only reads the core arrays a full export already
+// includes (so the empty-sections / full snapshot here is a superset and yields
+// the same numbers). Mirrors the VIEWER+ read access of listExports.
+export async function getProjectAnalysis(req: AuthedRequest, res: Response) {
+  const projectId = req.params.projectId;
+  const access = await projectAccessStatus(projectId, req.user!.userId);
+  if (respondProjectAccessDenied(res, access)) return;
+
+  const content = await buildExportContent(projectId, "JSON", []);
+  const analysis = analyzeExportSnapshot(content);
+  return ok(res, analysis, "OK");
+}
+
 export async function listExports(req: AuthedRequest, res: Response) {
   const projectId = req.params.projectId;
   const access = await projectAccessStatus(projectId, req.user!.userId);

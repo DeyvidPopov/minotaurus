@@ -128,8 +128,8 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
   return (
     <div className="page-shell">
       <div className="mb-6">
-        {/* Header: title + actions. Stacks on mobile, single row from sm up. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        {/* Header: title + actions. Stacks on mobile + mid screens, single row from lg up. */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <ProjectMark color={project.color} size={42} seed={project.id} />
             <div className="flex items-center gap-2.5 min-w-0">
@@ -138,7 +138,7 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
               {project.starred && <Star size={16} className="text-warning shrink-0" />}
             </div>
           </div>
-          <div className={`flex items-center gap-2 flex-wrap sm:shrink-0 ${FILL_ACTIONS_MOBILE}`}>
+          <div className={`flex items-center gap-2 flex-wrap lg:shrink-0 ${FILL_ACTIONS_MOBILE}`}>
             <Button icon={<RefreshCw size={14} />} onClick={runValidation} disabled={running}>
               {running ? "Validating…" : "Run validation"}
             </Button>
@@ -174,11 +174,11 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
               <p className="text-fg-muted text-[13.5px] mt-1.5 mb-5 max-w-md mx-auto">
                 Start manually, or generate an initial architecture draft with AI — you review and confirm every item before anything is saved.
               </p>
-              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-center gap-2.5">
-                <Link href={`/projects/${project.id}/artifacts/new`} className="w-full sm:w-auto">
-                  <Button className="w-full sm:w-auto">Start Building Manually</Button>
+              <div className="flex flex-col lg:flex-row lg:flex-wrap lg:items-center lg:justify-center gap-2.5">
+                <Link href={`/projects/${project.id}/artifacts/new`} className="w-full lg:w-auto">
+                  <Button className="w-full lg:w-auto">Start Building Manually</Button>
                 </Link>
-                <Button variant="primary" icon={<Sparkles size={14} />} onClick={() => setWizardOpen(true)} className="w-full sm:w-auto">
+                <Button variant="primary" icon={<Sparkles size={14} />} onClick={() => setWizardOpen(true)} className="w-full lg:w-auto">
                   Generate Initial Architecture with AI
                 </Button>
               </div>
@@ -258,12 +258,12 @@ export default function WorkspacePage({ params }: { params: { projectId: string 
               );
             })}
             {openIssues.length > 3 && (
-              <Link
+              <OpenLink
                 href={`/projects/${project.id}/validation`}
-                className="block text-[12.5px] text-accent hover:underline pt-2.5"
-              >
-                +{openIssues.length - 3} more findings
-              </Link>
+                label={`+${openIssues.length - 3} more findings`}
+                icon={false}
+                className="pt-2.5"
+              />
             )}
             {openIssues.length === 0 && (
               <div className="text-fg-muted text-[13px] py-3">No open findings.</div>

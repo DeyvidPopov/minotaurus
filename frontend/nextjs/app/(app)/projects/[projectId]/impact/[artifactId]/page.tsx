@@ -25,7 +25,7 @@ import { apiIntelApi, type InferredEdgeKind } from "@/lib/api/api-intel";
 import { errorMessage } from "@/lib/api/error-message";
 import type { Artifact, ArtifactType, ArtifactStatus, Relation, RelationType, User, ValidationIssue, Severity } from "@/lib/types";
 import { ACTION_COLOR, ACTION_VERB, entityTypeLabel } from "@/lib/activity";
-import { assessImpact, type RiskBand, type DeletionVerdict, type ImpactAssessment } from "@/lib/impact-risk";
+import { assessImpact, BAND_COLOR, BAND_LABEL, verdictColor, verdictLabel, type ImpactAssessment } from "@/lib/impact-risk";
 import { computeTransitiveReach } from "@/lib/impact-graph";
 import { findRenameReferences } from "@/lib/impact-rename";
 import { buildImpactReportMarkdown } from "@/lib/impact-report";
@@ -92,20 +92,8 @@ interface AuxData {
 }
 const EMPTY_AUX: AuxData = { artifacts: [], relations: [], inferred: [], diagrams: [], graphReady: false, scanReady: false };
 
-const BAND_COLOR: Record<RiskBand, string> = {
-  NONE: "var(--fg-muted)",
-  LOW: "var(--c-success)",
-  MEDIUM: "var(--c-warning)",
-  HIGH: "var(--c-danger)",
-};
-const BAND_LABEL: Record<RiskBand, string> = {
-  NONE: "Minimal",
-  LOW: "Low",
-  MEDIUM: "Medium",
-  HIGH: "High",
-};
-const verdictColor = (v: DeletionVerdict): string => (v === "SAFE" ? "var(--c-success)" : BAND_COLOR[v]);
-const verdictLabel = (v: DeletionVerdict): string => (v === "SAFE" ? "Safe" : BAND_LABEL[v]);
+// Verdict band colour/label maps + deletion-verdict helpers are the shared
+// single source in lib/impact-risk.ts (imported above).
 
 const SEVERITY_TONE: Record<Severity, "info" | "warning" | "danger"> = {
   INFO: "info",
@@ -429,6 +417,7 @@ export default function ImpactPage({ params }: { params: { projectId: string; ar
                   highlightSelected
                   showMiniMap={false}
                   autoLayout="LR"
+                  minZoom={0.1}
                 />
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-border text-[11.5px] text-fg-muted">

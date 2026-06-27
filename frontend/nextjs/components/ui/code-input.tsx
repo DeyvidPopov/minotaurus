@@ -115,7 +115,7 @@ export function CodeInput({
           aria-invalid={invalid || undefined}
           className={cn(
             "aspect-square w-full rounded-md border bg-panel text-center text-lg font-semibold outline-none",
-            "focus:border-accent focus:ring-2 focus:ring-[var(--accent-ring)] motion-safe:transition-colors",
+            "focus:border-accent motion-safe:transition-colors",
             invalid ? "border-danger" : "border-border",
             "disabled:opacity-50",
           )}

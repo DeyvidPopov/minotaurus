@@ -164,3 +164,26 @@ export function assessImpact(data: ImpactResponse, nowMs: number, findings: Impa
     },
   };
 }
+
+// ── Presentation helpers (display-only band → colour/label) ──
+// Shared so every surface that shows a verdict renders identical bands; pure data
+// mapping, no logic. (The Impact page predates these and keeps inline copies.)
+export const BAND_COLOR: Record<RiskBand, string> = {
+  NONE: "var(--fg-muted)",
+  LOW: "var(--c-success)",
+  MEDIUM: "var(--c-warning)",
+  HIGH: "var(--c-danger)",
+};
+
+export const BAND_LABEL: Record<RiskBand, string> = {
+  NONE: "Minimal",
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High",
+};
+
+export const verdictColor = (v: DeletionVerdict): string =>
+  v === "SAFE" ? "var(--c-success)" : BAND_COLOR[v];
+
+export const verdictLabel = (v: DeletionVerdict): string =>
+  v === "SAFE" ? "Safe" : BAND_LABEL[v];

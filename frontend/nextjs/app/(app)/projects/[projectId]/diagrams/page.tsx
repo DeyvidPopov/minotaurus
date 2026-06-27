@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GitMerge, X, Info } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/ui/page-header";
+import { PageHeader, FILL_ACTIONS_MOBILE } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Empty } from "@/components/ui/empty";
@@ -78,20 +78,25 @@ export default function DiagramsListPage({ params }: { params: { projectId: stri
       <PageHeader
         title="Diagrams"
         subtitle={diagrams === null ? "Loading…" : `${diagrams.length} diagram${diagrams.length === 1 ? "" : "s"} · architecture visualisations`}
-        actions={
-          <>
-            <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full sm:w-[220px]" />
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "ALL" | DiagramType)}
-              className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
-              <option value="ALL">All types</option>
-              {DIAGRAM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              New diagram
-            </Button>
-          </>
-        }
       />
+
+      {/* Toolbar — a full-width row below the header (not in PageHeader's actions),
+          so search + filter + New never crush the title/subtitle at medium widths
+          (the Projects/Artifacts pattern). Search grows to fill; the filter + New
+          flow right and wrap as needed. */}
+      {diagrams !== null && diagrams.length > 0 && (
+        <div className={`flex flex-wrap items-center gap-2.5 mb-4 ${FILL_ACTIONS_MOBILE}`}>
+          <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full lg:flex-1 lg:min-w-[200px]" />
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "ALL" | DiagramType)}
+            className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
+            <option value="ALL">All types</option>
+            {DIAGRAM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            New diagram
+          </Button>
+        </div>
+      )}
 
       {typeFilter !== "ALL" && (
         <div className="mb-4 inline-flex items-start gap-2 px-3 py-2 rounded-md bg-panel-2 border border-border text-[12.5px] text-fg-muted">

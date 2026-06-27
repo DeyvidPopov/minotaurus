@@ -168,30 +168,30 @@ export default function GraphPage({ params }: { params: { projectId: string } })
             first row — the grown title then pushes search + controls flush right (it
             truncates instead of wrapping when squeezed). On mobile flex-1 is OFF so the
             title keeps its content width and the w-full search/controls stack below it. */}
-        <div className="min-w-0 sm:flex-1">
-          <div className="text-[14.5px] font-semibold sm:truncate">{project?.name ?? "Project"} · Knowledge graph</div>
-          <div className="text-[12px] text-fg-muted whitespace-nowrap sm:truncate">
+        <div className="min-w-0 lg:flex-1">
+          <div className="text-[14.5px] font-semibold lg:truncate">{project?.name ?? "Project"} · Knowledge graph</div>
+          <div className="text-[12px] text-fg-muted whitespace-nowrap lg:truncate">
             {artifacts.length} artifacts · {relations.length} relations
             {inferredEdges.length > 0 && ` · ${inferredEdges.length} inferred`}
           </div>
         </div>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search by name…" className="w-full sm:w-[200px] sm:ml-1" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search by name…" className="w-full lg:w-[200px] lg:ml-1" />
 
         {/* View controls — node appearance, layout, edge visibility, fullscreen.
             On mobile the cluster spans the full row; the two wide controls (node
             style + edges) grow while Relayout and Fullscreen collapse to compact
             icon-only buttons, so each wide control pairs with a small icon and the
-            node-style segmented keeps room for all three labels. At sm+ it reverts
+            node-style segmented keeps room for all three labels. At lg+ it reverts
             to the content-width desktop group with full labels, pushed flush right by
             the flex-grown title (no ml-auto needed). The old standalone "Node style"
             label moved to a tooltip to declutter. */}
         <div
           role="group"
           aria-label="View controls"
-          className="w-full sm:w-auto flex items-center gap-2 flex-wrap justify-end"
+          className="w-full lg:w-auto flex items-center gap-2 flex-wrap justify-end"
         >
           {/* Node style — widest mobile share so all three labels fit. */}
-          <span className="flex flex-1 min-w-[12rem] sm:flex-none sm:min-w-0" title="Node style">
+          <span className="flex flex-1 min-w-[12rem] lg:flex-none lg:min-w-0" title="Node style">
             <Segmented fullWidthMobile value={graphNodeStyle} onChange={(v) => set("graphNodeStyle", v)} options={[
               { value: "shape", label: "Shape" },
               { value: "color", label: "Color" },
@@ -206,10 +206,10 @@ export default function GraphPage({ params }: { params: { projectId: string } })
             aria-label="Relayout — auto-arrange nodes"
             className="flex-none"
           >
-            <span className="hidden sm:inline">Relayout</span>
+            <span className="hidden lg:inline">Relayout</span>
           </Button>
           <EdgesDropdown
-            className="flex-1 min-w-[8rem] sm:flex-none sm:min-w-0"
+            className="flex-1 min-w-[8rem] lg:flex-none lg:min-w-0"
             showReal={showReal}
             showInferred={showInferred}
             inferredCount={inferredEdges.length}
@@ -224,7 +224,7 @@ export default function GraphPage({ params }: { params: { projectId: string } })
             title={isFullscreen ? "Exit fullscreen (Esc)" : "View graph fullscreen"}
             className="flex-none"
           >
-            <span className="hidden sm:inline">{isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
+            <span className="hidden lg:inline">{isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
           </Button>
         </div>
       </div>

@@ -87,7 +87,7 @@ export default function DocumentationHubPage({ params }: { params: { projectId: 
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5 mb-4">
-        <SearchInput value={query} onChange={setQuery} placeholder="Search by title…" className="w-full sm:flex-1 sm:min-w-[260px] sm:max-w-[420px]" />
+        <SearchInput value={query} onChange={setQuery} placeholder="Search by title…" className="w-full lg:flex-1 lg:min-w-[260px] lg:max-w-[420px]" />
         <Segmented<Filter>
           value={filter}
           onChange={setFilter}

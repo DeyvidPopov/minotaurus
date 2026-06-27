@@ -67,6 +67,10 @@ These came out of the pre-submission audit and are blockers for a credible submi
 - AI generation of DB models / API specs / security policies (Bootstrap is artifacts +
   relations + diagrams only).
 - Transitive impact analysis + blast-radius scoring.
+- **Dedupe the AI Review score cards onto the shared `HealthScoreCards`** — the Decision
+  page uses the shared `lib/health-score.ts` + `components/analysis/health-score-cards.tsx`;
+  the AI Review page still has its own copies and can drift. Tracked in
+  `docs/REVIEW_SCORECARD_DEDUP_TASK.md`.
 - WebSocket live updates; email invitations for non-existent users; per-resource ownership transfer.
 - Retention/archival for `VersionEvent` / `AiSession` / `ExportPackage` growth.
 

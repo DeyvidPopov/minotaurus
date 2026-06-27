@@ -408,6 +408,43 @@ function Inner({
     }
   }, [positions, reactFlow])
 
+  // Auto-fit when the node SET changes: initial mount, a data reload, or the
+  // Impact page's hop-depth toggle (1 → 2 → 3 hops adds nodes). Keyed on the
+  // sorted node ids so it fits when nodes are added/removed but NOT when only
+  // positions change (drag-persist) or the user pans/zooms — those are preserved.
+  // We poll per-frame until React Flow's OWN store matches the target set AND every
+  // node is measured (non-zero dimensions), then fit. Polling the store directly —
+  // rather than the built-in `fitView` prop (fires once, pre-measurement) or
+  // `useNodesInitialized` (its value lags a render, so a node-set change fits the
+  // STALE set, marks it done, and never corrects) — is what makes the hop-depth
+  // refit reliable.
+  const nodeSetKey = useMemo(
+    () => derivedNodes.map((n) => n.id).sort().join("|"),
+    [derivedNodes],
+  )
+  const fittedNodeSetRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!fitView) return
+    if (fittedNodeSetRef.current === nodeSetKey) return
+    let raf = 0
+    let tries = 0
+    const attempt = () => {
+      const ns = reactFlow.getNodes()
+      const ready =
+        ns.length > 0 &&
+        ns.map((n) => n.id).sort().join("|") === nodeSetKey &&
+        ns.every((n) => !!n.width && !!n.height)
+      if (ready) {
+        fittedNodeSetRef.current = nodeSetKey
+        reactFlow.fitView({ padding: 0.18, maxZoom: 1.1, duration: 300 })
+        return
+      }
+      if (tries++ < 90) raf = requestAnimationFrame(attempt) // ~1.5s safety cap
+    }
+    raf = requestAnimationFrame(attempt)
+    return () => cancelAnimationFrame(raf)
+  }, [nodeSetKey, fitView, reactFlow])
+
   const resolveDropPosition = useCallback(
     (id: string, startX: number, startY: number, w: number, h: number) => {
       if (!w || !h) return { x: startX, y: startY }

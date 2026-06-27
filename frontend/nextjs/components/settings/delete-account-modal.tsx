@@ -169,7 +169,7 @@ export function DeleteAccountModal({
                         value={decisions[sp.id] ?? ""}
                         disabled={busy}
                         onChange={(e) => setDecisions((d) => ({ ...d, [sp.id]: e.target.value }))}
-                        className="bg-panel border border-border rounded-sm px-2 py-1.5 text-[12.5px] max-w-[230px] outline-none focus:border-accent"
+                        className="bg-panel border border-border rounded-sm px-2 py-1.5 text-[12.5px] max-w-[230px] outline-none focus:border-border-strong"
                       >
                         <option value="" disabled>Choose…</option>
                         {sp.targets.map((t) => (

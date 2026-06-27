@@ -15,7 +15,7 @@ export function SearchInput({ value, onChange, placeholder = "Search…", classN
     <div className={`relative ${className || ""}`}>
       <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-subtle" />
       <input
-        className="w-full bg-panel border border-border rounded-sm py-2 pl-8 pr-3 text-[13.5px] text-fg outline-none focus:border-accent focus:ring-3 focus:ring-accent-soft"
+        className="w-full bg-panel border border-border rounded-sm py-2 pl-8 pr-3 text-[13.5px] text-fg outline-none focus:border-accent"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}

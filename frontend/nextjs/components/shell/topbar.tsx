@@ -56,7 +56,8 @@ export function Topbar({ onOpenSearch, onOpenMobileNav }: { onOpenSearch: () => 
       crumbs.push({ label: "Artifacts", href: `/projects/${segs[1]}/artifacts`, now: !segs[3] });
       if (segs[3] === "new") crumbs.push({ label: "New artifact", now: true });
       else if (segs[3]) crumbs.push({ label: artifactTitle || "Artifact", now: true });
-    } else if (segs[2] === "graph") crumbs.push({ label: "Knowledge Graph", now: true });
+    } else if (segs[2] === "decision") crumbs.push({ label: "Decision", now: true });
+    else if (segs[2] === "graph") crumbs.push({ label: "Knowledge Graph", now: true });
     else if (segs[2] === "validation") crumbs.push({ label: "Validation", now: true });
     else if (segs[2] === "export") crumbs.push({ label: "Export SSOT", now: true });
     else if (segs[2] === "api") {

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { X, Database } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/ui/page-header";
+import { PageHeader, FILL_ACTIONS_MOBILE } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/search-input";
@@ -77,20 +77,24 @@ export default function DatabaseModelsListPage({ params }: { params: { projectId
             ? "Loading…"
             : `${models.length} model${models.length === 1 ? "" : "s"} · ${models.reduce((s, m) => s + m.entityCount, 0)} entities`
         }
-        actions={
-          <>
-            <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full sm:w-[220px]" />
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "ALL" | DatabaseType)}
-              className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
-              <option value="ALL">All databases</option>
-              {DATABASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              New database model
-            </Button>
-          </>
-        }
       />
+
+      {/* Toolbar — full-width row below the header (not in PageHeader's actions),
+          so search + filter + New never crush the title/subtitle at medium widths
+          (the Projects/Artifacts pattern). */}
+      {models !== null && models.length > 0 && (
+        <div className={`flex flex-wrap items-center gap-2.5 mb-4 ${FILL_ACTIONS_MOBILE}`}>
+          <SearchInput value={q} onChange={setQ} placeholder="Search by title…" className="w-full lg:flex-1 lg:min-w-[200px]" />
+          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "ALL" | DatabaseType)}
+            className="h-8 px-2.5 pr-7 bg-panel border border-border rounded-sm text-[13.5px]">
+            <option value="ALL">All databases</option>
+            {DATABASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            New database model
+          </Button>
+        </div>
+      )}
 
       {models !== null && models.length === 0 ? (
         <Empty

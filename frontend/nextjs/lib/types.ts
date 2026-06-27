@@ -233,6 +233,69 @@ export interface ValidationIssue {
   meta?: IssueMeta;
 }
 
+// ── Deterministic project analysis (Decision Support / AI Review score cards) ──
+// Mirrors the backend AnalysisResult (modules/exports/analysis/analysis.types.ts),
+// returned by GET /projects/:id/analysis. PURE engine output — no AI, no score
+// computed client-side; the UI only displays these numbers.
+export interface HealthSubScores {
+  documentation: number;
+  connectivity: number;
+  traceability: number;
+  validation: number;
+  governance: number;
+}
+
+export interface ProjectAnalysis {
+  meta: { generatedAt: string; projectId: string; emptyProject: boolean };
+  health: {
+    score: number | null;
+    grade: string;
+    label: string;
+    subScores: HealthSubScores;
+    weights: HealthSubScores;
+  };
+  documentation: {
+    coveragePct: number | null;
+    documentedCount: number;
+    total: number;
+    byType: Record<string, number | null>;
+    byStatus: Record<string, number | null>;
+    undocumented: Array<{ id: string; title: string; type: string; status: string }>;
+    descriptive: {
+      apiSpec: number | null;
+      endpoint: number | null;
+      databaseModel: number | null;
+      diagram: number | null;
+    };
+  };
+  connectivity: {
+    avgDegree: number | null;
+    orphanCount: number;
+    orphans: Array<{ id: string; title: string; type: string }>;
+    overCoupled: Array<{ id: string; title: string; degree: number }>;
+    hubs: Array<{ id: string; title: string; degree: number }>;
+    relationMix: Record<string, number>;
+  };
+  traceability: {
+    requirementCoverage: number | null;
+    unimplementedRequirements: Array<{ id: string; title: string; status: string }>;
+    resourceLinkage: number | null;
+    unlinkedResources: Array<{ id: string; title: string; kind: string }>;
+  };
+  governance: {
+    memberCount: number;
+    roleDistribution: Record<string, number>;
+    lastValidatedAt: string | null;
+    signals: Array<{ label: string; passed: boolean; evidence: string }>;
+  };
+  validation: {
+    openCount: number;
+    bySeverity: Record<string, number>;
+    byCategory: Record<string, number>;
+    weightedIssues: number;
+  };
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;

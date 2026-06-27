@@ -231,11 +231,19 @@ export default function TeamPage({ params }: { params: { projectId: string } }) 
         )}
       </Card>
 
-      <div className="text-[12px] text-fg-muted mt-4 flex items-center gap-1.5">
-        <Shield size={13} /> Roles: <strong className="text-fg">OWNER</strong> manages members + project ·
-        <strong className="text-fg">ARCHITECT</strong> validation + exports ·
-        <strong className="text-fg">DEVELOPER</strong> edits artifacts, APIs, DB, diagrams, docs ·
-        <strong className="text-fg">VIEWER</strong> read-only.
+      {/* Roles legend — one role per line on mobile + mid screens (instead of
+          wrapping into an unreadable run-on), flowing inline at lg+. */}
+      <div className="text-[12px] text-fg-muted mt-4 flex items-start gap-1.5">
+        <Shield size={13} className="mt-0.5 shrink-0" />
+        <div className="min-w-0">
+          <span className="text-fg-subtle">Roles</span>
+          <div className="mt-1 flex flex-col gap-1 lg:mt-0 lg:inline-flex lg:flex-row lg:flex-wrap lg:gap-x-3 lg:gap-y-1 lg:ml-1.5">
+            <span><strong className="text-fg">OWNER</strong> — manages members + project</span>
+            <span><strong className="text-fg">ARCHITECT</strong> — validation + exports</span>
+            <span><strong className="text-fg">DEVELOPER</strong> — edits artifacts, APIs, DB, diagrams, docs</span>
+            <span><strong className="text-fg">VIEWER</strong> — read-only</span>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -204,7 +204,7 @@ export default function ArtifactsListPage({ params }: { params: { projectId: str
           so the many controls never get squeezed beside the title at medium widths.
           Search grows to fill; filters + New flow to the right and wrap as needed. */}
       <div className={`flex flex-wrap items-center gap-2.5 mb-4 ${FILL_ACTIONS_MOBILE}`}>
-        <SearchInput value={q} onChange={setQ} placeholder="Search by name, type, or description…" className="w-full sm:flex-1 sm:min-w-[200px]" />
+        <SearchInput value={q} onChange={setQ} placeholder="Search by name, type, or description…" className="w-full lg:flex-1 lg:min-w-[200px]" />
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}

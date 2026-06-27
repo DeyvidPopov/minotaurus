@@ -21,7 +21,16 @@ import type {
   Severity, Category, ExportFormat,
   QuickFixPreview, QuickFixApplyResult,
   RemediationPreview, RemediationApplyResult,
+  ProjectAnalysis,
 } from "@/lib/types";
+
+// Deterministic project analysis (health score + sub-scores + coverage metrics).
+// READ-ONLY: GET /projects/:id/analysis runs the pure analysis engine over the
+// SSOT snapshot — no AI, no persistence. Used by the Decision Support page.
+export const analysisApi = {
+  get: (projectId: string) =>
+    apiClient.get<ProjectAnalysis>(`/projects/${projectId}/analysis`),
+};
 
 export const graphApi = {
   // Generic on the edge shape so callers keep their typed edges without a raw

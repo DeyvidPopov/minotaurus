@@ -16,7 +16,7 @@ import {
   Sparkles, Loader2, AlertTriangle, ShieldCheck, Lightbulb, TriangleAlert, ScanSearch,
   Users, ClipboardCheck, Clock, Telescope, ListChecks, TrendingUp, Compass, Target,
 } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
+import { PageHeader, FILL_ACTIONS_MOBILE } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -231,43 +231,45 @@ export default function ReviewPage({ params }: { params: { projectId: string } }
             ? "A senior-architect interpretation of this project's deterministic analysis. The metrics are computed by the engine; the AI only explains and recommends."
             : "Prioritized next steps. Validation tells you what is wrong; the Advisor explains why it matters and what to investigate next. It reads your architecture — it never changes it."
         }
-        actions={
-          <div className="flex items-center gap-2">
-            {activeHistory.length > 0 && (
-              <select
-                aria-label={`${mode === "REVIEW" ? "Review" : "Advisor"} history`}
-                value={activeResult?.id ?? ""}
-                onChange={(e) => loadById(e.target.value)}
-                disabled={loading || initialLoading}
-                className="h-8 px-2 rounded-sm border border-border bg-panel-2 text-[12.5px] text-fg-muted focus:outline-none focus:border-border-strong max-w-[230px]"
-              >
-                {!activeResult?.id && <option value="">{mode === "REVIEW" ? "Current review" : "Current advisory"}</option>}
-                {activeHistory.map((h, i) => (
-                  <option key={h.id} value={h.id}>
-                    {i === 0 ? "Latest" : mode === "REVIEW" ? "Review" : "Advisory"} · {formatTs(h.generatedAt)}
-                  </option>
-                ))}
-              </select>
-            )}
-            <Button
-              type="button"
-              variant="primary"
-              icon={loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              onClick={generate}
-              disabled={loading}
-            >
-              {loading
-                ? mode === "REVIEW" ? "Generating…" : "Analyzing…"
-                : activeResult
-                  ? mode === "REVIEW" ? "Generate New Review" : "Regenerate Advisory"
-                  : mode === "REVIEW" ? "Generate AI Review" : "Generate Advisory"}
-            </Button>
-          </div>
-        }
       />
 
-      {/* Mode switch — one surface, two modes. */}
-      <ModeTabs mode={mode} onChange={switchMode} disabled={loading} />
+      {/* Mode switch + generation controls — one full-width row below the header so
+          the long subtitle is never crushed by the actions at medium widths. Tabs
+          sit left, history + generate flow right and wrap/fill on mobile. */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5 mb-4">
+        <ModeTabs mode={mode} onChange={switchMode} disabled={loading} />
+        <div className={`flex flex-wrap items-center gap-2 ${FILL_ACTIONS_MOBILE}`}>
+          {activeHistory.length > 0 && (
+            <select
+              aria-label={`${mode === "REVIEW" ? "Review" : "Advisor"} history`}
+              value={activeResult?.id ?? ""}
+              onChange={(e) => loadById(e.target.value)}
+              disabled={loading || initialLoading}
+              className="h-8 px-2 rounded-sm border border-border bg-panel-2 text-[12.5px] text-fg-muted focus:outline-none focus:border-border-strong max-w-[230px]"
+            >
+              {!activeResult?.id && <option value="">{mode === "REVIEW" ? "Current review" : "Current advisory"}</option>}
+              {activeHistory.map((h, i) => (
+                <option key={h.id} value={h.id}>
+                  {i === 0 ? "Latest" : mode === "REVIEW" ? "Review" : "Advisory"} · {formatTs(h.generatedAt)}
+                </option>
+              ))}
+            </select>
+          )}
+          <Button
+            type="button"
+            variant="primary"
+            icon={loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            onClick={generate}
+            disabled={loading}
+          >
+            {loading
+              ? mode === "REVIEW" ? "Generating…" : "Analyzing…"
+              : activeResult
+                ? mode === "REVIEW" ? "Generate New Review" : "Regenerate Advisory"
+                : mode === "REVIEW" ? "Generate AI Review" : "Generate Advisory"}
+          </Button>
+        </div>
+      </div>
 
       <div className="mb-5 rounded-md px-3 py-2 text-[12.5px] flex items-start gap-2"
         style={{
@@ -420,7 +422,7 @@ function ModeTabs({ mode, onChange, disabled }: { mode: Mode; onChange: (m: Mode
     );
   };
   return (
-    <div role="tablist" aria-label="Analysis mode" className="mb-4 inline-flex items-center gap-1 p-1 rounded-md border border-border bg-panel-2">
+    <div role="tablist" aria-label="Analysis mode" className="inline-flex items-center gap-1 p-1 rounded-md border border-border bg-panel-2">
       {tab("REVIEW", "Full Review", <ScanSearch size={14} />)}
       {tab("ADVISOR", "Advisor", <Telescope size={14} />)}
     </div>

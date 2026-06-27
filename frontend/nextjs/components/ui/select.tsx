@@ -24,7 +24,7 @@ export function Select({ options, className, ...rest }: Props) {
     <div className={cn("relative inline-flex", className)}>
       <select
         {...rest}
-        className="h-9 w-full appearance-none bg-panel border border-border rounded-sm pl-2.5 pr-8 text-[13.5px] text-fg outline-none cursor-pointer hover:border-border-strong focus:border-accent focus:ring-3 focus:ring-accent-soft"
+        className="h-9 w-full appearance-none bg-panel border border-border rounded-sm pl-2.5 pr-8 text-[13.5px] text-fg outline-none cursor-pointer hover:border-border-strong focus:border-border-strong"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
