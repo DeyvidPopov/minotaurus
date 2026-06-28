@@ -76,9 +76,9 @@ export function WhatsMissing({
               <li key={i.id}>
                 <Link
                   href={validationHref}
-                  className="flex items-start gap-2 rounded-md px-2 py-1.5 -mx-2 hover:bg-panel-hover transition-colors"
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 -mx-2 hover:bg-panel-hover transition-colors"
                 >
-                  <span className="shrink-0 mt-px"><SeverityBadge severity={i.severity} /></span>
+                  <span className="shrink-0"><SeverityBadge severity={i.severity} /></span>
                   <span className="text-[12.5px] text-fg leading-snug">{cleanMessage(i.message)}</span>
                 </Link>
               </li>
